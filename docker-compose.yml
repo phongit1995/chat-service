@@ -18,6 +18,10 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=redis123
       - REDIS_DB=0
+      - WEBSOCKET_REDIS_HOST=redis
+      - WEBSOCKET_REDIS_PORT=6379
+      - WEBSOCKET_REDIS_PASSWORD=redis123
+      - WEBSOCKET_REDIS_DB=1
       - SCYLLA_HOST=scylladb
       - SCYLLA_PORT=9042
       - SCYLLA_KEYSPACE=chat_server
@@ -30,6 +34,7 @@ services:
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
       - WS_READ_BUFFER_SIZE=1024
       - WS_WRITE_BUFFER_SIZE=1024
+      - SWAGGER_HOST=api:8080
     depends_on:
       - postgres
       - redis

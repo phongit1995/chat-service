@@ -60,7 +60,7 @@ func NewContainer() (*dig.Container, error) {
 		return nil, err
 	}
 
-	if err := websocket.RegisterModule(c); err != nil {
+	if err := websocket.Provider(c); err != nil {
 		return nil, err
 	}
 

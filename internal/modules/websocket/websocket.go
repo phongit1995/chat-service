@@ -3,6 +3,7 @@ package websocket
 import (
 	"chat-server/internal/config"
 	"chat-server/internal/services"
+	"context"
 	"net/http"
 
 	"github.com/redis/go-redis/v9"
@@ -31,9 +32,8 @@ func NewServer(
 	logger *zap.SugaredLogger,
 ) (*Server, error) {
 	rdb := redisService.GetClient()
-	ctx := redisService.GetContext()
 
-	wrappedRedisClient := redisClient.NewRedisClient(ctx, rdb)
+	wrappedRedisClient := redisClient.NewRedisClient(context.Background(), rdb)
 
 	opts := socket.DefaultServerOptions()
 	opts.SetAdapter(&adapter.RedisAdapterBuilder{
