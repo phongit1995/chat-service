@@ -7,6 +7,7 @@ import (
 	"chat-server/internal/modules/message"
 	"chat-server/internal/modules/relationships"
 	"chat-server/internal/modules/user"
+	"chat-server/internal/modules/websocket"
 	"chat-server/internal/utils"
 
 	"github.com/gin-gonic/gin"
@@ -20,12 +21,24 @@ type Server struct {
 	Router *gin.Engine
 }
 
-func CreateServer(authRouter *auth.Router, healthRouter *health.Router, userRouter *user.Router, relationshipsRouter *relationships.Router, conversationRouter *conversation.Router, messageRouter *message.Router) *Server {
+func CreateServer(
+	authRouter *auth.Router,
+	healthRouter *health.Router,
+	userRouter *user.Router,
+	relationshipsRouter *relationships.Router,
+	conversationRouter *conversation.Router,
+	messageRouter *message.Router,
+	wsServer *websocket.Server,
+) *Server {
 	r := gin.Default()
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
 		ginSwagger.URL("/swagger/doc.json"),
 		ginSwagger.DefaultModelsExpandDepth(-1)))
+
+	r.Any("/socket.io/*any", func(c *gin.Context) {
+		wsServer.ServeHTTP(c.Writer, c.Request)
+	})
 
 	apiGroup := r.Group("/api")
 	api := utils.NewAppGroup(apiGroup)

@@ -17,17 +17,29 @@ import (
 	"go.uber.org/dig"
 )
 
+func provideConfig() (*config.Config, error) {
+	apiCfg, err := LoadAPIConfig()
+	if err != nil {
+		return nil, err
+	}
+	return apiCfg.Config, nil
+}
+
+func provideAPIConfig() (*APIServiceConfig, error) {
+	return LoadAPIConfig()
+}
+
 func NewContainer() (*dig.Container, error) {
 	c := dig.New()
 	providers := []interface{}{
-		config.LoadConfig,
+		provideConfig,
+		provideAPIConfig,
 		logger.CreateLogger,
 		db.NewPostgresDB,
 		db.NewScyllaDB,
 		services.NewCacheService,
 		services.NewJWTService,
 		services.NewKafkaProducer,
-		services.NewKafkaConsumer,
 		middleware.NewAuthMiddleware,
 		CreateServer,
 	}

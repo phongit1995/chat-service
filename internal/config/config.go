@@ -14,32 +14,34 @@ type Config struct {
 	ServerPort int    `env:"SERVER_PORT" envDefault:"8080" validate:"min=1,max=65535"`
 	Env        string `env:"GIN_MODE" envDefault:"debug" validate:"oneof=debug release test"`
 
-	DBHost     string `env:"DB_HOST" validate:"required"`
-	DBPort     int    `env:"DB_PORT" envDefault:"5432" validate:"min=1,max=65535"`
-	DBName     string `env:"DB_NAME" validate:"required"`
-	DBUser     string `env:"DB_USER" validate:"required"`
-	DBPassword string `env:"DB_PASSWORD" validate:"required"`
-	DBSSLMode  string `env:"DB_SSL_MODE" envDefault:"disable" validate:"oneof=disable enable require verify-ca verify-full"`
+	ChatPort int `env:"CHAT_PORT" envDefault:"8081" validate:"min=1,max=65535"`
 
-	RedisHost     string `env:"REDIS_HOST" validate:"required"`
-	RedisPort     int    `env:"REDIS_PORT" envDefault:"6379" validate:"min=1,max=65535"`
+	DBHost     string `env:"DB_HOST"`
+	DBPort     int    `env:"DB_PORT" envDefault:"5432" validate:"omitempty,min=1,max=65535"`
+	DBName     string `env:"DB_NAME"`
+	DBUser     string `env:"DB_USER"`
+	DBPassword string `env:"DB_PASSWORD"`
+	DBSSLMode  string `env:"DB_SSL_MODE" envDefault:"disable" validate:"omitempty,oneof=disable enable require verify-ca verify-full"`
+
+	RedisHost     string `env:"REDIS_HOST"`
+	RedisPort     int    `env:"REDIS_PORT" envDefault:"6379" validate:"omitempty,min=1,max=65535"`
 	RedisPassword string `env:"REDIS_PASSWORD"`
 	RedisDB       int    `env:"REDIS_DB" envDefault:"0" validate:"min=0,max=15"`
 
-	WebSocketRedisHost     string `env:"WEBSOCKET_REDIS_HOST" validate:"required"`
-	WebSocketRedisPort     int    `env:"WEBSOCKET_REDIS_PORT" envDefault:"6379" validate:"min=1,max=65535"`
+	WebSocketRedisHost     string `env:"WEBSOCKET_REDIS_HOST"`
+	WebSocketRedisPort     int    `env:"WEBSOCKET_REDIS_PORT" envDefault:"6379" validate:"omitempty,min=1,max=65535"`
 	WebSocketRedisPassword string `env:"WEBSOCKET_REDIS_PASSWORD"`
 	WebSocketRedisDB       int    `env:"WEBSOCKET_REDIS_DB" envDefault:"1" validate:"min=0,max=15"`
 
-	ScyllaHost        string `env:"SCYLLA_HOST" validate:"required"`
-	ScyllaPort        int    `env:"SCYLLA_PORT" envDefault:"9042" validate:"min=1,max=65535"`
-	ScyllaKeyspace    string `env:"SCYLLA_KEYSPACE" validate:"required"`
-	ScyllaConsistency string `env:"SCYLLA_CONSISTENCY" envDefault:"QUORUM" validate:"oneof=ANY ONE TWO THREE QUORUM ALL LOCAL_QUORUM EACH_QUORUM LOCAL_ONE"`
+	ScyllaHost        string `env:"SCYLLA_HOST"`
+	ScyllaPort        int    `env:"SCYLLA_PORT" envDefault:"9042" validate:"omitempty,min=1,max=65535"`
+	ScyllaKeyspace    string `env:"SCYLLA_KEYSPACE"`
+	ScyllaConsistency string `env:"SCYLLA_CONSISTENCY" envDefault:"QUORUM" validate:"omitempty,oneof=ANY ONE TWO THREE QUORUM ALL LOCAL_QUORUM EACH_QUORUM LOCAL_ONE"`
 
-	JWTSecret string `env:"JWT_SECRET" validate:"required,min=32"`
+	JWTSecret string `env:"JWT_SECRET"`
 	JWTExpiry string `env:"JWT_EXPIRY" envDefault:"24h"`
 
-	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS" envSeparator:"," validate:"required,min=1"`
+	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS" envSeparator:","`
 
 	WSReadBufferSize  int `env:"WS_READ_BUFFER_SIZE" envDefault:"1024" validate:"min=1024"`
 	WSWriteBufferSize int `env:"WS_WRITE_BUFFER_SIZE" envDefault:"1024" validate:"min=1024"`
