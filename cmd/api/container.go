@@ -36,32 +36,20 @@ func NewContainer() (*dig.Container, error) {
 		}
 	}
 
-	if err := auth.Provider(c); err != nil {
-		return nil, err
+	modules := []func(*dig.Container) error{
+		auth.Provider,
+		health.Provider,
+		user.Provider,
+		relationships.Provider,
+		conversation.Provider,
+		message.Provider,
+		websocket.Provider,
 	}
 
-	if err := health.Provider(c); err != nil {
-		return nil, err
-	}
-
-	if err := user.Provider(c); err != nil {
-		return nil, err
-	}
-
-	if err := relationships.RegisterModule(c); err != nil {
-		return nil, err
-	}
-
-	if err := conversation.RegisterModule(c); err != nil {
-		return nil, err
-	}
-
-	if err := message.RegisterModule(c); err != nil {
-		return nil, err
-	}
-
-	if err := websocket.Provider(c); err != nil {
-		return nil, err
+	for _, module := range modules {
+		if err := module(c); err != nil {
+			return nil, err
+		}
 	}
 
 	return c, nil
