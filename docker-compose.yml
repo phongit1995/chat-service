@@ -34,10 +34,16 @@ services:
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
       - WS_READ_BUFFER_SIZE=1024
       - WS_WRITE_BUFFER_SIZE=1024
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_CONSUMER_GROUP=chat-server-consumers
+      - KAFKA_TOPIC_MESSAGE_CREATED=chat.message.created
+      - KAFKA_TOPIC_MESSAGE_DELETED=chat.message.deleted
+      - KAFKA_TOPIC_CONVERSATION_UPDATED=chat.conversation.updated
       - SWAGGER_HOST=api:8080
     depends_on:
       - postgres
       - redis
+      - kafka
     networks:
       - chat-network
 
@@ -98,10 +104,49 @@ services:
       retries: 5
       start_period: 60s
 
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: chat-server-kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 10737418240
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_COMPRESSION_TYPE: lz4
+      CLUSTER_ID: chat-server-kafka-cluster
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - chat-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 volumes:
   postgres_data:
   redis_data:
   scylla_data:
+  kafka_data:
 
 networks:
   chat-network:

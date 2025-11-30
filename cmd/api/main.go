@@ -2,6 +2,7 @@ package main
 
 import (
 	"chat-server/internal/modules/websocket"
+	"chat-server/internal/services"
 	"context"
 	"log"
 	"net/http"
@@ -53,8 +54,14 @@ func main() {
 	var wsServer *websocket.Server
 
 	go func() {
-		if err := c.Invoke(func(s *Server, ws *websocket.Server) error {
+		if err := c.Invoke(func(s *Server, ws *websocket.Server, kafkaConsumer *services.KafkaConsumer, kafkaHandlers *websocket.KafkaHandlers) error {
 			wsServer = ws
+
+			websocket.RegisterKafkaHandlers(kafkaConsumer, kafkaHandlers, nil)
+
+			if err := kafkaConsumer.Start(); err != nil {
+				return err
+			}
 
 			s.Router.Any("/socket.io/*any", func(c *gin.Context) {
 				ws.ServeHTTP(c.Writer, c.Request)
@@ -67,6 +74,7 @@ func main() {
 
 			log.Println("🚀 Server running on :8080")
 			log.Println("🔌 WebSocket server available at ws://localhost:8080/socket.io/")
+			log.Println("📨 Kafka consumer started")
 			log.Println("👉 Press Ctrl+C to stop server")
 
 			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

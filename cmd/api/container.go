@@ -26,6 +26,8 @@ func NewContainer() (*dig.Container, error) {
 		db.NewScyllaDB,
 		services.NewCacheService,
 		services.NewJWTService,
+		services.NewKafkaProducer,
+		services.NewKafkaConsumer,
 		middleware.NewAuthMiddleware,
 		CreateServer,
 	}
