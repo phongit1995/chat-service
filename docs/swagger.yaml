@@ -1,0 +1,990 @@
+basePath: /api
+definitions:
+  auth.AuthSuccessResponse:
+    type: object
+  auth.LoginRequest:
+    properties:
+      email:
+        example: john@example.com
+        type: string
+      password:
+        example: password123
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  auth.RegisterRequest:
+    properties:
+      email:
+        example: john@example.com
+        type: string
+      password:
+        example: password123
+        minLength: 6
+        type: string
+      username:
+        example: john_doe
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  conversation.ConversationResponse:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      createdAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      id:
+        example: ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd
+        type: string
+      isNew:
+        example: true
+        type: boolean
+      lastMessageAt:
+        example: "2024-01-15T15:45:00Z"
+        type: string
+      lastMessageText:
+        example: Hello, how are you?
+        type: string
+      name:
+        example: John Doe
+        type: string
+      participantCount:
+        example: 2
+        type: integer
+      type:
+        example: direct
+        type: string
+      unreadCount:
+        example: 5
+        type: integer
+      updatedAt:
+        example: "2024-01-15T15:45:00Z"
+        type: string
+    type: object
+  conversation.ConversationSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/conversation.ConversationResponse'
+      message:
+        example: Conversation created successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  conversation.ConversationsListResponse:
+    properties:
+      conversations:
+        items:
+          $ref: '#/definitions/conversation.ConversationResponse'
+        type: array
+      total:
+        example: 10
+        type: integer
+    type: object
+  conversation.ConversationsListSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/conversation.ConversationsListResponse'
+      message:
+        example: Conversations retrieved successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  conversation.CreateDirectConversationRequest:
+    properties:
+      recipientId:
+        example: ca4c6d54-870c-4735-b9a6-cce05a04aedb
+        type: string
+    required:
+    - recipientId
+    type: object
+  conversation.CreateGroupConversationRequest:
+    properties:
+      name:
+        example: Project Team
+        maxLength: 100
+        minLength: 1
+        type: string
+      participantIds:
+        example:
+        - ca4c6d54-870c-4735-b9a6-cce05a04aedb
+        - da5d7e65-981d-5846-c0b7-ddf16b15bfec
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - name
+    - participantIds
+    type: object
+  conversation.SimpleSuccessResponse:
+    properties:
+      message:
+        example: Operation completed successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  health.HealthSuccessResponse:
+    type: object
+  message.MessageResponse:
+    properties:
+      content:
+        example: Hello, how are you?
+        type: string
+      conversationId:
+        example: ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd
+        type: string
+      createdAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      id:
+        example: fa7f9g87-ba3f-7a68-e2d9-ffh38d37dhge
+        type: string
+      metadata:
+        example: '{"fileName":"image.png"}'
+        type: string
+      replyToId:
+        example: ga8g0h98-cb4g-8b79-f3e0-ggi49e48eihf
+        type: string
+      senderAvatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      senderId:
+        example: ca4c6d54-870c-4735-b9a6-cce05a04aedb
+        type: string
+      senderName:
+        example: John Doe
+        type: string
+      status:
+        example: sent
+        type: string
+      type:
+        example: text
+        type: string
+      updatedAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+    type: object
+  message.MessageSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/message.MessageResponse'
+      message:
+        example: Message sent successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  message.MessagesListResponse:
+    properties:
+      messages:
+        items:
+          $ref: '#/definitions/message.MessageResponse'
+        type: array
+      total:
+        example: 50
+        type: integer
+    type: object
+  message.MessagesListSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/message.MessagesListResponse'
+      message:
+        example: Messages retrieved successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  message.SendMessageRequest:
+    properties:
+      content:
+        example: Hello, how are you?
+        minLength: 1
+        type: string
+      conversationId:
+        example: ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd
+        type: string
+      metadata:
+        example: '{"fileName":"image.png"}'
+        type: string
+      replyToId:
+        example: fa7f9g87-ba3f-7a68-e2d9-ffh38d37dhge
+        type: string
+      type:
+        enum:
+        - text
+        - image
+        - file
+        - video
+        - audio
+        example: text
+        type: string
+    required:
+    - content
+    - conversationId
+    - type
+    type: object
+  message.SimpleSuccessResponse:
+    properties:
+      message:
+        example: Operation completed successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  relationships.FriendListSuccessResponse:
+    type: object
+  relationships.RelationshipListSuccessResponse:
+    type: object
+  relationships.RelationshipSuccessResponse:
+    type: object
+  relationships.RespondToRequestRequest:
+    properties:
+      action:
+        enum:
+        - accept
+        - reject
+        example: accept
+        type: string
+    required:
+    - action
+    type: object
+  relationships.SendFriendRequestRequest:
+    properties:
+      addresseeId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+    required:
+    - addresseeId
+    type: object
+  user.UpdateProfileRequest:
+    type: object
+  user.UserProfileSuccessResponse:
+    type: object
+  utils.APIError:
+    properties:
+      error:
+        example: validation error
+        type: string
+      path:
+        example: /api/v1/auth/login
+        type: string
+      status:
+        example: 400
+        type: integer
+      success:
+        example: false
+        type: boolean
+      timestamp:
+        example: "2025-11-29T10:00:00Z"
+        type: string
+      traceId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+info:
+  contact:
+    email: support@chatserver.com
+    name: API Support
+  description: A chat server API with authentication and real-time messaging
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Chat Server API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and get access token
+      parameters:
+      - description: Login Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.AuthSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      summary: Login user
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user account
+      parameters:
+      - description: Register Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.AuthSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      summary: Register a new user
+      tags:
+      - auth
+  /conversations:
+    get:
+      description: Get all conversations for the authenticated user
+      parameters:
+      - default: 50
+        description: Limit number of conversations
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/conversation.ConversationsListSuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get user conversations
+      tags:
+      - conversations
+  /conversations/{id}/read:
+    put:
+      description: Mark all messages in a conversation as read for the authenticated
+        user
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/conversation.SimpleSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Mark conversation as read
+      tags:
+      - conversations
+  /conversations/direct:
+    post:
+      consumes:
+      - application/json
+      description: Create or get existing direct conversation between two users
+      parameters:
+      - description: Create Direct Conversation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/conversation.CreateDirectConversationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/conversation.ConversationSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Create direct conversation
+      tags:
+      - conversations
+  /conversations/group:
+    post:
+      consumes:
+      - application/json
+      description: Create a new group conversation with multiple participants
+      parameters:
+      - description: Create Group Conversation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/conversation.CreateGroupConversationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/conversation.ConversationSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Create group conversation
+      tags:
+      - conversations
+  /health:
+    get:
+      description: Check the health status of the API and database
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/health.HealthSuccessResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      summary: Health check
+      tags:
+      - health
+  /messages:
+    post:
+      consumes:
+      - application/json
+      description: Send a message in a conversation
+      parameters:
+      - description: Send Message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/message.SendMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/message.MessageSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Send message
+      tags:
+      - messages
+  /messages/{conversationId}:
+    get:
+      description: Get messages from a conversation with pagination
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - default: 50
+        description: Limit number of messages
+        in: query
+        name: limit
+        type: integer
+      - description: Get messages before this message ID (timeuuid)
+        in: query
+        name: before
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/message.MessagesListSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get messages
+      tags:
+      - messages
+  /messages/{conversationId}/{messageId}:
+    delete:
+      description: Delete a message (soft delete)
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID (timeuuid)
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/message.SimpleSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Delete message
+      tags:
+      - messages
+  /relationships/{id}/cancel:
+    delete:
+      description: Cancel a sent friend request
+      parameters:
+      - description: Relationship ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Cancel friend request
+      tags:
+      - relationships
+  /relationships/{id}/respond:
+    put:
+      consumes:
+      - application/json
+      description: Accept or reject a friend request
+      parameters:
+      - description: Relationship ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Response Action
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/relationships.RespondToRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/relationships.RelationshipSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Respond to friend request
+      tags:
+      - relationships
+  /relationships/{id}/unblock:
+    delete:
+      description: Unblock a previously blocked user
+      parameters:
+      - description: Relationship ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Unblock a user
+      tags:
+      - relationships
+  /relationships/{id}/unfriend:
+    delete:
+      description: Remove a friendship with another user
+      parameters:
+      - description: Relationship ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Unfriend a user
+      tags:
+      - relationships
+  /relationships/block:
+    post:
+      consumes:
+      - application/json
+      description: Block another user
+      parameters:
+      - description: User ID to block (use addresseeId field)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/relationships.SendFriendRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/relationships.RelationshipSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Block a user
+      tags:
+      - relationships
+  /relationships/blocked:
+    get:
+      description: Get all users blocked by the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/relationships.RelationshipListSuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get blocked users
+      tags:
+      - relationships
+  /relationships/friends:
+    get:
+      description: Get all friends of the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/relationships.FriendListSuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get friends list
+      tags:
+      - relationships
+  /relationships/pending:
+    get:
+      description: Get all pending friend requests received by the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/relationships.RelationshipListSuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get pending friend requests
+      tags:
+      - relationships
+  /relationships/request:
+    post:
+      consumes:
+      - application/json
+      description: Send a friend request to another user
+      parameters:
+      - description: Send Friend Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/relationships.SendFriendRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/relationships.RelationshipSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Send friend request
+      tags:
+      - relationships
+  /relationships/sent:
+    get:
+      description: Get all friend requests sent by the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/relationships.RelationshipListSuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get sent friend requests
+      tags:
+      - relationships
+  /user/profile:
+    get:
+      description: Get authenticated user's profile information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.UserProfileSuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - user
+    put:
+      consumes:
+      - application/json
+      description: Update authenticated user's profile information
+      parameters:
+      - description: Update Profile Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.UserProfileSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - user
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

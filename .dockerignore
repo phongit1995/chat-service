@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.local
+*.md
+.vscode
+.idea
+*.log
+tmp/
+temp/
+bin/
+vendor/
+.DS_Store
+Thumbs.db
+

@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  api:
+    image: ${DOCKERHUB_USERNAME}/chat-server:latest
+    container_name: chat-server-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=chat_server
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
+      - DB_SSL_MODE=disable
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis123
+      - REDIS_DB=0
+      - SCYLLA_HOST=scylladb
+      - SCYLLA_PORT=9042
+      - SCYLLA_KEYSPACE=chat_server
+      - SCYLLA_CONSISTENCY=QUORUM
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      - GIN_MODE=release
+      - JWT_SECRET=your-jwt-secret-change-in-production-min-32-chars
+      - JWT_EXPIRY=24h
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
+      - WS_READ_BUFFER_SIZE=1024
+      - WS_WRITE_BUFFER_SIZE=1024
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chat-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: chat-server-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chat_server
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - chat-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: chat-server-redis
+    restart: unless-stopped
+    command: redis-server --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - chat-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  scylladb:
+    image: scylladb/scylla:5.4.3
+    container_name: chat-server-scylladb
+    restart: unless-stopped
+    command: --smp 2 --memory 2G --overprovisioned 1 --api-address 0.0.0.0
+    ports:
+      - "9042:9042"
+      - "9160:9160"
+      - "10000:10000"
+    volumes:
+      - scylla_data:/var/lib/scylla
+    networks:
+      - chat-network
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  postgres_data:
+  redis_data:
+  scylla_data:
+
+networks:
+  chat-network:
+    driver: bridge
+
