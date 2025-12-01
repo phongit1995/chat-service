@@ -13,6 +13,10 @@ const (
 )
 
 const (
+	KafkaConsumerGroup = "CHAT-SERVICE-CONSUMERS"
+)
+
+const (
 	CacheKeyUserProfile         = "USER:%s:PROFILE"
 	CacheKeyUserOnlineStatus    = "USER:%s:ONLINE"
 	CacheKeyUserSession         = "USER:%s:SESSION"

@@ -13,24 +13,26 @@ import (
 type MessageHandler func(ctx context.Context, message []byte) error
 
 type KafkaConsumer struct {
-	readers  []*kafka.Reader
-	logger   *zap.SugaredLogger
-	cfg      *config.Config
-	handlers map[string]MessageHandler
-	ctx      context.Context
-	cancel   context.CancelFunc
+	readers       []*kafka.Reader
+	logger        *zap.SugaredLogger
+	cfg           *config.Config
+	handlers      map[string]MessageHandler
+	ctx           context.Context
+	cancel        context.CancelFunc
+	consumerGroup string
 }
 
-func NewKafkaConsumer(cfg *config.Config, logger *zap.SugaredLogger) *KafkaConsumer {
+func NewKafkaConsumer(cfg *config.Config, logger *zap.SugaredLogger, consumerGroup string) *KafkaConsumer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &KafkaConsumer{
-		readers:  make([]*kafka.Reader, 0),
-		logger:   logger.Named("[kafka_consumer]"),
-		cfg:      cfg,
-		handlers: make(map[string]MessageHandler),
-		ctx:      ctx,
-		cancel:   cancel,
+		readers:       make([]*kafka.Reader, 0),
+		logger:        logger.Named("[kafka_consumer]"),
+		cfg:           cfg,
+		handlers:      make(map[string]MessageHandler),
+		ctx:           ctx,
+		cancel:        cancel,
+		consumerGroup: consumerGroup,
 	}
 }
 
@@ -49,7 +51,7 @@ func (c *KafkaConsumer) Start() error {
 
 		reader := kafka.NewReader(kafka.ReaderConfig{
 			Brokers:  c.cfg.KafkaBrokers,
-			GroupID:  c.cfg.KafkaConsumerGroup,
+			GroupID:  c.consumerGroup,
 			Topic:    topic,
 			MinBytes: 10e3,
 			MaxBytes: 10e6,

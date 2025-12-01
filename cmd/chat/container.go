@@ -2,15 +2,21 @@ package main
 
 import (
 	"chat-server/internal/config"
+	"chat-server/internal/constants"
 	"chat-server/internal/logger"
 	"chat-server/internal/modules/websocket"
 	"chat-server/internal/services"
 
 	"go.uber.org/dig"
+	"go.uber.org/zap"
 )
 
 func provideConfig() (*config.Config, error) {
 	return LoadChatConfig()
+}
+
+func provideChatKafkaConsumer(cfg *config.Config, logger *zap.SugaredLogger) *services.KafkaConsumer {
+	return services.NewKafkaConsumer(cfg, logger, constants.KafkaConsumerGroup)
 }
 
 func NewContainer() (*dig.Container, error) {
@@ -20,7 +26,7 @@ func NewContainer() (*dig.Container, error) {
 		provideConfig,
 		logger.CreateLogger,
 		services.NewJWTService,
-		services.NewKafkaConsumer,
+		provideChatKafkaConsumer,
 	}
 
 	for _, p := range providers {

@@ -46,8 +46,7 @@ type Config struct {
 	WSReadBufferSize  int `env:"WS_READ_BUFFER_SIZE" envDefault:"1024" validate:"min=1024"`
 	WSWriteBufferSize int `env:"WS_WRITE_BUFFER_SIZE" envDefault:"1024" validate:"min=1024"`
 
-	KafkaBrokers       []string `env:"KAFKA_BROKERS" envSeparator:"," validate:"required,min=1"`
-	KafkaConsumerGroup string   `env:"KAFKA_CONSUMER_GROUP" envDefault:"chat-server-consumers"`
+	KafkaBrokers []string `env:"KAFKA_BROKERS" envSeparator:"," validate:"required,min=1"`
 }
 
 func LoadConfig() (*Config, error) {
