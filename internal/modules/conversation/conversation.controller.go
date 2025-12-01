@@ -173,5 +173,5 @@ func (ctrl *Controller) MarkConversationAsRead(c *gin.Context) (interface{}, err
 		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to mark conversation as read")
 	}
 
-	return nil, nil
+	return map[string]string{"message": "Conversation marked as read successfully"}, nil
 }

@@ -64,7 +64,7 @@ func (ctrl *Controller) Register(c *gin.Context) (interface{}, error) {
 		"username", resp.User.Username,
 	)
 
-	return utils.NewHandlerResult(resp, http.StatusCreated), nil
+	return resp, nil
 }
 
 // Login godoc

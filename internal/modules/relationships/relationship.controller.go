@@ -76,7 +76,7 @@ func (ctrl *Controller) SendFriendRequest(c *gin.Context) (interface{}, error) {
 		"addressee_id", req.AddresseeID,
 	)
 
-	return utils.NewHandlerResult(response, http.StatusCreated), nil
+	return response, nil
 }
 
 // RespondToFriendRequest godoc
@@ -268,7 +268,7 @@ func (ctrl *Controller) BlockUser(c *gin.Context) (interface{}, error) {
 		"blocked_id", req.AddresseeID,
 	)
 
-	return utils.NewHandlerResult(response, http.StatusCreated), nil
+	return response, nil
 }
 
 // UnblockUser godoc

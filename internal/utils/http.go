@@ -232,6 +232,24 @@ func wrap(h AppHandler) gin.HandlerFunc {
 		if handlerResult, ok := result.(*HandlerResult); ok {
 			status = handlerResult.StatusCode
 			data = handlerResult.Data
+		} else {
+			switch c.Request.Method {
+			case http.MethodPost:
+				status = http.StatusCreated
+			case http.MethodDelete:
+				if result == nil {
+					status = http.StatusNoContent
+				} else {
+					status = http.StatusOK
+				}
+			default:
+				status = http.StatusOK
+			}
+		}
+
+		if status == http.StatusNoContent {
+			c.Status(status)
+			return
 		}
 
 		c.JSON(status, ApiResponse{

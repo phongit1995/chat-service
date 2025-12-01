@@ -156,5 +156,5 @@ func (ctrl *Controller) DeleteMessage(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to delete message")
 	}
 
-	return nil, nil
+	return map[string]string{"message": "Message deleted successfully"}, nil
 }
