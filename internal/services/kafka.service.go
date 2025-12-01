@@ -2,6 +2,7 @@ package services
 
 import (
 	"chat-server/internal/config"
+	"chat-server/internal/constants"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -34,15 +35,15 @@ func NewKafkaProducer(cfg *config.Config, logger *zap.SugaredLogger) (*KafkaProd
 }
 
 func (p *KafkaProducer) PublishMessageCreated(ctx context.Context, payload interface{}) error {
-	return p.publish(ctx, p.cfg.KafkaTopicMessageCreated, payload)
+	return p.publish(ctx, constants.KafkaTopicMessageCreated, payload)
 }
 
 func (p *KafkaProducer) PublishMessageDeleted(ctx context.Context, payload interface{}) error {
-	return p.publish(ctx, p.cfg.KafkaTopicMessageDeleted, payload)
+	return p.publish(ctx, constants.KafkaTopicMessageDeleted, payload)
 }
 
 func (p *KafkaProducer) PublishConversationUpdated(ctx context.Context, payload interface{}) error {
-	return p.publish(ctx, p.cfg.KafkaTopicConversationUpdated, payload)
+	return p.publish(ctx, constants.KafkaTopicConversationUpdated, payload)
 }
 
 func (p *KafkaProducer) publish(ctx context.Context, topic string, payload interface{}) error {

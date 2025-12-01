@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"chat-server/internal/constants"
 	"chat-server/internal/services"
 	"context"
 
@@ -61,8 +62,8 @@ func (h *KafkaHandlers) HandleConversationUpdated(ctx context.Context, message [
 	return nil
 }
 
-func RegisterKafkaHandlers(consumer *services.KafkaConsumer, handlers *KafkaHandlers, cfg interface{}) {
-	consumer.RegisterHandler("chat.message.created", handlers.HandleMessageCreated)
-	consumer.RegisterHandler("chat.message.deleted", handlers.HandleMessageDeleted)
-	consumer.RegisterHandler("chat.conversation.updated", handlers.HandleConversationUpdated)
+func RegisterKafkaHandlers(consumer *services.KafkaConsumer, handlers *KafkaHandlers) {
+	consumer.RegisterHandler(constants.KafkaTopicMessageCreated, handlers.HandleMessageCreated)
+	consumer.RegisterHandler(constants.KafkaTopicMessageDeleted, handlers.HandleMessageDeleted)
+	consumer.RegisterHandler(constants.KafkaTopicConversationUpdated, handlers.HandleConversationUpdated)
 }

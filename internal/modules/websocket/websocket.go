@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"chat-server/internal/config"
+	"chat-server/internal/constants"
 	"chat-server/internal/services"
 	"context"
 	"net/http"
@@ -105,7 +106,7 @@ func (s *Server) Close() {
 
 func (s *Server) EmitNewMessage(conversationID string, message any) {
 	room := "conversation:" + conversationID
-	s.io.To(socket.Room(room)).Emit("new_message", message)
+	s.io.To(socket.Room(room)).Emit(constants.WebSocketEventNewMessage, message)
 	s.logger.Debugw("Emitted new_message", "conversation_id", conversationID)
 }
 
@@ -115,14 +116,14 @@ func (s *Server) EmitMessageDeleted(conversationID, messageID string) {
 		"conversation_id": conversationID,
 		"message_id":      messageID,
 	}
-	s.io.To(socket.Room(room)).Emit("message_deleted", data)
+	s.io.To(socket.Room(room)).Emit(constants.WebSocketEventMessageDeleted, data)
 	s.logger.Debugw("Emitted message_deleted", "conversation_id", conversationID)
 }
 
 func (s *Server) EmitConversationUpdated(userIDs []string, conversation any) {
 	for _, userID := range userIDs {
 		room := "user:" + userID
-		s.io.To(socket.Room(room)).Emit("conversation_updated", conversation)
+		s.io.To(socket.Room(room)).Emit(constants.WebSocketEventConversationUpdated, conversation)
 	}
 	s.logger.Debugw("Emitted conversation_updated", "user_count", len(userIDs))
 }
@@ -132,5 +133,9 @@ func (s *Server) EmitUserOnlineStatus(userID string, isOnline bool) {
 		"user_id":   userID,
 		"is_online": isOnline,
 	}
-	s.io.Emit("user_status_changed", data)
+	if isOnline {
+		s.io.Emit(constants.WebSocketEventUserOnline, data)
+	} else {
+		s.io.Emit(constants.WebSocketEventUserOffline, data)
+	}
 }

@@ -40,18 +40,12 @@ func (c *KafkaConsumer) RegisterHandler(topic string, handler MessageHandler) {
 }
 
 func (c *KafkaConsumer) Start() error {
-	topics := []string{
-		c.cfg.KafkaTopicMessageCreated,
-		c.cfg.KafkaTopicMessageDeleted,
-		c.cfg.KafkaTopicConversationUpdated,
+	var topics []string
+	for topic := range c.handlers {
+		topics = append(topics, topic)
 	}
 
-	for _, topic := range topics {
-		handler, exists := c.handlers[topic]
-		if !exists {
-			c.logger.Warnw("No handler registered for topic", "topic", topic)
-			continue
-		}
+	for topic, handler := range c.handlers {
 
 		reader := kafka.NewReader(kafka.ReaderConfig{
 			Brokers:  c.cfg.KafkaBrokers,

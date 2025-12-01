@@ -2,6 +2,7 @@ package auth
 
 import (
 	"chat-server/internal/models"
+	"chat-server/internal/modules/user"
 	"chat-server/internal/services"
 	"errors"
 
@@ -13,13 +14,15 @@ import (
 type Service struct {
 	repo       *Repository
 	jwtService *services.JWTService
+	userCache  *user.CacheService
 	logger     *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, jwtService *services.JWTService, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, jwtService *services.JWTService, userCache *user.CacheService, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repo:       repo,
 		jwtService: jwtService,
+		userCache:  userCache,
 		logger:     logger.Named("[auth_service]"),
 	}
 }
@@ -75,6 +78,13 @@ func (s *Service) Register(req *RegisterRequest) (*AuthResponse, error) {
 			"error", err.Error(),
 		)
 		return nil, err
+	}
+
+	if err := s.userCache.SetUser(user.ID, user); err != nil {
+		s.logger.Warnw("Failed to cache user after registration",
+			"user_id", user.ID,
+			"error", err.Error(),
+		)
 	}
 
 	s.logger.Debugw("Generating JWT token",
@@ -172,6 +182,20 @@ func (s *Service) Login(req *LoginRequest, clientIP string) (*AuthResponse, erro
 	}
 
 	user, _ = s.repo.FindByID(user.ID)
+
+	if err := s.userCache.SetUser(user.ID, user); err != nil {
+		s.logger.Warnw("Failed to cache user after login",
+			"user_id", user.ID,
+			"error", err.Error(),
+		)
+	}
+
+	if err := s.userCache.SetUserOnlineStatus(user.ID, true); err != nil {
+		s.logger.Warnw("Failed to set user online status",
+			"user_id", user.ID,
+			"error", err.Error(),
+		)
+	}
 
 	s.logger.Infow("User logged in successfully",
 		"user_id", user.ID,

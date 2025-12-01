@@ -33,7 +33,7 @@ func main() {
 			wsServer = ws
 			kafkaConsumer = consumer
 
-			websocket.RegisterKafkaHandlers(consumer, kafkaHandlers, nil)
+			websocket.RegisterKafkaHandlers(consumer, kafkaHandlers)
 
 			if err := consumer.Start(); err != nil {
 				return err

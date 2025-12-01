@@ -12,18 +12,33 @@ import (
 
 type Service struct {
 	repo   *Repository
+	cache  *CacheService
 	logger *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, cache *CacheService, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repo:   repo,
+		cache:  cache,
 		logger: logger.Named("[user_service]"),
 	}
 }
 
 func (s *Service) GetProfile(userID uuid.UUID) (*UserProfileResponse, error) {
 	s.logger.Debugw("Fetching user profile",
+		"user_id", userID,
+	)
+
+	cachedUser, err := s.cache.GetUser(userID)
+	if err == nil {
+		s.logger.Debugw("User profile fetched from cache",
+			"user_id", userID,
+			"username", cachedUser.Username,
+		)
+		return s.buildProfileResponse(cachedUser), nil
+	}
+
+	s.logger.Debugw("Cache miss, fetching from database",
 		"user_id", userID,
 	)
 
@@ -40,6 +55,13 @@ func (s *Service) GetProfile(userID uuid.UUID) (*UserProfileResponse, error) {
 			"error", err.Error(),
 		)
 		return nil, err
+	}
+
+	if err := s.cache.SetUser(user.ID, user); err != nil {
+		s.logger.Warnw("Failed to cache user profile",
+			"user_id", userID,
+			"error", err.Error(),
+		)
 	}
 
 	s.logger.Debugw("User profile fetched successfully",
@@ -103,6 +125,20 @@ func (s *Service) UpdateProfile(userID uuid.UUID, req *UpdateProfileRequest) (*U
 			"error", err.Error(),
 		)
 		return nil, err
+	}
+
+	if err := s.cache.InvalidateUser(user.ID); err != nil {
+		s.logger.Warnw("Failed to invalidate user cache",
+			"user_id", userID,
+			"error", err.Error(),
+		)
+	}
+
+	if err := s.cache.SetUser(user.ID, user); err != nil {
+		s.logger.Warnw("Failed to update user cache",
+			"user_id", userID,
+			"error", err.Error(),
+		)
 	}
 
 	s.logger.Infow("User profile updated successfully",

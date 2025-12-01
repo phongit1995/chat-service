@@ -36,9 +36,6 @@ services:
       - WS_WRITE_BUFFER_SIZE=1024
       - KAFKA_BROKERS=kafka:9092
       - KAFKA_CONSUMER_GROUP=chat-server-consumers
-      - KAFKA_TOPIC_MESSAGE_CREATED=chat.message.created
-      - KAFKA_TOPIC_MESSAGE_DELETED=chat.message.deleted
-      - KAFKA_TOPIC_CONVERSATION_UPDATED=chat.conversation.updated
       - SWAGGER_HOST=api:8080
     depends_on:
       - postgres
@@ -60,9 +57,6 @@ services:
       - JWT_EXPIRY=24h
       - KAFKA_BROKERS=kafka:9092
       - KAFKA_CONSUMER_GROUP=chat-service-consumers
-      - KAFKA_TOPIC_MESSAGE_CREATED=chat.message.created
-      - KAFKA_TOPIC_MESSAGE_DELETED=chat.message.deleted
-      - KAFKA_TOPIC_CONVERSATION_UPDATED=chat.conversation.updated
     depends_on:
       - redis
       - kafka
