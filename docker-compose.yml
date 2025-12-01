@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   api:
-    image: ${DOCKERHUB_USERNAME}/chat-server:latest
+    image: ${DOCKERHUB_USERNAME}/chat-service-api:${API_VERSION:-latest}
     container_name: chat-server-api
     restart: unless-stopped
     ports:
@@ -42,6 +42,28 @@ services:
       - SWAGGER_HOST=api:8080
     depends_on:
       - postgres
+      - redis
+      - kafka
+    networks:
+      - chat-network
+
+  chat:
+    image: ${DOCKERHUB_USERNAME}/chat-service-chat:${CHAT_VERSION:-latest}
+    container_name: chat-server-chat
+    restart: unless-stopped
+    environment:
+      - WEBSOCKET_REDIS_HOST=redis
+      - WEBSOCKET_REDIS_PORT=6379
+      - WEBSOCKET_REDIS_PASSWORD=redis123
+      - WEBSOCKET_REDIS_DB=1
+      - JWT_SECRET=your-jwt-secret-change-in-production-min-32-chars
+      - JWT_EXPIRY=24h
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_CONSUMER_GROUP=chat-service-consumers
+      - KAFKA_TOPIC_MESSAGE_CREATED=chat.message.created
+      - KAFKA_TOPIC_MESSAGE_DELETED=chat.message.deleted
+      - KAFKA_TOPIC_CONVERSATION_UPDATED=chat.conversation.updated
+    depends_on:
       - redis
       - kafka
     networks:
