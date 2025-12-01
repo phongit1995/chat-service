@@ -19,6 +19,7 @@ func NewContainer() (*dig.Container, error) {
 	providers := []interface{}{
 		provideConfig,
 		logger.CreateLogger,
+		services.NewJWTService,
 		services.NewKafkaConsumer,
 	}
 

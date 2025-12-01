@@ -1,6 +1,12 @@
-.PHONY: dev-up dev-down dev-logs dev-clean dev-restart kill-port docker-build docker-run docker-compose-up docker-compose-down docker-compose-logs
+.PHONY: dev-up dev-down dev-logs dev-clean dev-status \
+        run run-api run-chat build build-api build-chat \
+        db-shell redis-cli scylla-cli kafka-cli \
+        swagger mod-tidy help
+
+# ==================== Development Environment ====================
 
 dev-up:
+	@echo "🚀 Starting development infrastructure..."
 	docker compose -f docker-compose.dev.yml up -d
 
 dev-down:
@@ -13,17 +19,38 @@ dev-clean:
 	docker compose -f docker-compose.dev.yml down -v
 	docker system prune -f
 
-dev-restart:
-	docker compose -f docker-compose.dev.yml restart
-
-db-logs:
-	docker compose -f docker-compose.dev.yml logs -f postgres
-
-redis-logs:
-	docker compose -f docker-compose.dev.yml logs -f redis
-
 dev-status:
 	docker compose -f docker-compose.dev.yml ps
+
+# ==================== Run Services ====================
+
+run: run-api run-chat
+
+run-api:
+	@echo "🚀 Starting API Service on :8080..."
+	go run ./cmd/api
+
+run-chat:
+	@echo "🚀 Starting Chat Service..."
+	go run ./cmd/chat
+
+run-all:
+	@echo "🚀 Starting all services..."
+	@make run-api & make run-chat & wait
+
+# ==================== Build ====================
+
+build: build-api build-chat
+
+build-api:
+	@echo "🔨 Building API Service..."
+	go build -o bin/api ./cmd/api
+
+build-chat:
+	@echo "🔨 Building Chat Service..."
+	go build -o bin/chat ./cmd/chat
+
+# ==================== Database CLI ====================
 
 db-shell:
 	docker compose -f docker-compose.dev.yml exec postgres psql -U postgres -d chat_server_dev
@@ -31,85 +58,48 @@ db-shell:
 redis-cli:
 	docker compose -f docker-compose.dev.yml exec redis redis-cli -a redis123
 
-build:
-	go build -o bin/api ./cmd/api
+scylla-cli:
+	docker compose -f docker-compose.dev.yml exec scylladb cqlsh
 
-run:
-	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
-	go run ./cmd/api
+kafka-cli:
+	docker compose -f docker-compose.dev.yml exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic chat.message.created
 
-mod-tidy:
-	go mod tidy
-
-mod-download:
-	go mod download
+# ==================== Tools ====================
 
 swagger:
 	~/go/bin/swag init -g cmd/api/main.go -o docs
 
-kill-port:
-	@echo "🔪 Killing process on port 8080..."
-	@lsof -ti:8080 | xargs kill -9 2>/dev/null && echo "✅ Port 8080 freed" || echo "ℹ️  No process running on port 8080"
+mod-tidy:
+	go mod tidy
 
-docker-build:
-	@echo "🐳 Building Docker image..."
-	docker build -t chat-server-api:latest .
-
-docker-run:
-	@echo "🚀 Running Docker container..."
-	docker run --rm \
-		--network chat-server_default \
-		-p 8080:8080 \
-		-e DB_HOST=chat-server-postgres-dev \
-		-e DB_PORT=5432 \
-		-e DB_NAME=chat_server_dev \
-		-e DB_USER=postgres \
-		-e DB_PASSWORD=postgres123 \
-		-e DB_SSL_MODE=disable \
-		-e REDIS_HOST=chat-server-redis-dev \
-		-e REDIS_PORT=6379 \
-		-e REDIS_PASSWORD=redis123 \
-		-e REDIS_DB=0 \
-		-e SERVER_PORT=8080 \
-		-e SERVER_HOST=0.0.0.0 \
-		-e GIN_MODE=debug \
-		-e JWT_SECRET=your-jwt-secret-change-in-production-must-be-at-least-32-chars \
-		-e JWT_EXPIRY=24h \
-		-e CORS_ALLOWED_ORIGINS=http://localhost:3000 \
-		-e WS_READ_BUFFER_SIZE=1024 \
-		-e WS_WRITE_BUFFER_SIZE=1024 \
-		chat-server-api:latest
-
-docker-compose-up:
-	docker-compose up -d
-
-docker-compose-down:
-	docker-compose down
-
-docker-compose-logs:
-	docker-compose logs -f
+# ==================== Help ====================
 
 help:
-	@echo "Available commands:"
-	@echo "  dev-up        - Start development environment"
-	@echo "  dev-down      - Stop development environment"
-	@echo "  dev-logs      - View logs from all services"
-	@echo "  dev-clean     - Stop and remove all containers + volumes"
-	@echo "  dev-restart   - Restart all services"
-	@echo "  dev-status    - Show status of all services"
-	@echo "  db-shell      - Connect to PostgreSQL shell"
-	@echo "  redis-cli     - Connect to Redis CLI"
-	@echo "  build         - Build Go application"
-	@echo "  run           - Run Go application (auto kill port 8080)"
-	@echo "  mod-tidy      - Tidy Go modules"
-	@echo "  swagger       - Generate swagger documentation"
-	@echo "  kill-port     - Kill process on port 8080"
 	@echo ""
-	@echo "Docker commands:"
-	@echo "  docker-build        - Build Docker image"
-	@echo "  docker-run          - Run Docker container"
-	@echo "  docker-compose-up   - Start full stack with docker-compose"
-	@echo "  docker-compose-down - Stop docker-compose stack"
-	@echo "  docker-compose-logs - View docker-compose logs"
+	@echo "📦 Development Environment:"
+	@echo "  make dev-up      - Start infrastructure (postgres, redis, scylla, kafka)"
+	@echo "  make dev-down    - Stop infrastructure"
+	@echo "  make dev-logs    - View infrastructure logs"
+	@echo "  make dev-clean   - Remove all containers and volumes"
+	@echo "  make dev-status  - Show container status"
 	@echo ""
-	@echo "  help          - Show this help message"
+	@echo "🚀 Run Services:"
+	@echo "  make run-api     - Run API service only"
+	@echo "  make run-chat    - Run Chat service only"
+	@echo "  make run-all     - Run both services in background"
+	@echo ""
+	@echo "🔨 Build:"
+	@echo "  make build       - Build both services"
+	@echo "  make build-api   - Build API service"
+	@echo "  make build-chat  - Build Chat service"
+	@echo ""
+	@echo "🗄️  Database CLI:"
+	@echo "  make db-shell    - PostgreSQL shell"
+	@echo "  make redis-cli   - Redis CLI"
+	@echo "  make scylla-cli  - ScyllaDB CQL shell"
+	@echo "  make kafka-cli   - Kafka consumer (message.created topic)"
+	@echo ""
+	@echo "🛠️  Tools:"
+	@echo "  make swagger     - Generate Swagger docs"
+	@echo "  make mod-tidy    - Tidy Go modules"
+	@echo ""
