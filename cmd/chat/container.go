@@ -10,14 +10,6 @@ import (
 )
 
 func provideConfig() (*config.Config, error) {
-	chatCfg, err := LoadChatConfig()
-	if err != nil {
-		return nil, err
-	}
-	return chatCfg.Config, nil
-}
-
-func provideChatConfig() (*ChatServiceConfig, error) {
 	return LoadChatConfig()
 }
 
@@ -26,7 +18,6 @@ func NewContainer() (*dig.Container, error) {
 
 	providers := []interface{}{
 		provideConfig,
-		provideChatConfig,
 		logger.CreateLogger,
 		services.NewKafkaConsumer,
 	}

@@ -18,14 +18,6 @@ import (
 )
 
 func provideConfig() (*config.Config, error) {
-	apiCfg, err := LoadAPIConfig()
-	if err != nil {
-		return nil, err
-	}
-	return apiCfg.Config, nil
-}
-
-func provideAPIConfig() (*APIServiceConfig, error) {
 	return LoadAPIConfig()
 }
 
@@ -33,7 +25,6 @@ func NewContainer() (*dig.Container, error) {
 	c := dig.New()
 	providers := []interface{}{
 		provideConfig,
-		provideAPIConfig,
 		logger.CreateLogger,
 		db.NewPostgresDB,
 		db.NewScyllaDB,

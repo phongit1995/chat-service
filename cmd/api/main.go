@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chat-server/internal/config"
 	"chat-server/internal/modules/websocket"
 	"context"
 	"fmt"
@@ -39,16 +40,12 @@ func main() {
 		log.Fatalf("❌ Failed to initialize container: %v", err)
 	}
 
-	if err := c.Invoke(func(cfg *APIServiceConfig) error {
-		return cfg.Validate()
-	}); err != nil {
-		log.Fatalf("❌ Config validation failed: %v", err)
-	}
-
+	// Validate được gọi trong LoadAPIConfig() -> container init
+	// Kiểm tra database connection
 	if err := c.Invoke(func(db *gorm.DB) error {
 		return nil
 	}); err != nil {
-		log.Fatalf("❌ Failed to migrate database: %v", err)
+		log.Fatalf("❌ Failed to connect database: %v", err)
 	}
 
 	quit := make(chan os.Signal, 1)
@@ -62,7 +59,7 @@ func main() {
 	var srvCtx serverContext
 
 	go func() {
-		if err := c.Invoke(func(s *Server, ws *websocket.Server, cfg *APIServiceConfig) error {
+		if err := c.Invoke(func(s *Server, ws *websocket.Server, cfg *config.Config) error {
 			srvCtx.wsServer = ws
 
 			addr := fmt.Sprintf(":%d", cfg.ServerPort)

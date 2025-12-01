@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chat-server/internal/config"
 	"chat-server/internal/modules/websocket"
 	"chat-server/internal/services"
 	"context"
@@ -19,12 +20,6 @@ func main() {
 		log.Fatalf("❌ Failed to initialize container: %v", err)
 	}
 
-	if err := c.Invoke(func(cfg *ChatServiceConfig) error {
-		return cfg.Validate()
-	}); err != nil {
-		log.Fatalf("❌ Config validation failed: %v", err)
-	}
-
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	errChan := make(chan error, 1)
@@ -34,7 +29,7 @@ func main() {
 	var srv *http.Server
 
 	go func() {
-		if err := c.Invoke(func(ws *websocket.Server, consumer *services.KafkaConsumer, kafkaHandlers *websocket.KafkaHandlers, cfg *ChatServiceConfig) error {
+		if err := c.Invoke(func(ws *websocket.Server, consumer *services.KafkaConsumer, kafkaHandlers *websocket.KafkaHandlers, cfg *config.Config) error {
 			wsServer = ws
 			kafkaConsumer = consumer
 
