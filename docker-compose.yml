@@ -1,6 +1,34 @@
 version: '3.8'
 
 services:
+  # Migration service - runs once to set up database schemas
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    container_name: chat-server-migrate
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=chat_server
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
+      - DB_SSL_MODE=disable
+      - SCYLLA_HOST=scylladb
+      - SCYLLA_PORT=9042
+      - SCYLLA_KEYSPACE=chat_server
+      - SCYLLA_CONSISTENCY=QUORUM
+      - MIGRATION_ACTION=up
+      - MIGRATE_DB=all
+    depends_on:
+      postgres:
+        condition: service_healthy
+      scylladb:
+        condition: service_healthy
+    networks:
+      - chat-network
+    restart: "no"  # Run once and exit
+
   api:
     image: ${DOCKERHUB_USERNAME}/chat-service-api:${API_VERSION:-latest}
     container_name: chat-server-api
@@ -40,6 +68,7 @@ services:
       - postgres
       - redis
       - kafka
+      - migrate
     networks:
       - chat-network
 

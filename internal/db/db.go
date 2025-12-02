@@ -2,7 +2,6 @@ package db
 
 import (
 	"chat-server/internal/config"
-	"chat-server/internal/models"
 	"fmt"
 	"time"
 
@@ -45,7 +44,9 @@ func NewPostgresDB(cfg *config.Config, log *zap.SugaredLogger) (*gorm.DB, error)
 	sqlDB.SetMaxIdleConns(5)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
-	db.AutoMigrate(&models.User{}, &models.Relationship{})
+
+	// NOTE: Database schema is managed by migrations (cmd/migrations/)
+	// Do not use AutoMigrate in production
 
 	if err := sqlDB.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)

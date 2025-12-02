@@ -38,10 +38,8 @@ func NewScyllaDB(cfg *config.Config, log *zap.SugaredLogger) (*gocql.Session, er
 		return nil, fmt.Errorf("failed to reconnect to keyspace: %w", err)
 	}
 
-	if err := InitChatSchema(session, cfg.ScyllaKeyspace, log); err != nil {
-		session.Close()
-		return nil, err
-	}
+	// NOTE: Database schema is managed by migrations (cmd/migrations/)
+	// InitChatSchema is no longer called here
 
 	log.Infof("✅ Connected to ScyllaDB successfully (keyspace: %s)", cfg.ScyllaKeyspace)
 

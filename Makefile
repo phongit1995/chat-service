@@ -1,5 +1,6 @@
 .PHONY: dev-up dev-down dev-logs dev-clean dev-status \
-        run run-api run-chat build build-api build-chat \
+        run run-api run-chat build build-api build-chat build-migrate \
+        migrate-up migrate-down migrate-version migrate-create migrate-run \
         db-shell redis-cli scylla-cli kafka-cli \
         swagger mod-tidy help
 
@@ -50,6 +51,39 @@ build-chat:
 	@echo "🔨 Building Chat Service..."
 	go build -o bin/chat ./cmd/chat
 
+build-migrate:
+	@echo "🔨 Building Migration Service..."
+	go build -o bin/migrate ./cmd/migrations
+
+# ==================== Database Migrations ====================
+
+migrate-up:
+	@echo "⬆️  Running database migrations (UP)..."
+	@go run ./cmd/migrations up all
+
+migrate-down:
+	@echo "⬇️  Rolling back database migrations (DOWN)..."
+	@read -p "How many steps to rollback? (default: 1): " steps; \
+	MIGRATION_STEPS=$${steps:-1} go run ./cmd/migrations down all
+
+migrate-version:
+	@echo "📊 Checking migration versions..."
+	@go run ./cmd/migrations version all
+
+migrate-create:
+	@echo "📝 Creating new migration..."
+	@read -p "Enter migration name (e.g., add_user_status): " name; \
+	if [ -z "$$name" ]; then echo "❌ Migration name is required"; exit 1; fi; \
+	echo "Creating PostgreSQL migration..."; \
+	migrate create -ext sql -dir cmd/migrations/postgres $$name; \
+	sleep 1; \
+	echo "Creating ScyllaDB migration..."; \
+	migrate create -ext cql -dir cmd/migrations/scylla $$name
+
+migrate-run:
+	@echo "🚀 Running migrations via Docker..."
+	@docker compose up migrate
+
 # ==================== Database CLI ====================
 
 db-shell:
@@ -89,9 +123,17 @@ help:
 	@echo "  make run-all     - Run both services in background"
 	@echo ""
 	@echo "🔨 Build:"
-	@echo "  make build       - Build both services"
-	@echo "  make build-api   - Build API service"
-	@echo "  make build-chat  - Build Chat service"
+	@echo "  make build         - Build both services"
+	@echo "  make build-api     - Build API service"
+	@echo "  make build-chat    - Build Chat service"
+	@echo "  make build-migrate - Build Migration service"
+	@echo ""
+	@echo "📦 Database Migrations:"
+	@echo "  make migrate-up      - Apply all pending migrations"
+	@echo "  make migrate-down    - Rollback migrations (interactive)"
+	@echo "  make migrate-version - Show current migration versions"
+	@echo "  make migrate-create  - Create new migration files (interactive)"
+	@echo "  make migrate-run     - Run migrations via Docker"
 	@echo ""
 	@echo "🗄️  Database CLI:"
 	@echo "  make db-shell    - PostgreSQL shell"
