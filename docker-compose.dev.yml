@@ -40,7 +40,7 @@ services:
     image: scylladb/scylla:5.4.3
     container_name: chat-server-scylladb-dev
     restart: unless-stopped
-    command: --smp 1 --memory 1G --overprovisioned 1 --api-address 0.0.0.0
+    command: --smp 1 --memory 512M --overprovisioned 1 --developer-mode 1 --api-address 0.0.0.0
     ports:
       - "9043:9042"
       - "9160:9160"

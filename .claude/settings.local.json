@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(go build:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(make migrate-up:*)",
+      "Bash(findstr:*)",
+      "Bash(timeout /t 30 /nobreak)",
+      "Bash(powershell:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

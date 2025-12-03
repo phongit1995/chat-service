@@ -65,7 +65,6 @@ type DirectConversationPair struct {
 	ConversationID uuid.UUID
 }
 
-// CreateConversation inserts a new conversation into the conversations table
 func (r *Repository) CreateConversation(conv *Conversation) error {
 	query := `INSERT INTO conversations (conversation_id, type, name, avatar, created_by, created_at, updated_at, participant_count)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -75,7 +74,6 @@ func (r *Repository) CreateConversation(conv *Conversation) error {
 	).Exec()
 }
 
-// GetConversationByID retrieves conversation metadata
 func (r *Repository) GetConversationByID(conversationID uuid.UUID) (*Conversation, error) {
 	var conv Conversation
 	query := `SELECT conversation_id, type, name, avatar, created_by, created_at, updated_at, participant_count
@@ -90,7 +88,6 @@ func (r *Repository) GetConversationByID(conversationID uuid.UUID) (*Conversatio
 	return &conv, nil
 }
 
-// AddMember adds a member to a conversation
 func (r *Repository) AddMember(member *ConversationMember) error {
 	query := `INSERT INTO conversation_members_by_conversation
 	          (conversation_id, user_id, joined_at, is_active, role)
@@ -100,7 +97,6 @@ func (r *Repository) AddMember(member *ConversationMember) error {
 	).Exec()
 }
 
-// GetMembers retrieves all members of a conversation
 func (r *Repository) GetMembers(conversationID uuid.UUID) ([]ConversationMember, error) {
 	var members []ConversationMember
 	query := `SELECT conversation_id, user_id, joined_at, left_at, is_active, role
@@ -118,7 +114,6 @@ func (r *Repository) GetMembers(conversationID uuid.UUID) ([]ConversationMember,
 	return members, nil
 }
 
-// AddConversationToUserInbox adds/updates a conversation in user's inbox (conversations_by_user)
 func (r *Repository) AddConversationToUserInbox(conv *ConversationByUser) error {
 	query := `INSERT INTO conversations_by_user
 	          (user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
@@ -130,7 +125,6 @@ func (r *Repository) AddConversationToUserInbox(conv *ConversationByUser) error 
 	).Exec()
 }
 
-// GetUserConversations retrieves user's conversation list (inbox view)
 func (r *Repository) GetUserConversations(userID uuid.UUID, limit int) ([]ConversationByUser, error) {
 	var conversations []ConversationByUser
 	query := `SELECT user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
@@ -150,21 +144,17 @@ func (r *Repository) GetUserConversations(userID uuid.UUID, limit int) ([]Conver
 	return conversations, nil
 }
 
-// GetOrCreateDirectConversation checks if direct conversation exists, otherwise creates one
 func (r *Repository) GetOrCreateDirectConversation(user1ID, user2ID uuid.UUID) (uuid.UUID, bool, error) {
-	// Ensure user1ID < user2ID for consistent lookup
 	userA, userB := user1ID, user2ID
 	if user1ID.String() > user2ID.String() {
 		userA, userB = user2ID, user1ID
 	}
 
-	// Check if direct conversation already exists
 	var conversationID uuid.UUID
 	query := `SELECT conversation_id FROM direct_conversations_by_user_pair WHERE user_a = ? AND user_b = ?`
 	err := r.session.Query(query, userA, userB).Scan(&conversationID)
 
 	if err == nil {
-		// Conversation exists
 		return conversationID, false, nil
 	}
 
@@ -172,7 +162,6 @@ func (r *Repository) GetOrCreateDirectConversation(user1ID, user2ID uuid.UUID) (
 		return uuid.Nil, false, fmt.Errorf("failed to check existing conversation: %w", err)
 	}
 
-	// Create new conversation
 	conversationID = uuid.New()
 	insertQuery := `INSERT INTO direct_conversations_by_user_pair (user_a, user_b, conversation_id) VALUES (?, ?, ?)`
 	if err := r.session.Query(insertQuery, userA, userB, conversationID).Exec(); err != nil {
@@ -182,26 +171,34 @@ func (r *Repository) GetOrCreateDirectConversation(user1ID, user2ID uuid.UUID) (
 	return conversationID, true, nil
 }
 
-// UpdateConversationInUserInbox updates an existing conversation entry in user's inbox
+func (r *Repository) GetDirectConversationID(userA, userB uuid.UUID) (*uuid.UUID, error) {
+	var conversationID uuid.UUID
+	query := `SELECT conversation_id FROM direct_conversations_by_user_pair WHERE user_a = ? AND user_b = ?`
+	err := r.session.Query(query, userA, userB).Scan(&conversationID)
+	if err == gocql.ErrNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &conversationID, nil
+}
+
 func (r *Repository) UpdateConversationInUserInbox(userID uuid.UUID, oldLastMessageAt gocql.UUID, conv *ConversationByUser) error {
-	// Delete old entry
 	deleteQuery := `DELETE FROM conversations_by_user WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
 	if err := r.session.Query(deleteQuery, userID, oldLastMessageAt, conv.ConversationID).Exec(); err != nil {
 		return fmt.Errorf("failed to delete old entry: %w", err)
 	}
 
-	// Insert new entry with updated last_message_at
 	return r.AddConversationToUserInbox(conv)
 }
 
-// MarkAsRead updates read status for a user in a conversation
 func (r *Repository) MarkAsRead(conversationID, userID uuid.UUID, lastReadMessageID gocql.UUID, lastReadAt time.Time) error {
 	query := `INSERT INTO conversation_read_by_user (conversation_id, user_id, last_read_message_id, last_read_at)
 	          VALUES (?, ?, ?, ?)`
 	return r.session.Query(query, conversationID, userID, lastReadMessageID, lastReadAt).Exec()
 }
 
-// GetReadStatus retrieves read status for a user in a conversation
 func (r *Repository) GetReadStatus(conversationID, userID uuid.UUID) (*gocql.UUID, *time.Time, error) {
 	var lastReadMessageID gocql.UUID
 	var lastReadAt time.Time
@@ -215,4 +212,64 @@ func (r *Repository) GetReadStatus(conversationID, userID uuid.UUID) (*gocql.UUI
 		return nil, nil, err
 	}
 	return &lastReadMessageID, &lastReadAt, nil
+}
+
+func (r *Repository) NewBatch() *gocql.Batch {
+	return r.session.NewBatch(gocql.LoggedBatch)
+}
+
+func (r *Repository) ExecuteBatch(batch *gocql.Batch) error {
+	return r.session.ExecuteBatch(batch)
+}
+
+func (r *Repository) AddConversationToBatch(batch *gocql.Batch, conv *Conversation) {
+	query := `INSERT INTO conversations (conversation_id, type, name, avatar, created_by, created_at, updated_at, participant_count)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	batch.Query(query,
+		conv.ConversationID, conv.Type, conv.Name, conv.Avatar,
+		conv.CreatedBy, conv.CreatedAt, conv.UpdatedAt, conv.ParticipantCount,
+	)
+}
+
+func (r *Repository) AddMemberToBatch(batch *gocql.Batch, member *ConversationMember) {
+	query := `INSERT INTO conversation_members_by_conversation
+	          (conversation_id, user_id, joined_at, is_active, role)
+	          VALUES (?, ?, ?, ?, ?)`
+	batch.Query(query,
+		member.ConversationID, member.UserID, member.JoinedAt, member.IsActive, member.Role,
+	)
+}
+
+func (r *Repository) AddConversationToUserInboxBatch(batch *gocql.Batch, conv *ConversationByUser) {
+	query := `INSERT INTO conversations_by_user
+	          (user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
+	           title, avatar, last_message_id, last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	batch.Query(query,
+		conv.UserID, conv.LastMessageAt, conv.ConversationID, conv.IsGroup, conv.OtherUserID, conv.OtherUserName, conv.OtherUserAvatar,
+		conv.Title, conv.Avatar, conv.LastMessageID, conv.LastMessageBody, conv.LastMessageSender, conv.UnreadCount, conv.LastReadMessageID, conv.LastReadAt,
+	)
+}
+
+func (r *Repository) AddDirectConversationPairToBatch(batch *gocql.Batch, userA, userB, conversationID uuid.UUID) {
+	query := `INSERT INTO direct_conversations_by_user_pair (user_a, user_b, conversation_id) VALUES (?, ?, ?)`
+	batch.Query(query, userA, userB, conversationID)
+}
+
+func (r *Repository) GetUserConversationByID(userID, conversationID uuid.UUID) (*ConversationByUser, error) {
+	var conv ConversationByUser
+	query := `SELECT user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
+	                 title, avatar, last_message_id, last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at
+	          FROM conversations_by_user WHERE user_id = ? AND conversation_id = ? LIMIT 1 ALLOW FILTERING`
+	err := r.session.Query(query, userID, conversationID).Scan(
+		&conv.UserID, &conv.LastMessageAt, &conv.ConversationID, &conv.IsGroup, &conv.OtherUserID, &conv.OtherUserName, &conv.OtherUserAvatar,
+		&conv.Title, &conv.Avatar, &conv.LastMessageID, &conv.LastMessageBody, &conv.LastMessageSender, &conv.UnreadCount, &conv.LastReadMessageID, &conv.LastReadAt,
+	)
+	if err == gocql.ErrNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &conv, nil
 }

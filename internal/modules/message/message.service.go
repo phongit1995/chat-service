@@ -15,16 +15,20 @@ import (
 
 type Service struct {
 	repo      *Repository
+	cache     *CacheService
 	convRepo  *conversation.Repository
+	convCache *conversation.CacheService
 	db        *gorm.DB
 	wsServer  *websocket.Server
 	logger    *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, convRepo *conversation.Repository, db *gorm.DB, wsServer *websocket.Server, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, db *gorm.DB, wsServer *websocket.Server, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repo:      repo,
+		cache:     cache,
 		convRepo:  convRepo,
+		convCache: convCache,
 		db:        db,
 		wsServer:  wsServer,
 		logger:    logger.Named("[message_service]"),
@@ -32,12 +36,12 @@ func NewService(repo *Repository, convRepo *conversation.Repository, db *gorm.DB
 }
 
 func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, content, metadata string, replyToID *uuid.UUID) (*MessageResponse, error) {
-	_, err := s.convRepo.GetConversationByID(conversationID)
+	_, err := s.getConversationByIDCached(conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("conversation not found: %w", err)
 	}
 
-	members, err := s.convRepo.GetMembers(conversationID)
+	members, err := s.getMembersCached(conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get members: %w", err)
 	}
@@ -79,10 +83,14 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		shortContent = shortContent[:100] + "..."
 	}
 
+	memberIDs := make([]uuid.UUID, 0, len(members))
+
 	for _, member := range members {
 		if !member.IsActive {
 			continue
 		}
+
+		memberIDs = append(memberIDs, member.UserID)
 
 		inboxEntry, oldLastMessageAt, err := s.repo.GetConversationInboxEntry(member.UserID, conversationID)
 		if err != nil {
@@ -145,13 +153,15 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		response.SenderAvatar = sender.Avatar
 	}
 
+	go s.invalidateCachesAfterSend(conversationID, memberIDs)
+
 	s.wsServer.EmitNewMessage(conversationID.String(), response)
 
 	return response, nil
 }
 
 func (s *Service) GetMessages(userID, conversationID uuid.UUID, limit int, beforeMessageID *string) (*MessagesListResponse, error) {
-	members, err := s.convRepo.GetMembers(conversationID)
+	members, err := s.getMembersCached(conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get members: %w", err)
 	}
@@ -177,9 +187,28 @@ func (s *Service) GetMessages(userID, conversationID uuid.UUID, limit int, befor
 		beforeTimeuuid = &parsed
 	}
 
-	messages, err := s.repo.GetMessages(conversationID, limit, beforeTimeuuid)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get messages: %w", err)
+	var messages []Message
+	if beforeTimeuuid == nil {
+		if cached, err := s.cache.GetConversationMessages(conversationID, limit); err == nil && len(cached) > 0 {
+			s.logger.Debugw("Cache HIT for messages", "conversation_id", conversationID)
+			messages = cached
+		}
+	}
+
+	if len(messages) == 0 {
+		s.logger.Debugw("Cache MISS for messages", "conversation_id", conversationID)
+		messages, err = s.repo.GetMessages(conversationID, limit, beforeTimeuuid)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get messages: %w", err)
+		}
+
+		if beforeTimeuuid == nil && len(messages) > 0 {
+			go func() {
+				if err := s.cache.SetConversationMessages(conversationID, limit, messages); err != nil {
+					s.logger.Warnw("Failed to cache messages", "conversation_id", conversationID, "error", err)
+				}
+			}()
+		}
 	}
 
 	senderIDs := make([]uuid.UUID, 0)
@@ -263,7 +292,77 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		return fmt.Errorf("failed to delete message: %w", err)
 	}
 
+	go s.invalidateCachesAfterDelete(conversationID, messageID)
+
 	s.wsServer.EmitMessageDeleted(conversationIDStr, messageIDStr)
 
 	return nil
+}
+
+func (s *Service) getMembersCached(conversationID uuid.UUID) ([]conversation.ConversationMember, error) {
+	if cached, err := s.convCache.GetConversationMembers(conversationID); err == nil && len(cached) > 0 {
+		s.logger.Debugw("Cache HIT for conversation members", "conversation_id", conversationID)
+		return cached, nil
+	}
+
+	s.logger.Debugw("Cache MISS for conversation members", "conversation_id", conversationID)
+	members, err := s.convRepo.GetMembers(conversationID)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		if err := s.convCache.SetConversationMembers(conversationID, members); err != nil {
+			s.logger.Warnw("Failed to cache conversation members", "conversation_id", conversationID, "error", err)
+		}
+	}()
+
+	return members, nil
+}
+
+func (s *Service) getConversationByIDCached(conversationID uuid.UUID) (*conversation.Conversation, error) {
+	if cached, err := s.convCache.GetConversation(conversationID); err == nil && cached != nil {
+		s.logger.Debugw("Cache HIT for conversation", "conversation_id", conversationID)
+		return cached, nil
+	}
+
+	s.logger.Debugw("Cache MISS for conversation", "conversation_id", conversationID)
+	conv, err := s.convRepo.GetConversationByID(conversationID)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		if err := s.convCache.SetConversation(conv); err != nil {
+			s.logger.Warnw("Failed to cache conversation", "conversation_id", conversationID, "error", err)
+		}
+	}()
+
+	return conv, nil
+}
+
+func (s *Service) invalidateCachesAfterSend(conversationID uuid.UUID, memberIDs []uuid.UUID) {
+	if err := s.cache.InvalidateConversationMessages(conversationID); err != nil {
+		s.logger.Warnw("Failed to invalidate conversation messages cache", "conversation_id", conversationID, "error", err)
+	}
+
+	for _, userID := range memberIDs {
+		if err := s.convCache.DeleteUserConversations(userID); err != nil {
+			s.logger.Warnw("Failed to invalidate user conversations cache", "user_id", userID, "error", err)
+		}
+	}
+
+	s.logger.Debugw("Cache invalidated after send", "conversation_id", conversationID, "member_count", len(memberIDs))
+}
+
+func (s *Service) invalidateCachesAfterDelete(conversationID uuid.UUID, messageID gocql.UUID) {
+	if err := s.cache.InvalidateConversationMessages(conversationID); err != nil {
+		s.logger.Warnw("Failed to invalidate conversation messages cache", "conversation_id", conversationID, "error", err)
+	}
+
+	if err := s.cache.DeleteMessage(conversationID, messageID); err != nil {
+		s.logger.Warnw("Failed to invalidate message cache", "message_id", messageID, "error", err)
+	}
+
+	s.logger.Debugw("Cache invalidated after delete", "conversation_id", conversationID, "message_id", messageID)
 }

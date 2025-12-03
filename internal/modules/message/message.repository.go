@@ -23,7 +23,7 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 
 type Message struct {
 	ConversationID uuid.UUID
-	MessageID      gocql.UUID // timeuuid
+	MessageID      gocql.UUID
 	SenderID       uuid.UUID
 	MessageType    string
 	Content        string
@@ -35,7 +35,6 @@ type Message struct {
 	ReplyToID      *uuid.UUID
 }
 
-// CreateMessage inserts a new message
 func (r *Repository) CreateMessage(msg *Message) error {
 	query := `INSERT INTO messages_by_conversation
 	          (conversation_id, message_id, sender_id, message_type, content, metadata, status, created_at, updated_at, reply_to_id)
@@ -46,7 +45,6 @@ func (r *Repository) CreateMessage(msg *Message) error {
 	).Exec()
 }
 
-// GetMessages retrieves messages from a conversation with pagination
 func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMessageID *gocql.UUID) ([]Message, error) {
 	var messages []Message
 
@@ -80,7 +78,6 @@ func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMess
 	return messages, nil
 }
 
-// GetMessageByID retrieves a specific message by its ID
 func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UUID) (*Message, error) {
 	var msg Message
 	query := `SELECT conversation_id, message_id, sender_id, message_type, content, metadata, status, created_at, updated_at, deleted_at, reply_to_id
@@ -96,23 +93,18 @@ func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UU
 	return &msg, nil
 }
 
-// DeleteMessage performs soft delete by setting deleted_at timestamp
 func (r *Repository) DeleteMessage(conversationID uuid.UUID, messageID gocql.UUID) error {
 	now := time.Now()
 	query := `UPDATE messages_by_conversation SET deleted_at = ?, updated_at = ? WHERE conversation_id = ? AND message_id = ?`
 	return r.session.Query(query, now, now, conversationID, messageID).Exec()
 }
 
-// UpdateConversationLastMessage updates the last message info in user's inbox
-// This function helps maintain denormalized data in conversations_by_user table
 func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID, newEntry *ConversationInboxUpdate) error {
-	// Delete old entry
 	deleteQuery := `DELETE FROM conversations_by_user WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
 	if err := r.session.Query(deleteQuery, userID, oldLastMessageAt, conversationID).Exec(); err != nil {
 		return fmt.Errorf("failed to delete old entry: %w", err)
 	}
 
-	// Insert new entry
 	insertQuery := `INSERT INTO conversations_by_user
 	                (user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
 	                 title, avatar, last_message_id, last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at)
@@ -125,7 +117,6 @@ func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMess
 	).Exec()
 }
 
-// ConversationInboxUpdate represents an update to a user's conversation inbox entry
 type ConversationInboxUpdate struct {
 	UserID            uuid.UUID
 	LastMessageAt     gocql.UUID
@@ -144,7 +135,6 @@ type ConversationInboxUpdate struct {
 	LastReadAt        *time.Time
 }
 
-// GetConversationInboxEntry retrieves a user's inbox entry for a specific conversation
 func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID) (*ConversationInboxUpdate, *gocql.UUID, error) {
 	var entry ConversationInboxUpdate
 	var oldLastMessageAt gocql.UUID
@@ -167,4 +157,40 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 
 	entry.LastMessageAt = oldLastMessageAt
 	return &entry, &oldLastMessageAt, nil
+}
+
+func (r *Repository) NewBatch() *gocql.Batch {
+	return r.session.NewBatch(gocql.LoggedBatch)
+}
+
+func (r *Repository) ExecuteBatch(batch *gocql.Batch) error {
+	return r.session.ExecuteBatch(batch)
+}
+
+func (r *Repository) AddMessageToBatch(batch *gocql.Batch, msg *Message) {
+	query := `INSERT INTO messages_by_conversation
+	          (conversation_id, message_id, sender_id, message_type, content, metadata, status, created_at, updated_at, reply_to_id)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	batch.Query(query,
+		msg.ConversationID, msg.MessageID, msg.SenderID, msg.MessageType,
+		msg.Content, msg.Metadata, msg.Status, msg.CreatedAt, msg.UpdatedAt, msg.ReplyToID,
+	)
+}
+
+func (r *Repository) DeleteFromInboxBatch(batch *gocql.Batch, userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID) {
+	query := `DELETE FROM conversations_by_user WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
+	batch.Query(query, userID, oldLastMessageAt, conversationID)
+}
+
+func (r *Repository) AddToInboxBatch(batch *gocql.Batch, entry *ConversationInboxUpdate) {
+	query := `INSERT INTO conversations_by_user
+	          (user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
+	           title, avatar, last_message_id, last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	batch.Query(query,
+		entry.UserID, entry.LastMessageAt, entry.ConversationID, entry.IsGroup,
+		entry.OtherUserID, entry.OtherUserName, entry.OtherUserAvatar,
+		entry.Title, entry.Avatar, entry.LastMessageID, entry.LastMessageBody,
+		entry.LastMessageSender, entry.UnreadCount, entry.LastReadMessageID, entry.LastReadAt,
+	)
 }
