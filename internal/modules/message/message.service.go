@@ -3,8 +3,10 @@ package message
 import (
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
-	"chat-server/internal/modules/websocket"
+	"chat-server/internal/services"
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -14,24 +16,24 @@ import (
 )
 
 type Service struct {
-	repo      *Repository
-	cache     *CacheService
-	convRepo  *conversation.Repository
-	convCache *conversation.CacheService
-	db        *gorm.DB
-	wsServer  *websocket.Server
-	logger    *zap.SugaredLogger
+	repo          *Repository
+	cache         *CacheService
+	convRepo      *conversation.Repository
+	convCache     *conversation.CacheService
+	db            *gorm.DB
+	kafkaProducer *services.KafkaProducer
+	logger        *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, db *gorm.DB, wsServer *websocket.Server, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, db *gorm.DB, kafkaProducer *services.KafkaProducer, logger *zap.SugaredLogger) *Service {
 	return &Service{
-		repo:      repo,
-		cache:     cache,
-		convRepo:  convRepo,
-		convCache: convCache,
-		db:        db,
-		wsServer:  wsServer,
-		logger:    logger.Named("[message_service]"),
+		repo:          repo,
+		cache:         cache,
+		convRepo:      convRepo,
+		convCache:     convCache,
+		db:            db,
+		kafkaProducer: kafkaProducer,
+		logger:        logger.Named("[message_service]"),
 	}
 }
 
@@ -84,6 +86,7 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	}
 
 	memberIDs := make([]uuid.UUID, 0, len(members))
+	var wg sync.WaitGroup
 
 	for _, member := range members {
 		if !member.IsActive {
@@ -126,10 +129,12 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 			LastReadAt:        inboxEntry.LastReadAt,
 		}
 
-		if err := s.repo.UpdateConversationLastMessage(member.UserID, *oldLastMessageAt, conversationID, updatedEntry); err != nil {
-			s.logger.Warnw("Failed to update conversation last message", "user_id", member.UserID, "error", err)
+		if err := s.updateConversationWithRetry(member.UserID, *oldLastMessageAt, conversationID, updatedEntry, 3); err != nil {
+			s.logger.Errorw("Failed to update conversation after retries", "user_id", member.UserID, "error", err)
 		}
 	}
+
+	wg.Wait()
 
 	var sender models.User
 	response := &MessageResponse{
@@ -153,9 +158,19 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		response.SenderAvatar = sender.Avatar
 	}
 
-	go s.invalidateCachesAfterSend(conversationID, memberIDs)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		s.invalidateCachesAfterSend(conversationID, memberIDs)
+	}()
+	wg.Wait()
 
-	s.wsServer.EmitNewMessage(conversationID.String(), response)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := s.kafkaProducer.PublishMessageCreated(ctx, response); err != nil {
+		s.logger.Errorw("Failed to publish message created event", "error", err)
+	}
 
 	return response, nil
 }
@@ -292,9 +307,24 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		return fmt.Errorf("failed to delete message: %w", err)
 	}
 
-	go s.invalidateCachesAfterDelete(conversationID, messageID)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		s.invalidateCachesAfterDelete(conversationID, messageID)
+	}()
+	wg.Wait()
 
-	s.wsServer.EmitMessageDeleted(conversationIDStr, messageIDStr)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	payload := map[string]string{
+		"conversation_id": conversationIDStr,
+		"message_id":      messageIDStr,
+	}
+	if err := s.kafkaProducer.PublishMessageDeleted(ctx, payload); err != nil {
+		s.logger.Errorw("Failed to publish message deleted event", "error", err)
+	}
 
 	return nil
 }
@@ -341,16 +371,44 @@ func (s *Service) getConversationByIDCached(conversationID uuid.UUID) (*conversa
 	return conv, nil
 }
 
+func (s *Service) updateConversationWithRetry(userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID, entry *ConversationInboxUpdate, maxRetries int) error {
+	var lastErr error
+	backoff := 100 * time.Millisecond
+
+	for i := 0; i < maxRetries; i++ {
+		err := s.repo.UpdateConversationLastMessage(userID, oldLastMessageAt, conversationID, entry)
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+		s.logger.Warnw("Retry updating conversation", "attempt", i+1, "user_id", userID, "error", err)
+
+		if i < maxRetries-1 {
+			time.Sleep(backoff)
+			backoff *= 2
+		}
+	}
+
+	return fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
+}
+
 func (s *Service) invalidateCachesAfterSend(conversationID uuid.UUID, memberIDs []uuid.UUID) {
 	if err := s.cache.InvalidateConversationMessages(conversationID); err != nil {
 		s.logger.Warnw("Failed to invalidate conversation messages cache", "conversation_id", conversationID, "error", err)
 	}
 
+	var wg sync.WaitGroup
 	for _, userID := range memberIDs {
-		if err := s.convCache.DeleteUserConversations(userID); err != nil {
-			s.logger.Warnw("Failed to invalidate user conversations cache", "user_id", userID, "error", err)
-		}
+		wg.Add(1)
+		go func(uid uuid.UUID) {
+			defer wg.Done()
+			if err := s.convCache.DeleteUserConversations(uid); err != nil {
+				s.logger.Warnw("Failed to invalidate user conversations cache", "user_id", uid, "error", err)
+			}
+		}(userID)
 	}
+	wg.Wait()
 
 	s.logger.Debugw("Cache invalidated after send", "conversation_id", conversationID, "member_count", len(memberIDs))
 }

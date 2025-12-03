@@ -3,9 +3,7 @@ version: '3.8'
 services:
   # Migration service - runs once to set up database schemas
   migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile.migrate
+    image: ${DOCKERHUB_USERNAME}/chat-service-migrate:${MIGRATE_VERSION:-latest}
     container_name: chat-server-migrate
     environment:
       - DB_HOST=postgres

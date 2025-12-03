@@ -10,15 +10,7 @@ import (
 )
 
 func NewScyllaDB(cfg *config.Config, log *zap.SugaredLogger) (*gocql.Session, error) {
-	cluster := gocql.NewCluster(cfg.ScyllaHost)
-	cluster.Port = cfg.ScyllaPort
-	cluster.Consistency = parseConsistency(cfg.ScyllaConsistency)
-	cluster.ProtoVersion = 4
-	cluster.ConnectTimeout = 10 * time.Second
-	cluster.Timeout = 10 * time.Second
-	cluster.NumConns = 2
-	cluster.SocketKeepalive = 10 * time.Second
-	cluster.MaxWaitSchemaAgreement = 60 * time.Second
+	cluster := createClusterConfig(cfg)
 
 	session, err := cluster.CreateSession()
 	if err != nil {
@@ -32,18 +24,34 @@ func NewScyllaDB(cfg *config.Config, log *zap.SugaredLogger) (*gocql.Session, er
 
 	session.Close()
 
+	cluster = createClusterConfig(cfg)
 	cluster.Keyspace = cfg.ScyllaKeyspace
 	session, err = cluster.CreateSession()
 	if err != nil {
 		return nil, fmt.Errorf("failed to reconnect to keyspace: %w", err)
 	}
 
-	// NOTE: Database schema is managed by migrations (cmd/migrations/)
-	// InitChatSchema is no longer called here
-
 	log.Infof("✅ Connected to ScyllaDB successfully (keyspace: %s)", cfg.ScyllaKeyspace)
 
 	return session, nil
+}
+
+func createClusterConfig(cfg *config.Config) *gocql.ClusterConfig {
+	cluster := gocql.NewCluster(cfg.ScyllaHost)
+	cluster.Port = cfg.ScyllaPort
+	cluster.Consistency = parseConsistency(cfg.ScyllaConsistency)
+	cluster.ProtoVersion = 4
+	cluster.ConnectTimeout = 10 * time.Second
+	cluster.Timeout = 30 * time.Second
+	cluster.NumConns = 10
+	cluster.SocketKeepalive = 10 * time.Second
+	cluster.MaxWaitSchemaAgreement = 60 * time.Second
+	cluster.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(
+		gocql.RoundRobinHostPolicy(),
+	)
+	cluster.Compressor = &gocql.SnappyCompressor{}
+
+	return cluster
 }
 
 func createKeyspaceIfNotExists(session *gocql.Session, keyspace string, log *zap.SugaredLogger) error {

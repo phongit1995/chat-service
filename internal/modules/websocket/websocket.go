@@ -5,6 +5,7 @@ import (
 	"chat-server/internal/constants"
 	"chat-server/internal/services"
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/redis/go-redis/v9"
@@ -53,15 +54,28 @@ func NewServer(
 	}
 
 	io.Use(func(s *socket.Socket, next func(*socket.ExtendedError)) {
-		req := s.Request()
-		token, ok := req.Query().Get("token")
-		if !ok {
-			token = ""
+		auth := s.Handshake().Auth
+		tokenValue, exists := auth["token"]
+		if !exists {
+			req := s.Request()
+			if tokenQuery, ok := req.Query().Get("token"); ok {
+				tokenValue = tokenQuery
+			}
 		}
 
-		if token == "" {
+		if tokenValue == nil || tokenValue == "" {
 			server.logger.Warn("WebSocket connection without token")
 			next(socket.NewExtendedError("access_token is required", nil))
+			return
+		}
+
+		token := ""
+		switch v := tokenValue.(type) {
+		case string:
+			token = v
+		default:
+			server.logger.Warnw("Invalid token type", "type", fmt.Sprintf("%T", tokenValue))
+			next(socket.NewExtendedError("invalid token format", nil))
 			return
 		}
 
