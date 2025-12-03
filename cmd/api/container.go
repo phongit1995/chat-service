@@ -8,6 +8,7 @@ import (
 	"chat-server/internal/modules/auth"
 	"chat-server/internal/modules/conversation"
 	"chat-server/internal/modules/health"
+	kafkaModule "chat-server/internal/modules/kafka"
 	"chat-server/internal/modules/message"
 	"chat-server/internal/modules/relationships"
 	"chat-server/internal/modules/user"
@@ -30,7 +31,7 @@ func NewContainer() (*dig.Container, error) {
 		db.NewScyllaDB,
 		services.NewCacheService,
 		services.NewJWTService,
-		services.NewKafkaProducer,
+		kafkaModule.NewProducer,
 		middleware.NewAuthMiddleware,
 		CreateServer,
 	}

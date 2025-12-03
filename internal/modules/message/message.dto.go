@@ -8,6 +8,13 @@ type SendMessageRequest struct {
 	ReplyToID      *string `json:"replyToId,omitempty" validate:"omitempty,uuid" example:"fa7f9g87-ba3f-7a68-e2d9-ffh38d37dhge"`
 }
 
+type SendDirectMessageRequest struct {
+	RecipientID string `json:"recipientId" validate:"required,uuid" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb"`
+	Type        string `json:"type" validate:"required,oneof=text image file video audio" example:"text"`
+	Content     string `json:"content" validate:"required,min=1" example:"Hello, how are you?"`
+	Metadata    string `json:"metadata,omitempty" example:"{\"fileName\":\"image.png\"}"`
+}
+
 type MessageResponse struct {
 	ID             string `json:"id" example:"fa7f9g87-ba3f-7a68-e2d9-ffh38d37dhge"`
 	ConversationID string `json:"conversationId" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`

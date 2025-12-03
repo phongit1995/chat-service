@@ -3,7 +3,7 @@ package message
 import (
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
-	"chat-server/internal/services"
+	kafkaModule "chat-server/internal/modules/kafka"
 	"context"
 	"fmt"
 	"sync"
@@ -21,11 +21,11 @@ type Service struct {
 	convRepo      *conversation.Repository
 	convCache     *conversation.CacheService
 	db            *gorm.DB
-	kafkaProducer *services.KafkaProducer
+	kafkaProducer *kafkaModule.Producer
 	logger        *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, db *gorm.DB, kafkaProducer *services.KafkaProducer, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, db *gorm.DB, kafkaProducer *kafkaModule.Producer, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repo:          repo,
 		cache:         cache,
@@ -35,6 +35,112 @@ func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Re
 		kafkaProducer: kafkaProducer,
 		logger:        logger.Named("[message_service]"),
 	}
+}
+
+func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType, content, metadata string) (*MessageResponse, error) {
+	userA, userB := senderID, recipientID
+	if senderID.String() > recipientID.String() {
+		userA, userB = recipientID, senderID
+	}
+
+	conversationID, isNew, err := s.convRepo.GetOrCreateDirectConversation(userA, userB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get/create conversation: %w", err)
+	}
+
+	if isNew {
+		if err := s.createFullDirectConversation(senderID, recipientID, conversationID); err != nil {
+			return nil, fmt.Errorf("failed to create full conversation structure: %w", err)
+		}
+		s.logger.Infow("Created new direct conversation with full structure", "conversation_id", conversationID)
+	}
+
+	return s.SendMessage(senderID, conversationID, messageType, content, metadata, nil)
+}
+
+func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID uuid.UUID) error {
+	var user1, user2 models.User
+	if err := s.db.First(&user1, "id = ?", user1ID).Error; err != nil {
+		return fmt.Errorf("user1 not found: %w", err)
+	}
+	if err := s.db.First(&user2, "id = ?", user2ID).Error; err != nil {
+		return fmt.Errorf("user2 not found: %w", err)
+	}
+
+	now := time.Now()
+	lastMessageAt := gocql.TimeUUID()
+
+	batch := s.convRepo.NewBatch()
+
+	conv := &conversation.Conversation{
+		ConversationID:   conversationID,
+		Type:             "direct",
+		Name:             "",
+		Avatar:           "",
+		CreatedBy:        user1ID,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		ParticipantCount: 2,
+	}
+	s.convRepo.AddConversationToBatch(batch, conv)
+
+	member1 := &conversation.ConversationMember{
+		ConversationID: conversationID,
+		UserID:         user1ID,
+		JoinedAt:       now,
+		IsActive:       true,
+		Role:           "member",
+	}
+	member2 := &conversation.ConversationMember{
+		ConversationID: conversationID,
+		UserID:         user2ID,
+		JoinedAt:       now,
+		IsActive:       true,
+		Role:           "member",
+	}
+	s.convRepo.AddMemberToBatch(batch, member1)
+	s.convRepo.AddMemberToBatch(batch, member2)
+
+	inbox1 := &conversation.ConversationByUser{
+		UserID:          user1ID,
+		LastMessageAt:   lastMessageAt,
+		ConversationID:  conversationID,
+		IsGroup:         false,
+		OtherUserID:     &user2ID,
+		OtherUserName:   user2.Username,
+		OtherUserAvatar: user2.Avatar,
+		Title:           user2.Username,
+		Avatar:          user2.Avatar,
+		UnreadCount:     0,
+	}
+	inbox2 := &conversation.ConversationByUser{
+		UserID:          user2ID,
+		LastMessageAt:   lastMessageAt,
+		ConversationID:  conversationID,
+		IsGroup:         false,
+		OtherUserID:     &user1ID,
+		OtherUserName:   user1.Username,
+		OtherUserAvatar: user1.Avatar,
+		Title:           user1.Username,
+		Avatar:          user1.Avatar,
+		UnreadCount:     0,
+	}
+	s.convRepo.AddConversationToUserInboxBatch(batch, inbox1)
+	s.convRepo.AddConversationToUserInboxBatch(batch, inbox2)
+
+	if err := s.convRepo.ExecuteBatch(batch); err != nil {
+		return fmt.Errorf("failed to execute batch: %w", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		s.convCache.InvalidateUserConversations([]uuid.UUID{user1ID, user2ID})
+	}()
+	wg.Wait()
+
+	return nil
 }
 
 func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, content, metadata string, replyToID *uuid.UUID) (*MessageResponse, error) {
@@ -86,7 +192,6 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	}
 
 	memberIDs := make([]uuid.UUID, 0, len(members))
-	var wg sync.WaitGroup
 
 	for _, member := range members {
 		if !member.IsActive {
@@ -97,13 +202,13 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 
 		inboxEntry, oldLastMessageAt, err := s.repo.GetConversationInboxEntry(member.UserID, conversationID)
 		if err != nil {
-			s.logger.Warnw("Failed to get inbox entry", "user_id", member.UserID, "error", err)
-			continue
+			s.logger.Errorw("Failed to get inbox entry", "user_id", member.UserID, "error", err)
+			return nil, fmt.Errorf("inbox entry not found for user %s", member.UserID)
 		}
 
 		if inboxEntry == nil {
-			s.logger.Warnw("No inbox entry found for user", "user_id", member.UserID, "conversation_id", conversationID)
-			continue
+			s.logger.Errorw("No inbox entry found for user", "user_id", member.UserID, "conversation_id", conversationID)
+			return nil, fmt.Errorf("inbox entry missing for user %s", member.UserID)
 		}
 
 		newUnreadCount := inboxEntry.UnreadCount
@@ -131,10 +236,9 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 
 		if err := s.updateConversationWithRetry(member.UserID, *oldLastMessageAt, conversationID, updatedEntry, 3); err != nil {
 			s.logger.Errorw("Failed to update conversation after retries", "user_id", member.UserID, "error", err)
+			return nil, fmt.Errorf("failed to update inbox for user %s: %w", member.UserID, err)
 		}
 	}
-
-	wg.Wait()
 
 	var sender models.User
 	response := &MessageResponse{
@@ -158,6 +262,7 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		response.SenderAvatar = sender.Avatar
 	}
 
+	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -168,7 +273,13 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := s.kafkaProducer.PublishMessageCreated(ctx, response); err != nil {
+	payload := &kafkaModule.MessageCreatedPayload{
+		ConversationID: conversationID.String(),
+		MessageID:      messageID.String(),
+		SenderID:       senderID.String(),
+		Data:           response,
+	}
+	if err := s.kafkaProducer.PublishMessageCreated(ctx, payload); err != nil {
 		s.logger.Errorw("Failed to publish message created event", "error", err)
 	}
 
@@ -318,9 +429,9 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	payload := map[string]string{
-		"conversation_id": conversationIDStr,
-		"message_id":      messageIDStr,
+	payload := &kafkaModule.MessageDeletedPayload{
+		ConversationID: conversationIDStr,
+		MessageID:      messageIDStr,
 	}
 	if err := s.kafkaProducer.PublishMessageDeleted(ctx, payload); err != nil {
 		s.logger.Errorw("Failed to publish message deleted event", "error", err)

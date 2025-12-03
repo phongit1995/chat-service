@@ -7,7 +7,6 @@ func Provider(c *dig.Container) error {
 	providers := []interface{}{
 		NewRedisService,
 		NewServer,
-		NewKafkaHandlers,
 	}
 
 	for _, provider := range providers {

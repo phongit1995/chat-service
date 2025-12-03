@@ -1,10 +1,8 @@
-package services
+package kafka
 
 import (
 	"chat-server/internal/config"
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -12,7 +10,7 @@ import (
 
 type MessageHandler func(ctx context.Context, message []byte) error
 
-type KafkaConsumer struct {
+type Consumer struct {
 	readers       []*kafka.Reader
 	logger        *zap.SugaredLogger
 	cfg           *config.Config
@@ -22,10 +20,10 @@ type KafkaConsumer struct {
 	consumerGroup string
 }
 
-func NewKafkaConsumer(cfg *config.Config, logger *zap.SugaredLogger, consumerGroup string) *KafkaConsumer {
+func NewConsumer(cfg *config.Config, logger *zap.SugaredLogger, consumerGroup string) *Consumer {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &KafkaConsumer{
+	return &Consumer{
 		readers:       make([]*kafka.Reader, 0),
 		logger:        logger.Named("[kafka_consumer]"),
 		cfg:           cfg,
@@ -36,19 +34,18 @@ func NewKafkaConsumer(cfg *config.Config, logger *zap.SugaredLogger, consumerGro
 	}
 }
 
-func (c *KafkaConsumer) RegisterHandler(topic string, handler MessageHandler) {
+func (c *Consumer) RegisterHandler(topic string, handler MessageHandler) {
 	c.handlers[topic] = handler
 	c.logger.Infow("Handler registered", "topic", topic)
 }
 
-func (c *KafkaConsumer) Start() error {
+func (c *Consumer) Start() error {
 	var topics []string
 	for topic := range c.handlers {
 		topics = append(topics, topic)
 	}
 
 	for topic, handler := range c.handlers {
-
 		reader := kafka.NewReader(kafka.ReaderConfig{
 			Brokers:  c.cfg.KafkaBrokers,
 			GroupID:  c.consumerGroup,
@@ -62,11 +59,11 @@ func (c *KafkaConsumer) Start() error {
 		go c.consumeTopic(reader, handler, topic)
 	}
 
-	c.logger.Infow("✅ Kafka Consumer started", "topics", topics)
+	c.logger.Infow("✅ Kafka Consumer started", "topics", topics, "consumer_group", c.consumerGroup)
 	return nil
 }
 
-func (c *KafkaConsumer) consumeTopic(reader *kafka.Reader, handler MessageHandler, topic string) {
+func (c *Consumer) consumeTopic(reader *kafka.Reader, handler MessageHandler, topic string) {
 	c.logger.Infow("Started consuming topic", "topic", topic)
 
 	for {
@@ -93,7 +90,7 @@ func (c *KafkaConsumer) consumeTopic(reader *kafka.Reader, handler MessageHandle
 	}
 }
 
-func (c *KafkaConsumer) Close() error {
+func (c *Consumer) Close() error {
 	c.cancel()
 
 	for _, reader := range c.readers {
@@ -104,46 +101,4 @@ func (c *KafkaConsumer) Close() error {
 
 	c.logger.Info("Kafka Consumer closed")
 	return nil
-}
-
-type MessageCreatedPayload struct {
-	ConversationID string      `json:"conversation_id"`
-	MessageID      string      `json:"message_id"`
-	SenderID       string      `json:"sender_id"`
-	Data           interface{} `json:"data"`
-}
-
-type MessageDeletedPayload struct {
-	ConversationID string `json:"conversation_id"`
-	MessageID      string `json:"message_id"`
-}
-
-type ConversationUpdatedPayload struct {
-	ConversationID string      `json:"conversation_id"`
-	UserIDs        []string    `json:"user_ids"`
-	Data           interface{} `json:"data"`
-}
-
-func UnmarshalMessageCreated(data []byte) (*MessageCreatedPayload, error) {
-	var payload MessageCreatedPayload
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal MessageCreatedPayload: %w", err)
-	}
-	return &payload, nil
-}
-
-func UnmarshalMessageDeleted(data []byte) (*MessageDeletedPayload, error) {
-	var payload MessageDeletedPayload
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal MessageDeletedPayload: %w", err)
-	}
-	return &payload, nil
-}
-
-func UnmarshalConversationUpdated(data []byte) (*ConversationUpdatedPayload, error) {
-	var payload ConversationUpdatedPayload
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal ConversationUpdatedPayload: %w", err)
-	}
-	return &payload, nil
 }

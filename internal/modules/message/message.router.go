@@ -18,5 +18,12 @@ func NewRouter(controller *Controller, authMiddleware *middleware.AuthMiddleware
 }
 
 func (r *Router) Setup(router *utils.AppGroup) {
-	r.controller.RegisterRoutes(router, r.authMiddleware)
+	messages := router.Group("/messages")
+	messages.Use(r.authMiddleware.RequireAuth())
+	{
+		messages.POST("", r.controller.SendMessage)
+		messages.POST("/direct", r.controller.SendDirectMessage)
+		messages.GET("/:conversationId", r.controller.GetMessages)
+		messages.DELETE("/:conversationId/:messageId", r.controller.DeleteMessage)
+	}
 }

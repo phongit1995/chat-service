@@ -4,6 +4,7 @@ import (
 	"chat-server/internal/config"
 	"chat-server/internal/constants"
 	"chat-server/internal/logger"
+	kafkaModule "chat-server/internal/modules/kafka"
 	"chat-server/internal/modules/websocket"
 	"chat-server/internal/services"
 
@@ -15,8 +16,8 @@ func provideConfig() (*config.Config, error) {
 	return LoadChatConfig()
 }
 
-func provideChatKafkaConsumer(cfg *config.Config, logger *zap.SugaredLogger) *services.KafkaConsumer {
-	return services.NewKafkaConsumer(cfg, logger, constants.KafkaConsumerGroup)
+func provideChatKafkaConsumer(cfg *config.Config, logger *zap.SugaredLogger) *kafkaModule.Consumer {
+	return kafkaModule.NewConsumer(cfg, logger, constants.KafkaConsumerGroup)
 }
 
 func NewContainer() (*dig.Container, error) {

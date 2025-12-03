@@ -23,16 +23,6 @@ func NewController(service *Service, logger *zap.SugaredLogger) *Controller {
 	}
 }
 
-func (ctrl *Controller) RegisterRoutes(router *utils.AppGroup, authMiddleware *middleware.AuthMiddleware) {
-	messages := router.Group("/messages")
-	messages.Use(authMiddleware.RequireAuth())
-	{
-		messages.POST("", ctrl.SendMessage)
-		messages.GET("/:conversationId", ctrl.GetMessages)
-		messages.DELETE("/:conversationId/:messageId", ctrl.DeleteMessage)
-	}
-}
-
 // SendMessage godoc
 // @Summary      Send message
 // @Description  Send a message in a conversation
@@ -75,6 +65,48 @@ func (ctrl *Controller) SendMessage(c *gin.Context) (interface{}, error) {
 	message, err := ctrl.service.SendMessage(userID, conversationID, req.Type, req.Content, req.Metadata, replyToID)
 	if err != nil {
 		ctrl.logger.Errorw("Failed to send message", "error", err)
+		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to send message")
+	}
+
+	return message, nil
+}
+
+// SendDirectMessage godoc
+// @Summary      Send direct message
+// @Description  Send a message directly to a user (creates conversation if not exists)
+// @Tags         messages
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body SendDirectMessageRequest true "Send Direct Message"
+// @Success      201  {object}  MessageSuccessResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Failure      404  {object}  utils.APIError
+// @Router       /messages/direct [post]
+func (ctrl *Controller) SendDirectMessage(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	var req SendDirectMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	recipientID, err := uuid.Parse(req.RecipientID)
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid recipient ID")
+	}
+
+	if userID == recipientID {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "cannot send message to yourself")
+	}
+
+	message, err := ctrl.service.SendDirectMessage(userID, recipientID, req.Type, req.Content, req.Metadata)
+	if err != nil {
+		ctrl.logger.Errorw("Failed to send direct message", "error", err)
 		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to send message")
 	}
 

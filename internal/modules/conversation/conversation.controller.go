@@ -23,17 +23,6 @@ func NewController(service *Service, logger *zap.SugaredLogger) *Controller {
 	}
 }
 
-func (ctrl *Controller) RegisterRoutes(router *utils.AppGroup, authMiddleware *middleware.AuthMiddleware) {
-	conversations := router.Group("/conversations")
-	conversations.Use(authMiddleware.RequireAuth())
-	{
-		conversations.POST("/direct", ctrl.CreateDirectConversation)
-		conversations.POST("/group", ctrl.CreateGroupConversation)
-		conversations.GET("", ctrl.GetUserConversations)
-		conversations.PUT("/:id/read", ctrl.MarkConversationAsRead)
-	}
-}
-
 // CreateDirectConversation godoc
 // @Summary      Create direct conversation
 // @Description  Create or get existing direct conversation between two users
