@@ -1,13 +1,13 @@
 package main
 
 import (
+	"chat-server/internal/infra/websocket"
 	"chat-server/internal/modules/auth"
 	"chat-server/internal/modules/conversation"
 	"chat-server/internal/modules/health"
 	"chat-server/internal/modules/message"
 	"chat-server/internal/modules/relationships"
 	"chat-server/internal/modules/user"
-	"chat-server/internal/modules/websocket"
 	"chat-server/internal/utils"
 
 	"github.com/gin-gonic/gin"

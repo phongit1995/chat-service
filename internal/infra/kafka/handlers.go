@@ -2,7 +2,7 @@ package kafka
 
 import (
 	"chat-server/internal/constants"
-	"chat-server/internal/modules/websocket"
+	"chat-server/internal/infra/websocket"
 	"context"
 	"encoding/json"
 
@@ -74,9 +74,6 @@ func (h *Handlers) HandleMessageUpdated(ctx context.Context, message []byte) err
 		"message_id", payload.MessageID,
 	)
 
-	// TODO: Implement EmitMessageUpdated in WebSocket Server
-	// h.wsServer.EmitMessageUpdated(payload.ConversationID, payload.MessageID, payload.Data)
-
 	return nil
 }
 
@@ -91,9 +88,6 @@ func (h *Handlers) HandleConversationCreated(ctx context.Context, message []byte
 		"conversation_id", payload.ConversationID,
 		"user_count", len(payload.UserIDs),
 	)
-
-	// TODO: Implement EmitConversationCreated in WebSocket Server
-	// h.wsServer.EmitConversationCreated(payload.UserIDs, payload.Data)
 
 	return nil
 }
@@ -127,9 +121,6 @@ func (h *Handlers) HandleConversationDeleted(ctx context.Context, message []byte
 		"user_count", len(payload.UserIDs),
 	)
 
-	// TODO: Implement EmitConversationDeleted in WebSocket Server
-	// h.wsServer.EmitConversationDeleted(payload.UserIDs, payload.ConversationID)
-
 	return nil
 }
 
@@ -145,9 +136,6 @@ func (h *Handlers) HandleUserOnline(ctx context.Context, message []byte) error {
 		"timestamp", payload.Timestamp,
 	)
 
-	// TODO: Implement EmitUserOnline in WebSocket Server
-	// h.wsServer.EmitUserOnline(payload.UserID, payload.Timestamp)
-
 	return nil
 }
 
@@ -162,9 +150,6 @@ func (h *Handlers) HandleUserOffline(ctx context.Context, message []byte) error 
 		"user_id", payload.UserID,
 		"timestamp", payload.Timestamp,
 	)
-
-	// TODO: Implement EmitUserOffline in WebSocket Server
-	// h.wsServer.EmitUserOffline(payload.UserID, payload.Timestamp)
 
 	return nil
 }
@@ -187,13 +172,9 @@ func (h *Handlers) HandleUserTyping(ctx context.Context, message []byte) error {
 		"status", typingStatus,
 	)
 
-	// TODO: Implement EmitUserTyping in WebSocket Server
-	// h.wsServer.EmitUserTyping(payload.ConversationID, payload.UserID, payload.IsTyping)
-
 	return nil
 }
 
-// RegisterHandlers registers all Kafka handlers with the consumer
 func RegisterHandlers(consumer *Consumer, handlers *Handlers) {
 	consumer.RegisterHandler(constants.KafkaTopicMessageCreated, handlers.HandleMessageCreated)
 	consumer.RegisterHandler(constants.KafkaTopicMessageDeleted, handlers.HandleMessageDeleted)

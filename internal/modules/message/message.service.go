@@ -1,9 +1,9 @@
 package message
 
 import (
+	"chat-server/internal/infra/kafka"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
-	kafkaModule "chat-server/internal/modules/kafka"
 	"context"
 	"fmt"
 	"sync"
@@ -21,11 +21,11 @@ type Service struct {
 	convRepo      *conversation.Repository
 	convCache     *conversation.CacheService
 	db            *gorm.DB
-	kafkaProducer *kafkaModule.Producer
+	kafkaProducer *kafka.Producer
 	logger        *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, db *gorm.DB, kafkaProducer *kafkaModule.Producer, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, db *gorm.DB, kafkaProducer *kafka.Producer, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repo:          repo,
 		cache:         cache,
@@ -273,7 +273,7 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	payload := &kafkaModule.MessageCreatedPayload{
+	payload := &kafka.MessageCreatedPayload{
 		ConversationID: conversationID.String(),
 		MessageID:      messageID.String(),
 		SenderID:       senderID.String(),
@@ -429,7 +429,7 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	payload := &kafkaModule.MessageDeletedPayload{
+	payload := &kafka.MessageDeletedPayload{
 		ConversationID: conversationIDStr,
 		MessageID:      messageIDStr,
 	}

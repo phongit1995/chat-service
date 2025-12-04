@@ -2,8 +2,8 @@ package main
 
 import (
 	"chat-server/internal/config"
-	kafkaModule "chat-server/internal/modules/kafka"
-	"chat-server/internal/modules/websocket"
+	"chat-server/internal/infra/kafka"
+	"chat-server/internal/infra/websocket"
 	"context"
 	"fmt"
 	"log"
@@ -25,15 +25,15 @@ func main() {
 	errChan := make(chan error, 1)
 
 	var wsServer *websocket.Server
-	var kafkaConsumer *kafkaModule.Consumer
+	var kafkaConsumer *kafka.Consumer
 	var srv *http.Server
 
 	go func() {
-		if err := c.Invoke(func(ws *websocket.Server, consumer *kafkaModule.Consumer, kafkaHandlers *kafkaModule.Handlers, cfg *config.Config) error {
+		if err := c.Invoke(func(ws *websocket.Server, consumer *kafka.Consumer, kafkaHandlers *kafka.Handlers, cfg *config.Config) error {
 			wsServer = ws
 			kafkaConsumer = consumer
 
-			kafkaModule.RegisterHandlers(consumer, kafkaHandlers)
+			kafka.RegisterHandlers(consumer, kafkaHandlers)
 
 			if err := consumer.Start(); err != nil {
 				return err

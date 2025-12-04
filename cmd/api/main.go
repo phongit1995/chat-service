@@ -2,7 +2,7 @@ package main
 
 import (
 	"chat-server/internal/config"
-	"chat-server/internal/modules/websocket"
+	"chat-server/internal/infra/websocket"
 	"context"
 	"fmt"
 	"log"
