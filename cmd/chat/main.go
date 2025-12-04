@@ -29,11 +29,11 @@ func main() {
 	var srv *http.Server
 
 	go func() {
-		if err := c.Invoke(func(ws *websocket.Server, consumer *kafka.Consumer, kafkaHandlers *kafka.Handlers, cfg *config.Config) error {
+		if err := c.Invoke(func(ws *websocket.Server, consumer *kafka.Consumer, adapter *kafka.KafkaEventAdapter, cfg *config.Config) error {
 			wsServer = ws
 			kafkaConsumer = consumer
 
-			kafka.RegisterHandlers(consumer, kafkaHandlers)
+			kafka.RegisterEventHandlers(consumer, adapter)
 
 			if err := consumer.Start(); err != nil {
 				return err

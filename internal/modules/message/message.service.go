@@ -1,6 +1,7 @@
 package message
 
 import (
+	messageEvents "chat-server/internal/events/message"
 	"chat-server/internal/infra/kafka"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
@@ -273,13 +274,19 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	payload := &kafka.MessageCreatedPayload{
+	userIDs := make([]string, len(memberIDs))
+	for i, id := range memberIDs {
+		userIDs[i] = id.String()
+	}
+
+	event := &messageEvents.CreatedEvent{
 		ConversationID: conversationID.String(),
 		MessageID:      messageID.String(),
 		SenderID:       senderID.String(),
+		UserIDs:        userIDs,
 		Data:           response,
 	}
-	if err := s.kafkaProducer.PublishMessageCreated(ctx, payload); err != nil {
+	if err := s.kafkaProducer.PublishMessageCreated(ctx, event); err != nil {
 		s.logger.Errorw("Failed to publish message created event", "error", err)
 	}
 
@@ -418,6 +425,19 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		return fmt.Errorf("failed to delete message: %w", err)
 	}
 
+	members, err := s.getMembersCached(conversationID)
+	if err != nil {
+		s.logger.Warnw("Failed to get members for event", "conversation_id", conversationID, "error", err)
+		members = []conversation.ConversationMember{}
+	}
+
+	userIDs := make([]string, 0, len(members))
+	for _, member := range members {
+		if member.IsActive {
+			userIDs = append(userIDs, member.UserID.String())
+		}
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -429,11 +449,12 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	payload := &kafka.MessageDeletedPayload{
+	event := &messageEvents.DeletedEvent{
 		ConversationID: conversationIDStr,
 		MessageID:      messageIDStr,
+		UserIDs:        userIDs,
 	}
-	if err := s.kafkaProducer.PublishMessageDeleted(ctx, payload); err != nil {
+	if err := s.kafkaProducer.PublishMessageDeleted(ctx, event); err != nil {
 		s.logger.Errorw("Failed to publish message deleted event", "error", err)
 	}
 

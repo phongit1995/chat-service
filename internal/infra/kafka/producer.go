@@ -3,6 +3,9 @@ package kafka
 import (
 	"chat-server/internal/config"
 	"chat-server/internal/constants"
+	conversationEvents "chat-server/internal/events/conversation"
+	messageEvents "chat-server/internal/events/message"
+	userEvents "chat-server/internal/events/user"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,40 +35,40 @@ func NewProducer(cfg *config.Config, logger *zap.SugaredLogger) (*Producer, erro
 	}, nil
 }
 
-func (p *Producer) PublishMessageCreated(ctx context.Context, payload *MessageCreatedPayload) error {
-	return p.publish(ctx, constants.KafkaTopicMessageCreated, payload)
+func (p *Producer) PublishMessageCreated(ctx context.Context, event *messageEvents.CreatedEvent) error {
+	return p.publish(ctx, constants.KafkaTopicMessageCreated, event)
 }
 
-func (p *Producer) PublishMessageDeleted(ctx context.Context, payload *MessageDeletedPayload) error {
-	return p.publish(ctx, constants.KafkaTopicMessageDeleted, payload)
+func (p *Producer) PublishMessageDeleted(ctx context.Context, event *messageEvents.DeletedEvent) error {
+	return p.publish(ctx, constants.KafkaTopicMessageDeleted, event)
 }
 
-func (p *Producer) PublishMessageUpdated(ctx context.Context, payload *MessageUpdatedPayload) error {
-	return p.publish(ctx, constants.KafkaTopicMessageUpdated, payload)
+func (p *Producer) PublishMessageUpdated(ctx context.Context, event *messageEvents.UpdatedEvent) error {
+	return p.publish(ctx, constants.KafkaTopicMessageUpdated, event)
 }
 
-func (p *Producer) PublishConversationCreated(ctx context.Context, payload *ConversationCreatedPayload) error {
-	return p.publish(ctx, constants.KafkaTopicConversationCreated, payload)
+func (p *Producer) PublishConversationCreated(ctx context.Context, event *conversationEvents.CreatedEvent) error {
+	return p.publish(ctx, constants.KafkaTopicConversationCreated, event)
 }
 
-func (p *Producer) PublishConversationUpdated(ctx context.Context, payload *ConversationUpdatedPayload) error {
-	return p.publish(ctx, constants.KafkaTopicConversationUpdated, payload)
+func (p *Producer) PublishConversationUpdated(ctx context.Context, event *conversationEvents.UpdatedEvent) error {
+	return p.publish(ctx, constants.KafkaTopicConversationUpdated, event)
 }
 
-func (p *Producer) PublishConversationDeleted(ctx context.Context, payload *ConversationDeletedPayload) error {
-	return p.publish(ctx, constants.KafkaTopicConversationDeleted, payload)
+func (p *Producer) PublishConversationDeleted(ctx context.Context, event *conversationEvents.DeletedEvent) error {
+	return p.publish(ctx, constants.KafkaTopicConversationDeleted, event)
 }
 
-func (p *Producer) PublishUserOnline(ctx context.Context, payload *UserOnlinePayload) error {
-	return p.publish(ctx, constants.KafkaTopicUserOnline, payload)
+func (p *Producer) PublishUserOnline(ctx context.Context, event *userEvents.OnlineEvent) error {
+	return p.publish(ctx, constants.KafkaTopicUserOnline, event)
 }
 
-func (p *Producer) PublishUserOffline(ctx context.Context, payload *UserOfflinePayload) error {
-	return p.publish(ctx, constants.KafkaTopicUserOffline, payload)
+func (p *Producer) PublishUserOffline(ctx context.Context, event *userEvents.OfflineEvent) error {
+	return p.publish(ctx, constants.KafkaTopicUserOffline, event)
 }
 
-func (p *Producer) PublishUserTyping(ctx context.Context, payload *UserTypingPayload) error {
-	return p.publish(ctx, constants.KafkaTopicUserTyping, payload)
+func (p *Producer) PublishUserTyping(ctx context.Context, event *userEvents.TypingEvent) error {
+	return p.publish(ctx, constants.KafkaTopicUserTyping, event)
 }
 
 func (p *Producer) publish(ctx context.Context, topic string, payload interface{}) error {
