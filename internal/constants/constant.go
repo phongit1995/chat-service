@@ -48,7 +48,12 @@ const (
 	WebSocketEventUserOffline         = "USER_OFFLINE"
 	WebSocketEventUserTyping          = "USER_TYPING"
 	WebSocketEventUserStopTyping      = "USER_STOP_TYPING"
-	WebSocketEventError               = "ERROR"
+	WebSocketEventError = "ERROR"
+)
+
+const (
+	CacheKeyPresence   = "PRESENCE:%s:ONLINE"
+	PresenceTTLSeconds = 300
 )
 
 const (

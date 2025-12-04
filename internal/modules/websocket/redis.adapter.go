@@ -11,13 +11,13 @@ import (
 	"go.uber.org/zap"
 )
 
-type RedisService struct {
+type RedisAdapter struct {
 	client *redis.Client
 	logger *zap.SugaredLogger
 	ctx    context.Context
 }
 
-func NewRedisService(cfg *config.Config, logger *zap.SugaredLogger) (*RedisService, error) {
+func NewRedisAdapter(cfg *config.Config, logger *zap.SugaredLogger) (*RedisAdapter, error) {
 	ctx := context.Background()
 
 	client := redis.NewClient(&redis.Options{
@@ -37,21 +37,21 @@ func NewRedisService(cfg *config.Config, logger *zap.SugaredLogger) (*RedisServi
 
 	logger.Info("✅ Connected to WebSocket Redis successfully")
 
-	return &RedisService{
+	return &RedisAdapter{
 		client: client,
 		logger: logger.Named("[websocket_redis]"),
 		ctx:    ctx,
 	}, nil
 }
 
-func (s *RedisService) GetClient() *redis.Client {
+func (s *RedisAdapter) GetClient() *redis.Client {
 	return s.client
 }
 
-func (s *RedisService) GetContext() context.Context {
+func (s *RedisAdapter) GetContext() context.Context {
 	return s.ctx
 }
 
-func (s *RedisService) Close() error {
+func (s *RedisAdapter) Close() error {
 	return s.client.Close()
 }

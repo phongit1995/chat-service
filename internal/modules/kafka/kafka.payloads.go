@@ -4,12 +4,14 @@ type MessageCreatedPayload struct {
 	ConversationID string      `json:"conversation_id"`
 	MessageID      string      `json:"message_id"`
 	SenderID       string      `json:"sender_id"`
+	UserIDs        []string    `json:"user_ids"`
 	Data           interface{} `json:"data"`
 }
 
 type MessageDeletedPayload struct {
-	ConversationID string `json:"conversation_id"`
-	MessageID      string `json:"message_id"`
+	ConversationID string   `json:"conversation_id"`
+	MessageID      string   `json:"message_id"`
+	UserIDs        []string `json:"user_ids"`
 }
 
 type MessageUpdatedPayload struct {

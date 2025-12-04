@@ -179,3 +179,7 @@ func (s *CacheService) Close() error {
 func (s *CacheService) GetClient() *redis.Client {
 	return s.client
 }
+
+func (s *CacheService) GetContext() context.Context {
+	return s.ctx
+}

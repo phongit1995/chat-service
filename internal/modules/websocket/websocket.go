@@ -16,11 +16,12 @@ import (
 )
 
 type Server struct {
-	io           *socket.Server
-	jwtService   *services.JWTService
-	redisService *RedisService
-	logger       *zap.SugaredLogger
-	redisClient  *redis.Client
+	io              *socket.Server
+	jwtService      *services.JWTService
+	redisAdapter    *RedisAdapter
+	presenceService *PresenceService
+	logger          *zap.SugaredLogger
+	redisClient     *redis.Client
 }
 
 type SocketData struct {
@@ -30,10 +31,11 @@ type SocketData struct {
 func NewServer(
 	cfg *config.Config,
 	jwtService *services.JWTService,
-	redisService *RedisService,
+	redisAdapter *RedisAdapter,
+	presenceService *PresenceService,
 	logger *zap.SugaredLogger,
 ) (*Server, error) {
-	rdb := redisService.GetClient()
+	rdb := redisAdapter.GetClient()
 
 	wrappedRedisClient := redisClient.NewRedisClient(context.Background(), rdb)
 
@@ -46,11 +48,12 @@ func NewServer(
 	io := socket.NewServer(nil, opts)
 
 	server := &Server{
-		io:           io,
-		jwtService:   jwtService,
-		redisService: redisService,
-		logger:       logger.Named("[websocket]"),
-		redisClient:  rdb,
+		io:              io,
+		jwtService:      jwtService,
+		redisAdapter:    redisAdapter,
+		presenceService: presenceService,
+		logger:          logger.Named("[websocket]"),
+		redisClient:     rdb,
 	}
 
 	io.Use(func(s *socket.Socket, next func(*socket.ExtendedError)) {
@@ -93,19 +96,10 @@ func NewServer(
 		next(nil)
 	})
 
-	io.On("connection", func(clients ...any) {
-		client := clients[0].(*socket.Socket)
-		data := client.Data().(*SocketData)
-		userId := data.UserID
+	eventHandler := NewEventHandler(server, presenceService)
+	eventHandler.RegisterEvents()
 
-		server.logger.Infow("WebSocket connected", "user_id", userId, "socket_id", client.Id())
-
-		client.On("disconnect", func(args ...any) {
-			server.logger.Infow("WebSocket disconnected", "user_id", userId, "socket_id", client.Id())
-		})
-	})
-
-	logger.Info("✅ WebSocket server initialized with Socket.IO v3 + Redis Adapter")
+	logger.Info("✅ WebSocket server initialized with Socket.IO v3 + Redis Adapter + Presence Tracking")
 	return server, nil
 }
 
@@ -115,31 +109,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) Close() {
 	s.io.Close(nil)
-	s.redisService.Close()
-}
-
-func (s *Server) EmitNewMessage(conversationID string, message any) {
-	room := "conversation:" + conversationID
-	s.io.To(socket.Room(room)).Emit(constants.WebSocketEventNewMessage, message)
-	s.logger.Debugw("Emitted new_message", "conversation_id", conversationID)
-}
-
-func (s *Server) EmitMessageDeleted(conversationID, messageID string) {
-	room := "conversation:" + conversationID
-	data := map[string]any{
-		"conversation_id": conversationID,
-		"message_id":      messageID,
-	}
-	s.io.To(socket.Room(room)).Emit(constants.WebSocketEventMessageDeleted, data)
-	s.logger.Debugw("Emitted message_deleted", "conversation_id", conversationID)
-}
-
-func (s *Server) EmitConversationUpdated(userIDs []string, conversation any) {
-	for _, userID := range userIDs {
-		room := "user:" + userID
-		s.io.To(socket.Room(room)).Emit(constants.WebSocketEventConversationUpdated, conversation)
-	}
-	s.logger.Debugw("Emitted conversation_updated", "user_count", len(userIDs))
+	s.redisAdapter.Close()
 }
 
 func (s *Server) EmitUserOnlineStatus(userID string, isOnline bool) {
@@ -152,4 +122,19 @@ func (s *Server) EmitUserOnlineStatus(userID string, isOnline bool) {
 	} else {
 		s.io.Emit(constants.WebSocketEventUserOffline, data)
 	}
+}
+
+func (s *Server) EmitToUser(userID string, event string, data any) {
+	room := "user:" + userID
+	s.io.To(socket.Room(room)).Emit(event, data)
+}
+
+func (s *Server) EmitToUsers(userIDs []string, event string, data any) {
+	for _, userID := range userIDs {
+		s.EmitToUser(userID, event, data)
+	}
+}
+
+func (s *Server) GetPresenceService() *PresenceService {
+	return s.presenceService
 }

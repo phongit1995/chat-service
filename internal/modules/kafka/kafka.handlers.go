@@ -32,10 +32,10 @@ func (h *Handlers) HandleMessageCreated(ctx context.Context, message []byte) err
 		"conversation_id", payload.ConversationID,
 		"message_id", payload.MessageID,
 		"sender_id", payload.SenderID,
+		"user_count", len(payload.UserIDs),
 	)
 
-	// Broadcast to WebSocket clients
-	h.wsServer.EmitNewMessage(payload.ConversationID, payload.Data)
+	h.wsServer.EmitToUsers(payload.UserIDs, constants.WebSocketEventNewMessage, payload.Data)
 
 	return nil
 }
@@ -50,10 +50,14 @@ func (h *Handlers) HandleMessageDeleted(ctx context.Context, message []byte) err
 	h.logger.Debugw("🗑️ MESSAGE_DELETED",
 		"conversation_id", payload.ConversationID,
 		"message_id", payload.MessageID,
+		"user_count", len(payload.UserIDs),
 	)
 
-	// Broadcast to WebSocket clients
-	h.wsServer.EmitMessageDeleted(payload.ConversationID, payload.MessageID)
+	data := map[string]any{
+		"conversation_id": payload.ConversationID,
+		"message_id":      payload.MessageID,
+	}
+	h.wsServer.EmitToUsers(payload.UserIDs, constants.WebSocketEventMessageDeleted, data)
 
 	return nil
 }
@@ -106,8 +110,7 @@ func (h *Handlers) HandleConversationUpdated(ctx context.Context, message []byte
 		"user_count", len(payload.UserIDs),
 	)
 
-	// Broadcast to WebSocket clients
-	h.wsServer.EmitConversationUpdated(payload.UserIDs, payload.Data)
+	h.wsServer.EmitToUsers(payload.UserIDs, constants.WebSocketEventConversationUpdated, payload.Data)
 
 	return nil
 }

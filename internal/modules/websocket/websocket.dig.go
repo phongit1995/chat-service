@@ -3,9 +3,9 @@ package websocket
 import "go.uber.org/dig"
 
 func Provider(c *dig.Container) error {
-
 	providers := []interface{}{
-		NewRedisService,
+		NewRedisAdapter,
+		NewPresenceService,
 		NewServer,
 	}
 
