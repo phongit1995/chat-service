@@ -1,7 +1,7 @@
 package message
 
 import (
-	messageEvents "chat-server/internal/events/message"
+	messageEvents "chat-server/internal/domain/message"
 	"chat-server/internal/infra/kafka"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"

@@ -3,9 +3,9 @@ package kafka
 import (
 	"chat-server/internal/config"
 	"chat-server/internal/constants"
-	conversationEvents "chat-server/internal/events/conversation"
-	messageEvents "chat-server/internal/events/message"
-	userEvents "chat-server/internal/events/user"
+	conversationEvents "chat-server/internal/domain/conversation"
+	messageEvents "chat-server/internal/domain/message"
+	userEvents "chat-server/internal/domain/user"
 	"context"
 	"encoding/json"
 	"fmt"
