@@ -108,7 +108,7 @@ func (c *CacheService) SetDirectConversation(user1ID, user2ID, conversationID uu
 }
 
 func (c *CacheService) GetUnreadCount(conversationID, userID uuid.UUID) (int, error) {
-	key := fmt.Sprintf(constants.CacheKeyUnreadCount, fmt.Sprintf("%s:%s", conversationID.String(), userID.String()))
+	key := fmt.Sprintf(constants.CacheKeyUnreadCount, conversationID.String(), userID.String())
 	var count int
 	if err := c.cache.Get(key, &count); err != nil {
 		return 0, err
@@ -117,12 +117,12 @@ func (c *CacheService) GetUnreadCount(conversationID, userID uuid.UUID) (int, er
 }
 
 func (c *CacheService) SetUnreadCount(conversationID, userID uuid.UUID, count int) error {
-	key := fmt.Sprintf(constants.CacheKeyUnreadCount, fmt.Sprintf("%s:%s", conversationID.String(), userID.String()))
+	key := fmt.Sprintf(constants.CacheKeyUnreadCount, conversationID.String(), userID.String())
 	return c.cache.Set(key, count, constants.CacheTTLUnreadCount*time.Second)
 }
 
 func (c *CacheService) IncrementUnreadCount(conversationID, userID uuid.UUID) error {
-	key := fmt.Sprintf(constants.CacheKeyUnreadCount, fmt.Sprintf("%s:%s", conversationID.String(), userID.String()))
+	key := fmt.Sprintf(constants.CacheKeyUnreadCount, conversationID.String(), userID.String())
 	_, err := c.cache.Increment(key)
 	if err != nil {
 		return c.SetUnreadCount(conversationID, userID, 1)
@@ -131,7 +131,7 @@ func (c *CacheService) IncrementUnreadCount(conversationID, userID uuid.UUID) er
 }
 
 func (c *CacheService) ResetUnreadCount(conversationID, userID uuid.UUID) error {
-	key := fmt.Sprintf(constants.CacheKeyUnreadCount, fmt.Sprintf("%s:%s", conversationID.String(), userID.String()))
+	key := fmt.Sprintf(constants.CacheKeyUnreadCount, conversationID.String(), userID.String())
 	return c.cache.Delete(key)
 }
 
@@ -154,4 +154,57 @@ func (c *CacheService) InvalidateUserConversations(userIDs []uuid.UUID) error {
 		}
 	}
 	return nil
+}
+
+// GetHiddenConversations gets the set of hidden conversation IDs for a user from Redis
+func (c *CacheService) GetHiddenConversations(userID uuid.UUID) (map[string]bool, error) {
+	key := fmt.Sprintf(constants.CacheKeyHiddenConversations, userID.String())
+	var hiddenMap map[string]bool
+	if err := c.cache.Get(key, &hiddenMap); err != nil {
+		return nil, err
+	}
+	return hiddenMap, nil
+}
+
+// SetHiddenConversations sets the set of hidden conversation IDs for a user in Redis
+func (c *CacheService) SetHiddenConversations(userID uuid.UUID, hiddenMap map[string]bool) error {
+	key := fmt.Sprintf(constants.CacheKeyHiddenConversations, userID.String())
+	return c.cache.Set(key, hiddenMap, constants.CacheTTLHiddenConversations*time.Second)
+}
+
+// AddHiddenConversation adds a conversation to the hidden set in Redis
+func (c *CacheService) AddHiddenConversation(userID, conversationID uuid.UUID) error {
+	hiddenMap, err := c.GetHiddenConversations(userID)
+	if err != nil {
+		// If cache miss, start with new map
+		hiddenMap = make(map[string]bool)
+	}
+	hiddenMap[conversationID.String()] = true
+	return c.SetHiddenConversations(userID, hiddenMap)
+}
+
+// RemoveHiddenConversation removes a conversation from the hidden set in Redis
+func (c *CacheService) RemoveHiddenConversation(userID, conversationID uuid.UUID) error {
+	hiddenMap, err := c.GetHiddenConversations(userID)
+	if err != nil {
+		// If cache miss, nothing to remove
+		return nil
+	}
+	delete(hiddenMap, conversationID.String())
+	return c.SetHiddenConversations(userID, hiddenMap)
+}
+
+// IsConversationHidden checks if a conversation is hidden (from Redis cache)
+func (c *CacheService) IsConversationHidden(userID, conversationID uuid.UUID) (bool, error) {
+	hiddenMap, err := c.GetHiddenConversations(userID)
+	if err != nil {
+		return false, err
+	}
+	return hiddenMap[conversationID.String()], nil
+}
+
+// DeleteHiddenConversationsCache invalidates the hidden conversations cache for a user
+func (c *CacheService) DeleteHiddenConversationsCache(userID uuid.UUID) error {
+	key := fmt.Sprintf(constants.CacheKeyHiddenConversations, userID.String())
+	return c.cache.Delete(key)
 }

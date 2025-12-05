@@ -67,6 +67,18 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 		WHERE conversation_id = ? AND user_id = ?
 	`)
 
+	r.preparedQueries["check_hidden"] = session.Query(`
+		SELECT conversation_id FROM hidden_conversations
+		WHERE user_id = ? AND conversation_id = ?
+	`)
+
+	r.preparedQueries["get_hidden_conversation"] = session.Query(`
+		SELECT user_id, conversation_id, hidden_at, is_group, other_user_id, 
+		       other_user_name, other_user_avatar, title, avatar
+		FROM hidden_conversations
+		WHERE user_id = ? AND conversation_id = ?
+	`)
+
 	return r
 }
 
@@ -112,6 +124,18 @@ type DirectConversationPair struct {
 	UserA          uuid.UUID
 	UserB          uuid.UUID
 	ConversationID uuid.UUID
+}
+
+type HiddenConversation struct {
+	UserID          uuid.UUID
+	ConversationID  uuid.UUID
+	HiddenAt        time.Time
+	IsGroup         bool
+	OtherUserID     *uuid.UUID
+	OtherUserName   string
+	OtherUserAvatar string
+	Title           string
+	Avatar          string
 }
 
 func (r *Repository) CreateConversation(conv *Conversation) error {
@@ -335,4 +359,113 @@ func (r *Repository) GetUserConversationByID(userID, conversationID uuid.UUID) (
 		return nil, err
 	}
 	return &conv, nil
+}
+
+// CheckIfHidden checks if a conversation is hidden by a user
+func (r *Repository) CheckIfHidden(userID, conversationID uuid.UUID) (bool, error) {
+	var convID uuid.UUID
+	err := r.preparedQueries["check_hidden"].Bind(userID, conversationID).Scan(&convID)
+	if err == gocql.ErrNotFound {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// GetHiddenConversation retrieves hidden conversation data
+func (r *Repository) GetHiddenConversation(userID, conversationID uuid.UUID) (*HiddenConversation, error) {
+	var hidden HiddenConversation
+	err := r.preparedQueries["get_hidden_conversation"].Bind(userID, conversationID).Scan(
+		&hidden.UserID, &hidden.ConversationID, &hidden.HiddenAt,
+		&hidden.IsGroup, &hidden.OtherUserID, &hidden.OtherUserName,
+		&hidden.OtherUserAvatar, &hidden.Title, &hidden.Avatar,
+	)
+	if err == gocql.ErrNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &hidden, nil
+}
+
+// HideConversation moves a conversation from inbox to hidden
+func (r *Repository) HideConversation(userID, conversationID uuid.UUID) error {
+	// First, get the current conversation data from inbox
+	userConv, err := r.GetUserConversationByID(userID, conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get user conversation: %w", err)
+	}
+	if userConv == nil {
+		return fmt.Errorf("conversation not found in user inbox")
+	}
+
+	batch := r.session.NewBatch(gocql.UnloggedBatch)
+
+	// Delete from conversations_by_user
+	deleteQuery := `DELETE FROM conversations_by_user 
+	                WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
+	batch.Query(deleteQuery, userID, userConv.LastMessageAt, conversationID)
+
+	// Delete from lookup table
+	deleteLookupQuery := `DELETE FROM conversation_user_lookup 
+	                      WHERE user_id = ? AND conversation_id = ?`
+	batch.Query(deleteLookupQuery, userID, conversationID)
+
+	// Insert into hidden_conversations
+	insertHiddenQuery := `INSERT INTO hidden_conversations 
+	                      (user_id, conversation_id, hidden_at, is_group, other_user_id, 
+	                       other_user_name, other_user_avatar, title, avatar)
+	                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	batch.Query(insertHiddenQuery,
+		userID, conversationID, time.Now(),
+		userConv.IsGroup, userConv.OtherUserID, userConv.OtherUserName,
+		userConv.OtherUserAvatar, userConv.Title, userConv.Avatar,
+	)
+
+	return r.session.ExecuteBatch(batch)
+}
+
+// UnhideConversation moves a conversation from hidden back to inbox
+func (r *Repository) UnhideConversation(userID, conversationID uuid.UUID, newLastMessageAt gocql.UUID,
+	lastMessageID *gocql.UUID, lastMessageBody string, lastMessageSender *uuid.UUID, unreadCount int) error {
+
+	// Get hidden conversation data
+	hidden, err := r.GetHiddenConversation(userID, conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get hidden conversation: %w", err)
+	}
+	if hidden == nil {
+		return fmt.Errorf("conversation not in hidden list")
+	}
+
+	batch := r.session.NewBatch(gocql.UnloggedBatch)
+
+	// Delete from hidden_conversations
+	deleteHiddenQuery := `DELETE FROM hidden_conversations 
+	                      WHERE user_id = ? AND conversation_id = ?`
+	batch.Query(deleteHiddenQuery, userID, conversationID)
+
+	// Insert back into conversations_by_user
+	insertInboxQuery := `INSERT INTO conversations_by_user
+	                     (user_id, last_message_at, conversation_id, is_group, other_user_id, 
+	                      other_user_name, other_user_avatar, title, avatar, last_message_id, 
+	                      last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at)
+	                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	batch.Query(insertInboxQuery,
+		userID, newLastMessageAt, conversationID,
+		hidden.IsGroup, hidden.OtherUserID, hidden.OtherUserName,
+		hidden.OtherUserAvatar, hidden.Title, hidden.Avatar,
+		lastMessageID, lastMessageBody, lastMessageSender, unreadCount,
+		nil, nil, // last_read_message_id and last_read_at will be null
+	)
+
+	// Insert into lookup table
+	insertLookupQuery := `INSERT INTO conversation_user_lookup 
+	                      (user_id, conversation_id, last_message_at) VALUES (?, ?, ?)`
+	batch.Query(insertLookupQuery, userID, conversationID, newLastMessageAt)
+
+	return r.session.ExecuteBatch(batch)
 }

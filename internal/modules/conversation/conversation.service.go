@@ -393,3 +393,133 @@ func (s *Service) InvalidateUserConversationsCache(userIDs []uuid.UUID) {
 func (s *Service) InvalidateConversationCache(conversationID uuid.UUID) {
 	s.cache.InvalidateConversation(conversationID)
 }
+
+// HideConversation hides a conversation for a user
+func (s *Service) HideConversation(userID, conversationID uuid.UUID) error {
+	// Verify user is a member of the conversation
+	members, err := s.GetMembersCached(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get members: %w", err)
+	}
+
+	isMember := false
+	for _, m := range members {
+		if m.UserID == userID && m.IsActive {
+			isMember = true
+			break
+		}
+	}
+
+	if !isMember {
+		return fmt.Errorf("user is not a member of this conversation")
+	}
+
+	// Hide conversation in ScyllaDB
+	if err := s.repo.HideConversation(userID, conversationID); err != nil {
+		return fmt.Errorf("failed to hide conversation: %w", err)
+	}
+
+	// Update Redis cache
+	go func() {
+		if err := s.cache.AddHiddenConversation(userID, conversationID); err != nil {
+			s.logger.Warnw("Failed to update hidden cache", "user_id", userID, "conversation_id", conversationID, "error", err)
+		}
+		// Invalidate user's conversation list cache
+		s.InvalidateUserConversationsCache([]uuid.UUID{userID})
+	}()
+
+	return nil
+}
+
+// UnhideConversation unhides a conversation for a user (manual unhide)
+func (s *Service) UnhideConversation(userID, conversationID uuid.UUID) error {
+	// Check if conversation is actually hidden
+	hidden, err := s.repo.GetHiddenConversation(userID, conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to check hidden status: %w", err)
+	}
+	if hidden == nil {
+		return fmt.Errorf("conversation is not hidden")
+	}
+
+	// Unhide with empty message (no new message)
+	newLastMessageAt := gocql.TimeUUID()
+	if err := s.repo.UnhideConversation(userID, conversationID, newLastMessageAt, nil, "", nil, 0); err != nil {
+		return fmt.Errorf("failed to unhide conversation: %w", err)
+	}
+
+	// Update Redis cache
+	go func() {
+		if err := s.cache.RemoveHiddenConversation(userID, conversationID); err != nil {
+			s.logger.Warnw("Failed to update hidden cache", "user_id", userID, "conversation_id", conversationID, "error", err)
+		}
+		// Invalidate user's conversation list cache
+		s.InvalidateUserConversationsCache([]uuid.UUID{userID})
+	}()
+
+	return nil
+}
+
+// CheckIfHidden checks if a conversation is hidden for a user (with cache)
+func (s *Service) CheckIfHidden(userID, conversationID uuid.UUID) (bool, error) {
+	// Try cache first
+	isHidden, err := s.cache.IsConversationHidden(userID, conversationID)
+	if err == nil {
+		s.logger.Debugw("Cache HIT for hidden status", "user_id", userID, "conversation_id", conversationID, "hidden", isHidden)
+		return isHidden, nil
+	}
+
+	// Cache miss - check ScyllaDB
+	s.logger.Debugw("Cache MISS for hidden status", "user_id", userID, "conversation_id", conversationID)
+	isHidden, err = s.repo.CheckIfHidden(userID, conversationID)
+	if err != nil {
+		return false, fmt.Errorf("failed to check hidden status: %w", err)
+	}
+
+	// Update cache asynchronously
+	go func() {
+		if isHidden {
+			if err := s.cache.AddHiddenConversation(userID, conversationID); err != nil {
+				s.logger.Warnw("Failed to cache hidden status", "user_id", userID, "conversation_id", conversationID, "error", err)
+			}
+		}
+	}()
+
+	return isHidden, nil
+}
+
+// AutoUnhideOnNewMessage unhides a conversation when a new message arrives
+// This is called from the message module
+func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messageID gocql.UUID,
+	messageBody string, senderID uuid.UUID) error {
+
+	// Check if conversation is hidden (with cache)
+	isHidden, err := s.CheckIfHidden(userID, conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to check hidden status: %w", err)
+	}
+
+	if !isHidden {
+		// Not hidden, nothing to do
+		return nil
+	}
+
+	s.logger.Infow("Auto-unhiding conversation due to new message",
+		"user_id", userID, "conversation_id", conversationID, "message_id", messageID)
+
+	// Unhide conversation with the new message data
+	if err := s.repo.UnhideConversation(userID, conversationID, messageID, &messageID, messageBody, &senderID, 1); err != nil {
+		return fmt.Errorf("failed to auto-unhide conversation: %w", err)
+	}
+
+	// Update Redis cache
+	go func() {
+		if err := s.cache.RemoveHiddenConversation(userID, conversationID); err != nil {
+			s.logger.Warnw("Failed to update hidden cache", "user_id", userID, "conversation_id", conversationID, "error", err)
+		}
+		// Invalidate user's conversation list cache
+		s.InvalidateUserConversationsCache([]uuid.UUID{userID})
+	}()
+
+	return nil
+}

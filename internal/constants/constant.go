@@ -24,6 +24,7 @@ const (
 	CacheKeyConversation        = "CONVERSATION:%s:DETAIL"
 	CacheKeyConversationList    = "USER:%s:CONVERSATIONS"
 	CacheKeyConversationMembers = "CONVERSATION:%s:MEMBERS"
+	CacheKeyHiddenConversations = "USER:%s:HIDDEN_CONVERSATIONS"
 	CacheKeyMessage             = "MESSAGE:%s:DETAIL"
 	CacheKeyMessageList         = "CONVERSATION:%s:MESSAGES"
 	CacheKeyRelationship        = "RELATIONSHIP:%s:DETAIL"
@@ -48,7 +49,7 @@ const (
 	WebSocketEventUserOffline         = "USER_OFFLINE"
 	WebSocketEventUserTyping          = "USER_TYPING"
 	WebSocketEventUserStopTyping      = "USER_STOP_TYPING"
-	WebSocketEventError = "ERROR"
+	WebSocketEventError               = "ERROR"
 )
 
 const (
@@ -57,18 +58,19 @@ const (
 )
 
 const (
-	CacheTTLUserProfile        = 3600
-	CacheTTLUserOnlineStatus   = 300
-	CacheTTLUserSession        = 86400
-	CacheTTLConversation       = 1800
-	CacheTTLConversationList   = 600
-	CacheTTLMessage            = 3600
-	CacheTTLMessageList        = 300
-	CacheTTLRelationship       = 3600
-	CacheTTLUnreadCount        = 60
-	CacheTTLRateLimit          = 60
-	CacheTTLOTP                = 300
-	CacheTTLPasswordResetToken = 1800
+	CacheTTLUserProfile         = 3600
+	CacheTTLUserOnlineStatus    = 300
+	CacheTTLUserSession         = 86400
+	CacheTTLConversation        = 1800
+	CacheTTLConversationList    = 600
+	CacheTTLHiddenConversations = 1800
+	CacheTTLMessage             = 3600
+	CacheTTLMessageList         = 300
+	CacheTTLRelationship        = 3600
+	CacheTTLUnreadCount         = 60
+	CacheTTLRateLimit           = 60
+	CacheTTLOTP                 = 300
+	CacheTTLPasswordResetToken  = 1800
 )
 
 const (

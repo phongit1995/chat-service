@@ -25,5 +25,7 @@ func (r *Router) Setup(router *utils.AppGroup) {
 		conversations.POST("/group", r.controller.CreateGroupConversation)
 		conversations.GET("", r.controller.GetUserConversations)
 		conversations.PUT("/:id/read", r.controller.MarkConversationAsRead)
+		conversations.POST("/:id/hide", r.controller.HideConversation)
+		conversations.POST("/:id/unhide", r.controller.UnhideConversation)
 	}
 }

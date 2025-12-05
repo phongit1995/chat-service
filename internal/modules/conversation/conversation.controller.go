@@ -164,3 +164,71 @@ func (ctrl *Controller) MarkConversationAsRead(c *gin.Context) (interface{}, err
 
 	return map[string]string{"message": "Conversation marked as read successfully"}, nil
 }
+
+// HideConversation godoc
+// @Summary      Hide conversation
+// @Description  Hide a conversation from the user's inbox. It will reappear when a new message arrives.
+// @Tags         conversations
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Conversation ID"
+// @Success      200  {object}  HideConversationResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Failure      403  {object}  utils.APIError
+// @Router       /conversations/{id}/hide [post]
+func (ctrl *Controller) HideConversation(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	conversationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid conversation ID")
+	}
+
+	if err := ctrl.service.HideConversation(userID, conversationID); err != nil {
+		ctrl.logger.Errorw("Failed to hide conversation", "error", err, "user_id", userID, "conversation_id", conversationID)
+		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to hide conversation")
+	}
+
+	return &HideConversationResponse{
+		Success: true,
+		Message: "Conversation hidden successfully",
+	}, nil
+}
+
+// UnhideConversation godoc
+// @Summary      Unhide conversation
+// @Description  Manually unhide a previously hidden conversation
+// @Tags         conversations
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Conversation ID"
+// @Success      200  {object}  UnhideConversationResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Failure      404  {object}  utils.APIError
+// @Router       /conversations/{id}/unhide [post]
+func (ctrl *Controller) UnhideConversation(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	conversationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid conversation ID")
+	}
+
+	if err := ctrl.service.UnhideConversation(userID, conversationID); err != nil {
+		ctrl.logger.Errorw("Failed to unhide conversation", "error", err, "user_id", userID, "conversation_id", conversationID)
+		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to unhide conversation")
+	}
+
+	return &UnhideConversationResponse{
+		Success: true,
+		Message: "Conversation unhidden successfully",
+	}, nil
+}

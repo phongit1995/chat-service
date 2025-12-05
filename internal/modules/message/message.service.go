@@ -208,7 +208,43 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		}
 
 		if inboxEntry == nil {
-			s.logger.Errorw("No inbox entry found for user", "user_id", member.UserID, "conversation_id", conversationID)
+			// Inbox entry not found - might be hidden. Check and auto-unhide if needed.
+			isHidden, checkErr := s.convRepo.CheckIfHidden(member.UserID, conversationID)
+			if checkErr != nil {
+				s.logger.Errorw("Failed to check hidden status", "user_id", member.UserID, "conversation_id", conversationID, "error", checkErr)
+				return nil, fmt.Errorf("failed to check hidden status for user %s", member.UserID)
+			}
+
+			if isHidden {
+				// Auto-unhide: conversation was hidden, new message should restore it
+				s.logger.Infow("Auto-unhiding conversation due to new message",
+					"user_id", member.UserID, "conversation_id", conversationID, "message_id", messageID)
+
+				unreadCount := 0
+				if member.UserID != senderID {
+					unreadCount = 1
+				}
+
+				if unhideErr := s.convRepo.UnhideConversation(member.UserID, conversationID, messageID,
+					&messageID, shortContent, &senderID, unreadCount); unhideErr != nil {
+					s.logger.Errorw("Failed to auto-unhide conversation", "user_id", member.UserID, "error", unhideErr)
+					return nil, fmt.Errorf("failed to auto-unhide conversation for user %s", member.UserID)
+				}
+
+				// Update cache: remove from hidden set
+				go func(uid uuid.UUID) {
+					if cacheErr := s.convCache.RemoveHiddenConversation(uid, conversationID); cacheErr != nil {
+						s.logger.Warnw("Failed to update hidden cache after auto-unhide",
+							"user_id", uid, "conversation_id", conversationID, "error", cacheErr)
+					}
+				}(member.UserID)
+
+				// Continue to next member - conversation has been restored
+				continue
+			}
+
+			// Not hidden, genuinely missing
+			s.logger.Errorw("No inbox entry found for user and not hidden", "user_id", member.UserID, "conversation_id", conversationID)
 			return nil, fmt.Errorf("inbox entry missing for user %s", member.UserID)
 		}
 
