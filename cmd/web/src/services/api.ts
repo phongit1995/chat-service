@@ -1,0 +1,89 @@
+import axios, { AxiosInstance } from 'axios'
+import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail } from '../types'
+import env from '../config/env'
+
+class ApiService {
+  private api: AxiosInstance
+
+  constructor() {
+    const baseURL = env.isDevelopment ? '/api' : `${env.apiBaseUrl}/api`
+
+    this.api = axios.create({
+      baseURL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    this.api.interceptors.request.use((config) => {
+      const token = localStorage.getItem('accessToken')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+      return config
+    })
+
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('user')
+          window.location.href = '/login'
+        }
+        return Promise.reject(error)
+      }
+    )
+  }
+
+  async login(data: LoginDTO): Promise<AuthResponse> {
+    const response = await this.api.post<AuthResponse>('/auth/login', data)
+    return response.data
+  }
+
+  async register(data: RegisterDTO): Promise<AuthResponse> {
+    const response = await this.api.post<AuthResponse>('/auth/register', data)
+    return response.data
+  }
+
+  async getProfile(): Promise<ApiResponse<User>> {
+    const response = await this.api.get<ApiResponse<User>>('/users/me')
+    return response.data
+  }
+
+  async getConversations(): Promise<ApiResponse<Conversation[]>> {
+    const response = await this.api.get<ApiResponse<Conversation[]>>('/conversations')
+    return response.data
+  }
+
+  async getConversation(id: string): Promise<ApiResponse<ConversationDetail>> {
+    const response = await this.api.get<ApiResponse<ConversationDetail>>(`/conversations/${id}`)
+    return response.data
+  }
+
+  async createConversation(data: CreateConversationDTO): Promise<ApiResponse<Conversation>> {
+    const response = await this.api.post<ApiResponse<Conversation>>('/conversations', data)
+    return response.data
+  }
+
+  async getMessages(conversationId: string, limit = 50, offset = 0): Promise<ApiResponse<Message[]>> {
+    const response = await this.api.get<ApiResponse<Message[]>>(`/conversations/${conversationId}/messages`, {
+      params: { limit, offset }
+    })
+    return response.data
+  }
+
+  async sendMessage(data: CreateMessageDTO): Promise<ApiResponse<Message>> {
+    const response = await this.api.post<ApiResponse<Message>>('/messages', data)
+    return response.data
+  }
+
+  async searchUsers(query: string): Promise<ApiResponse<User[]>> {
+    const response = await this.api.get<ApiResponse<User[]>>('/users/search', {
+      params: { q: query }
+    })
+    return response.data
+  }
+}
+
+export const apiService = new ApiService()
