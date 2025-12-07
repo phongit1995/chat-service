@@ -10,7 +10,7 @@ interface AuthState {
   isLoading: boolean
   error: string | null
 
-  login: (identifier: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string, firstName?: string, lastName?: string) => Promise<void>
   logout: () => void
   loadUser: () => Promise<void>
@@ -24,23 +24,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: false,
   error: null,
 
-  login: async (identifier, password) => {
+  login: async (email, password) => {
     set({ isLoading: true, error: null })
     try {
-      const response = await apiService.login({ identifier, password })
-      const { accessToken, user } = response.data
+      const response = await apiService.login({ email, password })
+      const { token, user } = response.data
 
-      localStorage.setItem('accessToken', accessToken)
+      localStorage.setItem('accessToken', token)
       localStorage.setItem('user', JSON.stringify(user))
 
       set({
         user,
-        accessToken,
+        accessToken: token,
         isAuthenticated: true,
         isLoading: false
       })
 
-      socketService.connect(accessToken)
+      socketService.connect(token)
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Login failed'
       set({ error: errorMessage, isLoading: false })
@@ -58,19 +58,19 @@ export const useAuthStore = create<AuthState>((set) => ({
         firstName,
         lastName
       })
-      const { accessToken, user } = response.data
+      const { token, user } = response.data
 
-      localStorage.setItem('accessToken', accessToken)
+      localStorage.setItem('accessToken', token)
       localStorage.setItem('user', JSON.stringify(user))
 
       set({
         user,
-        accessToken,
+        accessToken: token,
         isAuthenticated: true,
         isLoading: false
       })
 
-      socketService.connect(accessToken)
+      socketService.connect(token)
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Registration failed'
       set({ error: errorMessage, isLoading: false })

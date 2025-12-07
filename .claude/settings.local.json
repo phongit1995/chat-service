@@ -16,7 +16,14 @@
       "Bash(node:*)",
       "Bash(npm --version:*)",
       "Bash(npm install)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(make help:*)",
+      "Bash(make web-install:*)",
+      "Bash(yarn dev:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(go get:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

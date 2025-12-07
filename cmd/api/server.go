@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chat-server/internal/config"
 	"chat-server/internal/infra/websocket"
 	"chat-server/internal/modules/auth"
 	"chat-server/internal/modules/conversation"
@@ -10,6 +11,7 @@ import (
 	"chat-server/internal/modules/user"
 	"chat-server/internal/utils"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -29,8 +31,18 @@ func CreateServer(
 	conversationRouter *conversation.Router,
 	messageRouter *message.Router,
 	wsServer *websocket.Server,
+	cfg *config.Config,
 ) *Server {
 	r := gin.Default()
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     cfg.CORSAllowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * 3600,
+	}))
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
 		ginSwagger.URL("/swagger/doc.json"),

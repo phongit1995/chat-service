@@ -6,7 +6,7 @@ class ApiService {
   private api: AxiosInstance
 
   constructor() {
-    const baseURL = env.isDevelopment ? '/api' : `${env.apiBaseUrl}/api`
+    const baseURL = `${env.apiBaseUrl}/api`
 
     this.api = axios.create({
       baseURL,

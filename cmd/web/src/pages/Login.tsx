@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 
 export const Login = () => {
-  const [identifier, setIdentifier] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const { login, isLoading, error, clearError } = useAuthStore()
   const navigate = useNavigate()
@@ -13,7 +13,7 @@ export const Login = () => {
     clearError()
 
     try {
-      await login(identifier, password)
+      await login(email, password)
       navigate('/chat')
     } catch (error) {
       console.error('Login failed:', error)
@@ -36,16 +36,16 @@ export const Login = () => {
           )}
 
           <div>
-            <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
-              Username or Email
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              Email
             </label>
             <input
-              id="identifier"
-              type="text"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-              placeholder="Enter your username or email"
+              placeholder="Enter your email"
               required
               disabled={isLoading}
             />

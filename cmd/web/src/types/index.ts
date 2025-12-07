@@ -17,7 +17,8 @@ export interface AuthResponse {
   timestamp: string
   path: string
   data: {
-    accessToken: string
+    token: string
+    refreshToken: string
     user: User
   }
 }
@@ -33,7 +34,7 @@ export interface ApiResponse<T> {
 }
 
 export interface LoginDTO {
-  identifier: string
+  email: string
   password: string
 }
 

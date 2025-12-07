@@ -2,6 +2,7 @@
         run run-api run-chat build build-api build-chat build-migrate \
         migrate-up migrate-down migrate-version migrate-create migrate-run \
         db-shell redis-cli scylla-cli kafka-cli \
+        web-install web-dev web-build web-preview web-clean \
         swagger mod-tidy help
 
 # ==================== Development Environment ====================
@@ -106,6 +107,34 @@ swagger:
 mod-tidy:
 	go mod tidy
 
+# ==================== Web UI ====================
+
+web-install:
+	@echo "📦 Installing web dependencies..."
+	cd cmd/web && yarn install
+
+web-dev:
+	@echo "🌐 Starting web UI development server on :3000..."
+	cd cmd/web && yarn dev
+
+web-build:
+	@echo "🔨 Building web UI for production..."
+	cd cmd/web && yarn build
+
+web-preview:
+	@echo "👀 Previewing web UI production build..."
+	cd cmd/web && yarn preview
+
+web-clean:
+	@echo "🧹 Cleaning web UI..."
+	cd cmd/web && rm -rf node_modules dist .vite
+
+web-lint:
+	@echo "🔍 Linting web UI..."
+	cd cmd/web && yarn lint
+
+run-web: web-dev
+
 # ==================== Help ====================
 
 help:
@@ -144,4 +173,13 @@ help:
 	@echo "🛠️  Tools:"
 	@echo "  make swagger     - Generate Swagger docs"
 	@echo "  make mod-tidy    - Tidy Go modules"
+	@echo ""
+	@echo "🌐 Web UI:"
+	@echo "  make web-install - Install web dependencies (yarn)"
+	@echo "  make web-dev     - Run web UI dev server (:3000)"
+	@echo "  make run-web     - Alias for web-dev"
+	@echo "  make web-build   - Build web UI for production"
+	@echo "  make web-preview - Preview production build"
+	@echo "  make web-clean   - Clean web artifacts"
+	@echo "  make web-lint    - Lint web code"
 	@echo ""
