@@ -23,7 +23,15 @@
       "Bash(curl:*)",
       "Bash(lsof:*)",
       "Bash(go get:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(xargs kill:*)",
+      "Bash(make run-api:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7InVzZXJfaWQiOiJlYTA1YjdmYy0wOWU3LTRhY2YtYmVkOC03Y2M4MmViNWZkNzkifSwiZXhwIjoxNzY1MTk5MDUxLCJuYmYiOjE3NjUxMTI2NTEsImlhdCI6MTc2NTExMjY1MX0.lq_he7YFgfEHHrghi-dbf_97jKIEDtlbs58f8_qpJ3Y\" curl -X GET 'http://localhost:8080/api/conversations' -H \"Authorization: Bearer $TOKEN\" -s)",
+      "Bash(chmod:*)",
+      "Bash(./test_conversations.sh:*)",
+      "Bash(go list:*)",
+      "Bash(go run:*)",
+      "Bash(xargs -I {} curl -s -X GET 'http://localhost:8080/api/conversations' -H \"Authorization: Bearer {}\")"
     ],
     "deny": [],
     "ask": []

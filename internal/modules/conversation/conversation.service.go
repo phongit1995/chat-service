@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"chat-server/internal/models"
+	"chat-server/internal/utils"
 	"fmt"
 	"time"
 
@@ -101,12 +102,25 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 	s.repo.AddMemberToBatch(batch, member1)
 	s.repo.AddMemberToBatch(batch, member2)
 
+	gocqlUser1ID, err := utils.ToGocqlUUID(user1ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert user1ID: %w", err)
+	}
+	gocqlUser2ID, err := utils.ToGocqlUUID(user2ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert user2ID: %w", err)
+	}
+	gocqlConvID, err := utils.ToGocqlUUID(conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert conversationID: %w", err)
+	}
+
 	inbox1 := &ConversationByUser{
-		UserID:          user1ID,
+		UserID:          gocqlUser1ID,
 		LastMessageAt:   lastMessageAt,
-		ConversationID:  conversationID,
+		ConversationID:  gocqlConvID,
 		IsGroup:         false,
-		OtherUserID:     &user2ID,
+		OtherUserID:     &gocqlUser2ID,
 		OtherUserName:   user2.Username,
 		OtherUserAvatar: user2.Avatar,
 		Title:           user2.Username,
@@ -114,11 +128,11 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		UnreadCount:     0,
 	}
 	inbox2 := &ConversationByUser{
-		UserID:          user2ID,
+		UserID:          gocqlUser2ID,
 		LastMessageAt:   lastMessageAt,
-		ConversationID:  conversationID,
+		ConversationID:  gocqlConvID,
 		IsGroup:         false,
-		OtherUserID:     &user1ID,
+		OtherUserID:     &gocqlUser1ID,
 		OtherUserName:   user1.Username,
 		OtherUserAvatar: user1.Avatar,
 		Title:           user1.Username,
@@ -203,10 +217,19 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 		}
 		s.repo.AddMemberToBatch(batch, member)
 
+		gocqlParticipantID, err := utils.ToGocqlUUID(participantID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert participantID: %w", err)
+		}
+		gocqlConvID, err := utils.ToGocqlUUID(conversationID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert conversationID: %w", err)
+		}
+
 		inbox := &ConversationByUser{
-			UserID:         participantID,
+			UserID:         gocqlParticipantID,
 			LastMessageAt:  lastMessageAt,
-			ConversationID: conversationID,
+			ConversationID: gocqlConvID,
 			IsGroup:        true,
 			Title:          name,
 			Avatar:         "",

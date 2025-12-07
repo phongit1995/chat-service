@@ -103,18 +103,18 @@ type ConversationMember struct {
 }
 
 type ConversationByUser struct {
-	UserID            uuid.UUID
+	UserID            gocql.UUID
 	LastMessageAt     gocql.UUID
-	ConversationID    uuid.UUID
+	ConversationID    gocql.UUID
 	IsGroup           bool
-	OtherUserID       *uuid.UUID
+	OtherUserID       *gocql.UUID
 	OtherUserName     string
 	OtherUserAvatar   string
 	Title             string
 	Avatar            string
 	LastMessageID     *gocql.UUID
 	LastMessageBody   string
-	LastMessageSender *uuid.UUID
+	LastMessageSender *gocql.UUID
 	UnreadCount       int
 	LastReadMessageID *gocql.UUID
 	LastReadAt        *time.Time
@@ -198,7 +198,11 @@ func (r *Repository) AddConversationToUserInbox(conv *ConversationByUser) error 
 
 func (r *Repository) GetUserConversations(userID uuid.UUID, limit int) ([]ConversationByUser, error) {
 	var conversations []ConversationByUser
-	iter := r.preparedQueries["get_user_conversations"].Bind(userID, limit).Iter()
+	gocqlUserID, err := gocql.ParseUUID(userID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert user ID: %w", err)
+	}
+	iter := r.preparedQueries["get_user_conversations"].Bind(gocqlUserID, limit).Iter()
 
 	var conv ConversationByUser
 	for iter.Scan(&conv.UserID, &conv.LastMessageAt, &conv.ConversationID, &conv.IsGroup, &conv.OtherUserID, &conv.OtherUserName, &conv.OtherUserAvatar,

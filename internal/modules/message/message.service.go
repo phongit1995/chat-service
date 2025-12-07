@@ -5,6 +5,7 @@ import (
 	"chat-server/internal/infra/kafka"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
+	"chat-server/internal/utils"
 	"context"
 	"fmt"
 	"sync"
@@ -102,12 +103,25 @@ func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID 
 	s.convRepo.AddMemberToBatch(batch, member1)
 	s.convRepo.AddMemberToBatch(batch, member2)
 
+	gocqlUser1ID, err := utils.ToGocqlUUID(user1ID)
+	if err != nil {
+		return fmt.Errorf("failed to convert user1ID: %w", err)
+	}
+	gocqlUser2ID, err := utils.ToGocqlUUID(user2ID)
+	if err != nil {
+		return fmt.Errorf("failed to convert user2ID: %w", err)
+	}
+	gocqlConvID, err := utils.ToGocqlUUID(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to convert conversationID: %w", err)
+	}
+
 	inbox1 := &conversation.ConversationByUser{
-		UserID:          user1ID,
+		UserID:          gocqlUser1ID,
 		LastMessageAt:   lastMessageAt,
-		ConversationID:  conversationID,
+		ConversationID:  gocqlConvID,
 		IsGroup:         false,
-		OtherUserID:     &user2ID,
+		OtherUserID:     &gocqlUser2ID,
 		OtherUserName:   user2.Username,
 		OtherUserAvatar: user2.Avatar,
 		Title:           user2.Username,
@@ -115,11 +129,11 @@ func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID 
 		UnreadCount:     0,
 	}
 	inbox2 := &conversation.ConversationByUser{
-		UserID:          user2ID,
+		UserID:          gocqlUser2ID,
 		LastMessageAt:   lastMessageAt,
-		ConversationID:  conversationID,
+		ConversationID:  gocqlConvID,
 		IsGroup:         false,
-		OtherUserID:     &user1ID,
+		OtherUserID:     &gocqlUser1ID,
 		OtherUserName:   user1.Username,
 		OtherUserAvatar: user1.Avatar,
 		Title:           user1.Username,
