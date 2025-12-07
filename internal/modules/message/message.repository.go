@@ -52,6 +52,10 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 		UPDATE messages_by_conversation SET deleted_at = ?, updated_at = ? WHERE conversation_id = ? AND message_id = ?
 	`)
 
+	r.preparedQueries["update_message"] = session.Query(`
+		UPDATE messages_by_conversation SET content = ?, updated_at = ? WHERE conversation_id = ? AND message_id = ?
+	`)
+
 	r.preparedQueries["lookup_conversation"] = session.Query(`
 		SELECT last_message_at FROM conversation_user_lookup
 		WHERE user_id = ? AND conversation_id = ?
@@ -121,6 +125,11 @@ func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UU
 		return nil, err
 	}
 	return &msg, nil
+}
+
+func (r *Repository) UpdateMessage(conversationID uuid.UUID, messageID gocql.UUID, newContent string) error {
+	now := time.Now()
+	return r.preparedQueries["update_message"].Bind(newContent, now, conversationID, messageID).Exec()
 }
 
 func (r *Repository) DeleteMessage(conversationID uuid.UUID, messageID gocql.UUID) error {

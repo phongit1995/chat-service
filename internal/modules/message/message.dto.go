@@ -15,6 +15,10 @@ type SendDirectMessageRequest struct {
 	Metadata    string `json:"metadata,omitempty" example:"{\"fileName\":\"image.png\"}"`
 }
 
+type UpdateMessageRequest struct {
+	Content string `json:"content" validate:"required,min=1" example:"Updated message content"`
+}
+
 type MessageResponse struct {
 	ID             string `json:"id" example:"fa7f9g87-ba3f-7a68-e2d9-ffh38d37dhge"`
 	ConversationID string `json:"conversationId" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`

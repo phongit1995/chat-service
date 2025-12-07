@@ -22,48 +22,27 @@ func NewEventHandler(wsServer *websocket.Server, logger *zap.SugaredLogger) *Eve
 
 func (h *EventHandler) OnOnline(ctx context.Context, event *OnlineEvent) error {
 	if err := h.validateOnlineEvent(event); err != nil {
-		h.logger.Errorw("❌ Invalid UserOnline event", "error", err)
+		h.logger.Errorw("Invalid UserOnline event", "error", err)
 		return err
 	}
-
-	h.logger.Debugw("🟢 USER_ONLINE",
-		"user_id", event.UserID,
-		"timestamp", event.Timestamp,
-	)
 
 	return nil
 }
 
 func (h *EventHandler) OnOffline(ctx context.Context, event *OfflineEvent) error {
 	if err := h.validateOfflineEvent(event); err != nil {
-		h.logger.Errorw("❌ Invalid UserOffline event", "error", err)
+		h.logger.Errorw("Invalid UserOffline event", "error", err)
 		return err
 	}
-
-	h.logger.Debugw("⚫ USER_OFFLINE",
-		"user_id", event.UserID,
-		"timestamp", event.Timestamp,
-	)
 
 	return nil
 }
 
 func (h *EventHandler) OnTyping(ctx context.Context, event *TypingEvent) error {
 	if err := h.validateTypingEvent(event); err != nil {
-		h.logger.Errorw("❌ Invalid UserTyping event", "error", err)
+		h.logger.Errorw("Invalid UserTyping event", "error", err)
 		return err
 	}
-
-	typingStatus := "typing"
-	if !event.IsTyping {
-		typingStatus = "stopped typing"
-	}
-
-	h.logger.Debugw("⌨️ USER_TYPING",
-		"user_id", event.UserID,
-		"conversation_id", event.ConversationID,
-		"status", typingStatus,
-	)
 
 	return nil
 }

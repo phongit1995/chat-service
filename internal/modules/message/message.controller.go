@@ -160,6 +160,45 @@ func (ctrl *Controller) GetMessages(c *gin.Context) (interface{}, error) {
 	return messages, nil
 }
 
+// UpdateMessage godoc
+// @Summary      Update message
+// @Description  Update message content (edit message)
+// @Tags         messages
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        conversationId path string true "Conversation ID"
+// @Param        messageId path string true "Message ID (timeuuid)"
+// @Param        request body UpdateMessageRequest true "Update Message"
+// @Success      200  {object}  MessageSuccessResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Failure      403  {object}  utils.APIError
+// @Failure      404  {object}  utils.APIError
+// @Router       /messages/{conversationId}/{messageId} [patch]
+func (ctrl *Controller) UpdateMessage(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	conversationID := c.Param("conversationId")
+	messageID := c.Param("messageId")
+
+	var req UpdateMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	message, err := ctrl.service.UpdateMessage(userID, conversationID, messageID, req.Content)
+	if err != nil {
+		ctrl.logger.Errorw("Failed to update message", "error", err)
+		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to update message")
+	}
+
+	return message, nil
+}
+
 // DeleteMessage godoc
 // @Summary      Delete message
 // @Description  Delete a message (soft delete)

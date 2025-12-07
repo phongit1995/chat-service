@@ -10,21 +10,31 @@ import (
 	"go.uber.org/zap"
 )
 
-type EventHandler struct {
-	wsServer *websocket.Server
-	logger   *zap.SugaredLogger
+type ConversationCache interface {
+	GetConversationMembers(conversationID string) ([]string, error)
 }
 
-func NewEventHandler(wsServer *websocket.Server, logger *zap.SugaredLogger) *EventHandler {
+type EventHandler struct {
+	wsServer  *websocket.Server
+	convCache ConversationCache
+	logger    *zap.SugaredLogger
+}
+
+func NewEventHandler(
+	wsServer *websocket.Server,
+	convCache ConversationCache,
+	logger *zap.SugaredLogger,
+) *EventHandler {
 	return &EventHandler{
-		wsServer: wsServer,
-		logger:   logger.Named("[message_events]"),
+		wsServer:  wsServer,
+		convCache: convCache,
+		logger:    logger.Named("[message_events]"),
 	}
 }
 
 func (h *EventHandler) OnCreated(ctx context.Context, event *CreatedEvent) error {
 	if err := h.validateCreatedEvent(event); err != nil {
-		h.logger.Errorw("❌ Invalid MessageCreated event", "error", err)
+		h.logger.Errorw("Invalid MessageCreated event", "error", err)
 		return err
 	}
 
@@ -32,14 +42,23 @@ func (h *EventHandler) OnCreated(ctx context.Context, event *CreatedEvent) error
 		event.Timestamp = time.Now()
 	}
 
-	h.logger.Debugw("📩 MESSAGE_CREATED",
-		"conversation_id", event.ConversationID,
-		"message_id", event.MessageID,
-		"sender_id", event.SenderID,
-		"user_count", len(event.UserIDs),
-	)
+	userIDs, err := h.convCache.GetConversationMembers(event.ConversationID)
+	if err != nil {
+		h.logger.Errorw("Failed to get conversation members from cache",
+			"conversation_id", event.ConversationID,
+			"error", err,
+		)
+		return err
+	}
 
-	h.wsServer.EmitToUsers(event.UserIDs, constants.WebSocketEventNewMessage, event.Data)
+	if len(userIDs) == 0 {
+		h.logger.Warnw("No members found in conversation",
+			"conversation_id", event.ConversationID,
+		)
+		return nil
+	}
+
+	h.wsServer.EmitToUsers(userIDs, constants.WebSocketEventNewMessage, event.Data)
 
 	return nil
 }
@@ -54,29 +73,36 @@ func (h *EventHandler) validateCreatedEvent(event *CreatedEvent) error {
 	if event.SenderID == "" {
 		return errors.New("sender_id is required")
 	}
-	if len(event.UserIDs) == 0 {
-		return errors.New("user_ids is required")
-	}
 	return nil
 }
 
 func (h *EventHandler) OnDeleted(ctx context.Context, event *DeletedEvent) error {
 	if err := h.validateDeletedEvent(event); err != nil {
-		h.logger.Errorw("❌ Invalid MessageDeleted event", "error", err)
+		h.logger.Errorw("Invalid MessageDeleted event", "error", err)
 		return err
 	}
 
-	h.logger.Debugw("🗑️ MESSAGE_DELETED",
-		"conversation_id", event.ConversationID,
-		"message_id", event.MessageID,
-		"user_count", len(event.UserIDs),
-	)
+	userIDs, err := h.convCache.GetConversationMembers(event.ConversationID)
+	if err != nil {
+		h.logger.Errorw("Failed to get conversation members from cache",
+			"conversation_id", event.ConversationID,
+			"error", err,
+		)
+		return err
+	}
+
+	if len(userIDs) == 0 {
+		h.logger.Warnw("No members found in conversation",
+			"conversation_id", event.ConversationID,
+		)
+		return nil
+	}
 
 	data := map[string]any{
 		"conversation_id": event.ConversationID,
 		"message_id":      event.MessageID,
 	}
-	h.wsServer.EmitToUsers(event.UserIDs, constants.WebSocketEventMessageDeleted, data)
+	h.wsServer.EmitToUsers(userIDs, constants.WebSocketEventMessageDeleted, data)
 
 	return nil
 }
@@ -88,22 +114,32 @@ func (h *EventHandler) validateDeletedEvent(event *DeletedEvent) error {
 	if event.MessageID == "" {
 		return errors.New("message_id is required")
 	}
-	if len(event.UserIDs) == 0 {
-		return errors.New("user_ids is required")
-	}
 	return nil
 }
 
 func (h *EventHandler) OnUpdated(ctx context.Context, event *UpdatedEvent) error {
 	if err := h.validateUpdatedEvent(event); err != nil {
-		h.logger.Errorw("❌ Invalid MessageUpdated event", "error", err)
+		h.logger.Errorw("Invalid MessageUpdated event", "error", err)
 		return err
 	}
 
-	h.logger.Debugw("✏️ MESSAGE_UPDATED",
-		"conversation_id", event.ConversationID,
-		"message_id", event.MessageID,
-	)
+	userIDs, err := h.convCache.GetConversationMembers(event.ConversationID)
+	if err != nil {
+		h.logger.Errorw("Failed to get conversation members from cache",
+			"conversation_id", event.ConversationID,
+			"error", err,
+		)
+		return err
+	}
+
+	if len(userIDs) == 0 {
+		h.logger.Warnw("No members found in conversation",
+			"conversation_id", event.ConversationID,
+		)
+		return nil
+	}
+
+	h.wsServer.EmitToUsers(userIDs, constants.WebSocketEventMessageUpdated, event.Data)
 
 	return nil
 }

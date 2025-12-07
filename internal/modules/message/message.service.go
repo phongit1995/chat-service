@@ -310,16 +310,10 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	userIDs := make([]string, len(memberIDs))
-	for i, id := range memberIDs {
-		userIDs[i] = id.String()
-	}
-
 	event := &messageEvents.CreatedEvent{
 		ConversationID: conversationID.String(),
 		MessageID:      messageID.String(),
 		SenderID:       senderID.String(),
-		UserIDs:        userIDs,
 		Data:           response,
 	}
 	if err := s.kafkaProducer.PublishMessageCreated(ctx, event); err != nil {
@@ -437,6 +431,113 @@ func (s *Service) GetMessages(userID, conversationID uuid.UUID, limit int, befor
 	}, nil
 }
 
+func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDStr, newContent string) (*MessageResponse, error) {
+	conversationID, err := uuid.Parse(conversationIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid conversation ID: %w", err)
+	}
+
+	messageID, err := gocql.ParseUUID(messageIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid message ID: %w", err)
+	}
+
+	// Get existing message
+	msg, err := s.repo.GetMessageByID(conversationID, messageID)
+	if err != nil {
+		return nil, fmt.Errorf("message not found: %w", err)
+	}
+
+	// Validate ownership
+	if msg.SenderID != userID {
+		return nil, fmt.Errorf("you can only update your own messages")
+	}
+
+	// Validate message is not deleted
+	if msg.DeletedAt != nil {
+		return nil, fmt.Errorf("cannot update deleted message")
+	}
+
+	// Validate content
+	if newContent == "" {
+		return nil, fmt.Errorf("content cannot be empty")
+	}
+
+	// Update message in ScyllaDB
+	if err := s.repo.UpdateMessage(conversationID, messageID, newContent); err != nil {
+		return nil, fmt.Errorf("failed to update message: %w", err)
+	}
+
+	// Get members for event
+	members, err := s.getMembersCached(conversationID)
+	if err != nil {
+		s.logger.Warnw("Failed to get members for event", "conversation_id", conversationID, "error", err)
+		members = []conversation.ConversationMember{}
+	}
+
+	userIDs := make([]string, 0, len(members))
+	for _, member := range members {
+		if member.IsActive {
+			userIDs = append(userIDs, member.UserID.String())
+		}
+	}
+
+	// Get sender info
+	var sender models.User
+	senderName := ""
+	senderAvatar := ""
+	if err := s.db.First(&sender, "id = ?", userID).Error; err == nil {
+		senderName = sender.Username
+		senderAvatar = sender.Avatar
+	}
+
+	// Build response
+	now := time.Now()
+	response := &MessageResponse{
+		ID:             messageID.String(),
+		ConversationID: conversationID.String(),
+		SenderID:       userID.String(),
+		SenderName:     senderName,
+		SenderAvatar:   senderAvatar,
+		Type:           msg.MessageType,
+		Content:        newContent,
+		Status:         msg.Status,
+		CreatedAt:      msg.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      now.Format(time.RFC3339),
+	}
+
+	// Invalidate caches
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		s.cache.DeleteMessage(conversationID, messageID)
+		s.cache.DeleteConversationMessages(conversationID)
+	}()
+	wg.Wait()
+
+	// Publish event to Kafka
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	event := &messageEvents.UpdatedEvent{
+		ConversationID: conversationIDStr,
+		MessageID:      messageIDStr,
+		Data:           response,
+	}
+	if err := s.kafkaProducer.PublishMessageUpdated(ctx, event); err != nil {
+		s.logger.Errorw("Failed to publish message updated event", "error", err)
+	}
+
+	s.logger.Infow("Message updated successfully",
+		"conversation_id", conversationID,
+		"message_id", messageID,
+		"user_id", userID,
+	)
+
+	return response, nil
+}
+
 func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDStr string) error {
 	conversationID, err := uuid.Parse(conversationIDStr)
 	if err != nil {
@@ -488,7 +589,6 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 	event := &messageEvents.DeletedEvent{
 		ConversationID: conversationIDStr,
 		MessageID:      messageIDStr,
-		UserIDs:        userIDs,
 	}
 	if err := s.kafkaProducer.PublishMessageDeleted(ctx, event); err != nil {
 		s.logger.Errorw("Failed to publish message deleted event", "error", err)

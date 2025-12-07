@@ -10,15 +10,13 @@ type CreatedEvent struct {
 	SenderAvatar   string      `json:"sender_avatar,omitempty"`
 	Content        string      `json:"content,omitempty"`
 	MessageType    string      `json:"message_type,omitempty"`
-	UserIDs        []string    `json:"user_ids"`
 	Timestamp      time.Time   `json:"timestamp,omitempty"`
 	Data           interface{} `json:"data,omitempty"`
 }
 
 type DeletedEvent struct {
-	ConversationID string   `json:"conversation_id"`
-	MessageID      string   `json:"message_id"`
-	UserIDs        []string `json:"user_ids"`
+	ConversationID string `json:"conversation_id"`
+	MessageID      string `json:"message_id"`
 }
 
 type UpdatedEvent struct {
