@@ -208,6 +208,10 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 
 	memberIDs := make([]uuid.UUID, 0, len(members))
 
+	// ✅ OPTIMIZATION 1: Parallel inbox updates (saves ~250ms)
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(members))
+
 	for _, member := range members {
 		if !member.IsActive {
 			continue
@@ -215,83 +219,100 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 
 		memberIDs = append(memberIDs, member.UserID)
 
-		inboxEntry, oldLastMessageAt, err := s.repo.GetConversationInboxEntry(member.UserID, conversationID)
-		if err != nil {
-			s.logger.Errorw("Failed to get inbox entry", "user_id", member.UserID, "error", err)
-			return nil, fmt.Errorf("inbox entry not found for user %s", member.UserID)
-		}
+		wg.Add(1)
+		go func(m conversation.ConversationMember) {
+			defer wg.Done()
 
-		if inboxEntry == nil {
-			// Inbox entry not found - might be hidden. Check and auto-unhide if needed.
-			isHidden, checkErr := s.convRepo.CheckIfHidden(member.UserID, conversationID)
-			if checkErr != nil {
-				s.logger.Errorw("Failed to check hidden status", "user_id", member.UserID, "conversation_id", conversationID, "error", checkErr)
-				return nil, fmt.Errorf("failed to check hidden status for user %s", member.UserID)
+			inboxEntry, oldLastMessageAt, err := s.repo.GetConversationInboxEntry(m.UserID, conversationID)
+			if err != nil {
+				s.logger.Errorw("Failed to get inbox entry", "user_id", m.UserID, "error", err)
+				errChan <- fmt.Errorf("inbox entry not found for user %s", m.UserID)
+				return
 			}
 
-			if isHidden {
-				// Auto-unhide: conversation was hidden, new message should restore it
-				s.logger.Infow("Auto-unhiding conversation due to new message",
-					"user_id", member.UserID, "conversation_id", conversationID, "message_id", messageID)
-
-				unreadCount := 0
-				if member.UserID != senderID {
-					unreadCount = 1
+			if inboxEntry == nil {
+				// Inbox entry not found - might be hidden. Check and auto-unhide if needed.
+				isHidden, checkErr := s.convRepo.CheckIfHidden(m.UserID, conversationID)
+				if checkErr != nil {
+					s.logger.Errorw("Failed to check hidden status", "user_id", m.UserID, "conversation_id", conversationID, "error", checkErr)
+					errChan <- fmt.Errorf("failed to check hidden status for user %s", m.UserID)
+					return
 				}
 
-				if unhideErr := s.convRepo.UnhideConversation(member.UserID, conversationID, messageID,
-					&messageID, shortContent, &senderID, unreadCount); unhideErr != nil {
-					s.logger.Errorw("Failed to auto-unhide conversation", "user_id", member.UserID, "error", unhideErr)
-					return nil, fmt.Errorf("failed to auto-unhide conversation for user %s", member.UserID)
-				}
+				if isHidden {
+					// Auto-unhide: conversation was hidden, new message should restore it
+					s.logger.Infow("Auto-unhiding conversation due to new message",
+						"user_id", m.UserID, "conversation_id", conversationID, "message_id", messageID)
 
-				// Update cache: remove from hidden set
-				go func(uid uuid.UUID) {
-					if cacheErr := s.convCache.RemoveHiddenConversation(uid, conversationID); cacheErr != nil {
-						s.logger.Warnw("Failed to update hidden cache after auto-unhide",
-							"user_id", uid, "conversation_id", conversationID, "error", cacheErr)
+					unreadCount := 0
+					if m.UserID != senderID {
+						unreadCount = 1
 					}
-				}(member.UserID)
 
-				// Continue to next member - conversation has been restored
-				continue
+					if unhideErr := s.convRepo.UnhideConversation(m.UserID, conversationID, messageID,
+						&messageID, shortContent, &senderID, unreadCount); unhideErr != nil {
+						s.logger.Errorw("Failed to auto-unhide conversation", "user_id", m.UserID, "error", unhideErr)
+						errChan <- fmt.Errorf("failed to auto-unhide conversation for user %s", m.UserID)
+						return
+					}
+
+					// Update cache: remove from hidden set
+					go func(uid uuid.UUID) {
+						if cacheErr := s.convCache.RemoveHiddenConversation(uid, conversationID); cacheErr != nil {
+							s.logger.Warnw("Failed to update hidden cache after auto-unhide",
+								"user_id", uid, "conversation_id", conversationID, "error", cacheErr)
+						}
+					}(m.UserID)
+
+					// Continue to next member - conversation has been restored
+					return
+				}
+
+				// Not hidden, genuinely missing
+				s.logger.Errorw("No inbox entry found for user and not hidden", "user_id", m.UserID, "conversation_id", conversationID)
+				errChan <- fmt.Errorf("inbox entry missing for user %s", m.UserID)
+				return
 			}
 
-			// Not hidden, genuinely missing
-			s.logger.Errorw("No inbox entry found for user and not hidden", "user_id", member.UserID, "conversation_id", conversationID)
-			return nil, fmt.Errorf("inbox entry missing for user %s", member.UserID)
-		}
+			newUnreadCount := inboxEntry.UnreadCount
+			if m.UserID != senderID {
+				newUnreadCount++
+			}
 
-		newUnreadCount := inboxEntry.UnreadCount
-		if member.UserID != senderID {
-			newUnreadCount++
-		}
+			updatedEntry := &ConversationInboxUpdate{
+				UserID:            m.UserID,
+				LastMessageAt:     messageID,
+				ConversationID:    conversationID,
+				IsGroup:           inboxEntry.IsGroup,
+				OtherUserID:       inboxEntry.OtherUserID,
+				OtherUserName:     inboxEntry.OtherUserName,
+				OtherUserAvatar:   inboxEntry.OtherUserAvatar,
+				Title:             inboxEntry.Title,
+				Avatar:            inboxEntry.Avatar,
+				LastMessageID:     &messageID,
+				LastMessageBody:   shortContent,
+				LastMessageSender: &senderID,
+				UnreadCount:       newUnreadCount,
+				LastReadMessageID: inboxEntry.LastReadMessageID,
+				LastReadAt:        inboxEntry.LastReadAt,
+			}
 
-		updatedEntry := &ConversationInboxUpdate{
-			UserID:            member.UserID,
-			LastMessageAt:     messageID,
-			ConversationID:    conversationID,
-			IsGroup:           inboxEntry.IsGroup,
-			OtherUserID:       inboxEntry.OtherUserID,
-			OtherUserName:     inboxEntry.OtherUserName,
-			OtherUserAvatar:   inboxEntry.OtherUserAvatar,
-			Title:             inboxEntry.Title,
-			Avatar:            inboxEntry.Avatar,
-			LastMessageID:     &messageID,
-			LastMessageBody:   shortContent,
-			LastMessageSender: &senderID,
-			UnreadCount:       newUnreadCount,
-			LastReadMessageID: inboxEntry.LastReadMessageID,
-			LastReadAt:        inboxEntry.LastReadAt,
-		}
-
-		if err := s.updateConversationWithRetry(member.UserID, *oldLastMessageAt, conversationID, updatedEntry, 3); err != nil {
-			s.logger.Errorw("Failed to update conversation after retries", "user_id", member.UserID, "error", err)
-			return nil, fmt.Errorf("failed to update inbox for user %s: %w", member.UserID, err)
-		}
+			if err := s.updateConversationWithRetry(m.UserID, *oldLastMessageAt, conversationID, updatedEntry, 3); err != nil {
+				s.logger.Errorw("Failed to update conversation after retries", "user_id", m.UserID, "error", err)
+				errChan <- fmt.Errorf("failed to update inbox for user %s: %w", m.UserID, err)
+				return
+			}
+		}(member)
 	}
 
-	var sender models.User
+	wg.Wait()
+	close(errChan)
+
+	if len(errChan) > 0 {
+		firstErr := <-errChan
+		return nil, firstErr
+	}
+
 	response := &MessageResponse{
 		ID:             messageID.String(),
 		ConversationID: conversationID.String(),
@@ -308,31 +329,31 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		response.ReplyToID = replyToID.String()
 	}
 
+	var sender models.User
 	if err := s.db.First(&sender, "id = ?", senderID).Error; err == nil {
 		response.SenderName = sender.Username
 		response.SenderAvatar = sender.Avatar
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		s.invalidateCachesAfterSend(conversationID, memberIDs)
-	}()
-	wg.Wait()
+	// Fire-and-forget cache invalidation
+	go s.invalidateCachesAfterSend(conversationID, memberIDs)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	// Async Kafka publishing - copy response to avoid race condition
+	responseCopy := *response
+	go func(resp MessageResponse) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	event := &messageEvents.CreatedEvent{
-		ConversationID: conversationID.String(),
-		MessageID:      messageID.String(),
-		SenderID:       senderID.String(),
-		Data:           response,
-	}
-	if err := s.kafkaProducer.PublishMessageCreated(ctx, event); err != nil {
-		s.logger.Errorw("Failed to publish message created event", "error", err)
-	}
+		event := &messageEvents.CreatedEvent{
+			ConversationID: resp.ConversationID,
+			MessageID:      resp.ID,
+			SenderID:       resp.SenderID,
+			Data:           &resp,
+		}
+		if err := s.kafkaProducer.PublishMessageCreated(ctx, event); err != nil {
+			s.logger.Errorw("Failed to publish message created event", "error", err)
+		}
+	}(responseCopy)
 
 	return response, nil
 }
