@@ -139,37 +139,92 @@ type HiddenConversation struct {
 }
 
 func (r *Repository) CreateConversation(conv *Conversation) error {
+	gocqlConvID, _ := gocql.ParseUUID(conv.ConversationID.String())
+	gocqlCreatedBy, _ := gocql.ParseUUID(conv.CreatedBy.String())
+
 	return r.preparedQueries["create_conversation"].Bind(
-		conv.ConversationID, conv.Type, conv.Name, conv.Avatar,
-		conv.CreatedBy, conv.CreatedAt, conv.UpdatedAt, conv.ParticipantCount,
+		gocqlConvID, conv.Type, conv.Name, conv.Avatar,
+		gocqlCreatedBy, conv.CreatedAt, conv.UpdatedAt, conv.ParticipantCount,
 	).Exec()
 }
 
 func (r *Repository) GetConversationByID(conversationID uuid.UUID) (*Conversation, error) {
-	var conv Conversation
-	err := r.preparedQueries["get_conversation"].Bind(conversationID).Scan(
-		&conv.ConversationID, &conv.Type, &conv.Name, &conv.Avatar,
-		&conv.CreatedBy, &conv.CreatedAt, &conv.UpdatedAt, &conv.ParticipantCount,
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
+	var gocqlConv struct {
+		ConversationID   gocql.UUID
+		Type             string
+		Name             string
+		Avatar           string
+		CreatedBy        gocql.UUID
+		CreatedAt        time.Time
+		UpdatedAt        time.Time
+		ParticipantCount int
+	}
+
+	err := r.preparedQueries["get_conversation"].Bind(gocqlConvID).Scan(
+		&gocqlConv.ConversationID, &gocqlConv.Type, &gocqlConv.Name, &gocqlConv.Avatar,
+		&gocqlConv.CreatedBy, &gocqlConv.CreatedAt, &gocqlConv.UpdatedAt, &gocqlConv.ParticipantCount,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return &conv, nil
+
+	// Convert back to uuid.UUID
+	convID, _ := uuid.Parse(gocqlConv.ConversationID.String())
+	createdBy, _ := uuid.Parse(gocqlConv.CreatedBy.String())
+
+	return &Conversation{
+		ConversationID:   convID,
+		Type:             gocqlConv.Type,
+		Name:             gocqlConv.Name,
+		Avatar:           gocqlConv.Avatar,
+		CreatedBy:        createdBy,
+		CreatedAt:        gocqlConv.CreatedAt,
+		UpdatedAt:        gocqlConv.UpdatedAt,
+		ParticipantCount: gocqlConv.ParticipantCount,
+	}, nil
 }
 
 func (r *Repository) AddMember(member *ConversationMember) error {
+	gocqlConvID, _ := gocql.ParseUUID(member.ConversationID.String())
+	gocqlUserID, _ := gocql.ParseUUID(member.UserID.String())
+
 	return r.preparedQueries["add_member"].Bind(
-		member.ConversationID, member.UserID, member.JoinedAt, member.IsActive, member.Role,
+		gocqlConvID, gocqlUserID, member.JoinedAt, member.IsActive, member.Role,
 	).Exec()
 }
 
 func (r *Repository) GetMembers(conversationID uuid.UUID) ([]ConversationMember, error) {
-	var members []ConversationMember
-	iter := r.preparedQueries["get_members"].Bind(conversationID).Iter()
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
 
-	var member ConversationMember
-	for iter.Scan(&member.ConversationID, &member.UserID, &member.JoinedAt, &member.LeftAt, &member.IsActive, &member.Role) {
-		members = append(members, member)
+	var members []ConversationMember
+	iter := r.preparedQueries["get_members"].Bind(gocqlConvID).Iter()
+
+	var gocqlMember struct {
+		ConversationID gocql.UUID
+		UserID         gocql.UUID
+		JoinedAt       time.Time
+		LeftAt         *time.Time
+		IsActive       bool
+		Role           string
+	}
+
+	for iter.Scan(&gocqlMember.ConversationID, &gocqlMember.UserID, &gocqlMember.JoinedAt,
+		&gocqlMember.LeftAt, &gocqlMember.IsActive, &gocqlMember.Role) {
+
+		// Convert gocql.UUID to uuid.UUID
+		convID, _ := uuid.Parse(gocqlMember.ConversationID.String())
+		userID, _ := uuid.Parse(gocqlMember.UserID.String())
+
+		members = append(members, ConversationMember{
+			ConversationID: convID,
+			UserID:         userID,
+			JoinedAt:       gocqlMember.JoinedAt,
+			LeftAt:         gocqlMember.LeftAt,
+			IsActive:       gocqlMember.IsActive,
+			Role:           gocqlMember.Role,
+		})
 	}
 
 	if err := iter.Close(); err != nil {
@@ -222,10 +277,14 @@ func (r *Repository) GetOrCreateDirectConversation(user1ID, user2ID uuid.UUID) (
 		userA, userB = user2ID, user1ID
 	}
 
-	var conversationID uuid.UUID
-	err := r.preparedQueries["get_direct_conversation"].Bind(userA, userB).Scan(&conversationID)
+	gocqlUserA, _ := gocql.ParseUUID(userA.String())
+	gocqlUserB, _ := gocql.ParseUUID(userB.String())
+
+	var gocqlConvID gocql.UUID
+	err := r.preparedQueries["get_direct_conversation"].Bind(gocqlUserA, gocqlUserB).Scan(&gocqlConvID)
 
 	if err == nil {
+		conversationID, _ := uuid.Parse(gocqlConvID.String())
 		return conversationID, false, nil
 	}
 
@@ -233,8 +292,10 @@ func (r *Repository) GetOrCreateDirectConversation(user1ID, user2ID uuid.UUID) (
 		return uuid.Nil, false, fmt.Errorf("failed to check existing conversation: %w", err)
 	}
 
-	conversationID = uuid.New()
-	if err := r.preparedQueries["create_direct_pair"].Bind(userA, userB, conversationID).Exec(); err != nil {
+	conversationID := uuid.New()
+	gocqlNewConvID, _ := gocql.ParseUUID(conversationID.String())
+
+	if err := r.preparedQueries["create_direct_pair"].Bind(gocqlUserA, gocqlUserB, gocqlNewConvID).Exec(); err != nil {
 		return uuid.Nil, false, fmt.Errorf("failed to create direct conversation pair: %w", err)
 	}
 
@@ -244,11 +305,11 @@ func (r *Repository) GetOrCreateDirectConversation(user1ID, user2ID uuid.UUID) (
 func (r *Repository) GetDirectConversationID(userA, userB uuid.UUID) (*uuid.UUID, error) {
 	var conversationID gocql.UUID
 	query := `SELECT conversation_id FROM direct_conversations_by_user_pair WHERE user_a = ? AND user_b = ?`
-	
+
 	// Convert uuid.UUID to gocql.UUID for querying
 	gocqlUserA, _ := gocql.ParseUUID(userA.String())
 	gocqlUserB, _ := gocql.ParseUUID(userB.String())
-	
+
 	err := r.session.Query(query, gocqlUserA, gocqlUserB).Scan(&conversationID)
 	if err == gocql.ErrNotFound {
 		return nil, nil
@@ -256,7 +317,7 @@ func (r *Repository) GetDirectConversationID(userA, userB uuid.UUID) (*uuid.UUID
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert back to uuid.UUID
 	resultUUID, err := uuid.Parse(conversationID.String())
 	if err != nil {
@@ -268,8 +329,10 @@ func (r *Repository) GetDirectConversationID(userA, userB uuid.UUID) (*uuid.UUID
 func (r *Repository) UpdateConversationInUserInbox(userID uuid.UUID, oldLastMessageAt gocql.UUID, conv *ConversationByUser) error {
 	batch := r.session.NewBatch(gocql.UnloggedBatch)
 
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+
 	deleteQuery := `DELETE FROM conversations_by_user WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
-	batch.Query(deleteQuery, userID, oldLastMessageAt, conv.ConversationID)
+	batch.Query(deleteQuery, gocqlUserID, oldLastMessageAt, conv.ConversationID)
 
 	insertQuery := `INSERT INTO conversations_by_user
 	                (user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
@@ -287,13 +350,19 @@ func (r *Repository) UpdateConversationInUserInbox(userID uuid.UUID, oldLastMess
 }
 
 func (r *Repository) MarkAsRead(conversationID, userID uuid.UUID, lastReadMessageID gocql.UUID, lastReadAt time.Time) error {
-	return r.preparedQueries["mark_as_read"].Bind(conversationID, userID, lastReadMessageID, lastReadAt).Exec()
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+
+	return r.preparedQueries["mark_as_read"].Bind(gocqlConvID, gocqlUserID, lastReadMessageID, lastReadAt).Exec()
 }
 
 func (r *Repository) GetReadStatus(conversationID, userID uuid.UUID) (*gocql.UUID, *time.Time, error) {
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+
 	var lastReadMessageID gocql.UUID
 	var lastReadAt time.Time
-	err := r.preparedQueries["get_read_status"].Bind(conversationID, userID).Scan(&lastReadMessageID, &lastReadAt)
+	err := r.preparedQueries["get_read_status"].Bind(gocqlConvID, gocqlUserID).Scan(&lastReadMessageID, &lastReadAt)
 	if err == gocql.ErrNotFound {
 		return nil, nil, nil
 	}
@@ -314,9 +383,14 @@ func (r *Repository) ExecuteBatch(batch *gocql.Batch) error {
 func (r *Repository) AddConversationToBatch(batch *gocql.Batch, conv *Conversation) {
 	query := `INSERT INTO conversations (conversation_id, type, name, avatar, created_by, created_at, updated_at, participant_count)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+
+	// Convert uuid.UUID to gocql.UUID
+	gocqlConvID, _ := gocql.ParseUUID(conv.ConversationID.String())
+	gocqlCreatedBy, _ := gocql.ParseUUID(conv.CreatedBy.String())
+
 	batch.Query(query,
-		conv.ConversationID, conv.Type, conv.Name, conv.Avatar,
-		conv.CreatedBy, conv.CreatedAt, conv.UpdatedAt, conv.ParticipantCount,
+		gocqlConvID, conv.Type, conv.Name, conv.Avatar,
+		gocqlCreatedBy, conv.CreatedAt, conv.UpdatedAt, conv.ParticipantCount,
 	)
 }
 
@@ -324,8 +398,13 @@ func (r *Repository) AddMemberToBatch(batch *gocql.Batch, member *ConversationMe
 	query := `INSERT INTO conversation_members_by_conversation
 	          (conversation_id, user_id, joined_at, is_active, role)
 	          VALUES (?, ?, ?, ?, ?)`
+
+	// Convert uuid.UUID to gocql.UUID
+	gocqlConvID, _ := gocql.ParseUUID(member.ConversationID.String())
+	gocqlUserID, _ := gocql.ParseUUID(member.UserID.String())
+
 	batch.Query(query,
-		member.ConversationID, member.UserID, member.JoinedAt, member.IsActive, member.Role,
+		gocqlConvID, gocqlUserID, member.JoinedAt, member.IsActive, member.Role,
 	)
 }
 
@@ -345,13 +424,22 @@ func (r *Repository) AddConversationToUserInboxBatch(batch *gocql.Batch, conv *C
 
 func (r *Repository) AddDirectConversationPairToBatch(batch *gocql.Batch, userA, userB, conversationID uuid.UUID) {
 	query := `INSERT INTO direct_conversations_by_user_pair (user_a, user_b, conversation_id) VALUES (?, ?, ?)`
-	batch.Query(query, userA, userB, conversationID)
+
+	// Convert uuid.UUID to gocql.UUID
+	gocqlUserA, _ := gocql.ParseUUID(userA.String())
+	gocqlUserB, _ := gocql.ParseUUID(userB.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
+	batch.Query(query, gocqlUserA, gocqlUserB, gocqlConvID)
 }
 
 func (r *Repository) GetUserConversationByID(userID, conversationID uuid.UUID) (*ConversationByUser, error) {
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
 	var lastMessageAt gocql.UUID
 	lookupQuery := `SELECT last_message_at FROM conversation_user_lookup WHERE user_id = ? AND conversation_id = ?`
-	err := r.session.Query(lookupQuery, userID, conversationID).Scan(&lastMessageAt)
+	err := r.session.Query(lookupQuery, gocqlUserID, gocqlConvID).Scan(&lastMessageAt)
 	if err == gocql.ErrNotFound {
 		return nil, nil
 	}
@@ -363,7 +451,7 @@ func (r *Repository) GetUserConversationByID(userID, conversationID uuid.UUID) (
 	query := `SELECT user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
 	                 title, avatar, last_message_id, last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at
 	          FROM conversations_by_user WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
-	err = r.session.Query(query, userID, lastMessageAt, conversationID).Scan(
+	err = r.session.Query(query, gocqlUserID, lastMessageAt, gocqlConvID).Scan(
 		&conv.UserID, &conv.LastMessageAt, &conv.ConversationID, &conv.IsGroup, &conv.OtherUserID, &conv.OtherUserName, &conv.OtherUserAvatar,
 		&conv.Title, &conv.Avatar, &conv.LastMessageID, &conv.LastMessageBody, &conv.LastMessageSender, &conv.UnreadCount, &conv.LastReadMessageID, &conv.LastReadAt,
 	)
@@ -378,8 +466,11 @@ func (r *Repository) GetUserConversationByID(userID, conversationID uuid.UUID) (
 
 // CheckIfHidden checks if a conversation is hidden by a user
 func (r *Repository) CheckIfHidden(userID, conversationID uuid.UUID) (bool, error) {
-	var convID uuid.UUID
-	err := r.preparedQueries["check_hidden"].Bind(userID, conversationID).Scan(&convID)
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
+	var gocqlResultConvID gocql.UUID
+	err := r.preparedQueries["check_hidden"].Bind(gocqlUserID, gocqlConvID).Scan(&gocqlResultConvID)
 	if err == gocql.ErrNotFound {
 		return false, nil
 	}
@@ -391,11 +482,25 @@ func (r *Repository) CheckIfHidden(userID, conversationID uuid.UUID) (bool, erro
 
 // GetHiddenConversation retrieves hidden conversation data
 func (r *Repository) GetHiddenConversation(userID, conversationID uuid.UUID) (*HiddenConversation, error) {
-	var hidden HiddenConversation
-	err := r.preparedQueries["get_hidden_conversation"].Bind(userID, conversationID).Scan(
-		&hidden.UserID, &hidden.ConversationID, &hidden.HiddenAt,
-		&hidden.IsGroup, &hidden.OtherUserID, &hidden.OtherUserName,
-		&hidden.OtherUserAvatar, &hidden.Title, &hidden.Avatar,
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
+	var gocqlHidden struct {
+		UserID          gocql.UUID
+		ConversationID  gocql.UUID
+		HiddenAt        time.Time
+		IsGroup         bool
+		OtherUserID     *gocql.UUID
+		OtherUserName   string
+		OtherUserAvatar string
+		Title           string
+		Avatar          string
+	}
+
+	err := r.preparedQueries["get_hidden_conversation"].Bind(gocqlUserID, gocqlConvID).Scan(
+		&gocqlHidden.UserID, &gocqlHidden.ConversationID, &gocqlHidden.HiddenAt,
+		&gocqlHidden.IsGroup, &gocqlHidden.OtherUserID, &gocqlHidden.OtherUserName,
+		&gocqlHidden.OtherUserAvatar, &gocqlHidden.Title, &gocqlHidden.Avatar,
 	)
 	if err == gocql.ErrNotFound {
 		return nil, nil
@@ -403,7 +508,28 @@ func (r *Repository) GetHiddenConversation(userID, conversationID uuid.UUID) (*H
 	if err != nil {
 		return nil, err
 	}
-	return &hidden, nil
+
+	// Convert gocql.UUID to uuid.UUID
+	resultUserID, _ := uuid.Parse(gocqlHidden.UserID.String())
+	resultConvID, _ := uuid.Parse(gocqlHidden.ConversationID.String())
+
+	hidden := &HiddenConversation{
+		UserID:          resultUserID,
+		ConversationID:  resultConvID,
+		HiddenAt:        gocqlHidden.HiddenAt,
+		IsGroup:         gocqlHidden.IsGroup,
+		OtherUserName:   gocqlHidden.OtherUserName,
+		OtherUserAvatar: gocqlHidden.OtherUserAvatar,
+		Title:           gocqlHidden.Title,
+		Avatar:          gocqlHidden.Avatar,
+	}
+
+	if gocqlHidden.OtherUserID != nil {
+		otherUserID, _ := uuid.Parse(gocqlHidden.OtherUserID.String())
+		hidden.OtherUserID = &otherUserID
+	}
+
+	return hidden, nil
 }
 
 // HideConversation moves a conversation from inbox to hidden
@@ -419,15 +545,18 @@ func (r *Repository) HideConversation(userID, conversationID uuid.UUID) error {
 
 	batch := r.session.NewBatch(gocql.UnloggedBatch)
 
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
 	// Delete from conversations_by_user
 	deleteQuery := `DELETE FROM conversations_by_user 
 	                WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
-	batch.Query(deleteQuery, userID, userConv.LastMessageAt, conversationID)
+	batch.Query(deleteQuery, gocqlUserID, userConv.LastMessageAt, gocqlConvID)
 
 	// Delete from lookup table
 	deleteLookupQuery := `DELETE FROM conversation_user_lookup 
 	                      WHERE user_id = ? AND conversation_id = ?`
-	batch.Query(deleteLookupQuery, userID, conversationID)
+	batch.Query(deleteLookupQuery, gocqlUserID, gocqlConvID)
 
 	// Insert into hidden_conversations
 	insertHiddenQuery := `INSERT INTO hidden_conversations 
@@ -435,7 +564,7 @@ func (r *Repository) HideConversation(userID, conversationID uuid.UUID) error {
 	                       other_user_name, other_user_avatar, title, avatar)
 	                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	batch.Query(insertHiddenQuery,
-		userID, conversationID, time.Now(),
+		gocqlUserID, gocqlConvID, time.Now(),
 		userConv.IsGroup, userConv.OtherUserID, userConv.OtherUserName,
 		userConv.OtherUserAvatar, userConv.Title, userConv.Avatar,
 	)
@@ -458,10 +587,27 @@ func (r *Repository) UnhideConversation(userID, conversationID uuid.UUID, newLas
 
 	batch := r.session.NewBatch(gocql.UnloggedBatch)
 
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
 	// Delete from hidden_conversations
 	deleteHiddenQuery := `DELETE FROM hidden_conversations 
 	                      WHERE user_id = ? AND conversation_id = ?`
-	batch.Query(deleteHiddenQuery, userID, conversationID)
+	batch.Query(deleteHiddenQuery, gocqlUserID, gocqlConvID)
+
+	// Convert lastMessageSender if present
+	var gocqlLastMessageSender *gocql.UUID
+	if lastMessageSender != nil {
+		gocqlSender, _ := gocql.ParseUUID(lastMessageSender.String())
+		gocqlLastMessageSender = &gocqlSender
+	}
+
+	// Convert OtherUserID if present
+	var gocqlOtherUserID *gocql.UUID
+	if hidden.OtherUserID != nil {
+		gocqlOther, _ := gocql.ParseUUID(hidden.OtherUserID.String())
+		gocqlOtherUserID = &gocqlOther
+	}
 
 	// Insert back into conversations_by_user
 	insertInboxQuery := `INSERT INTO conversations_by_user
@@ -470,10 +616,10 @@ func (r *Repository) UnhideConversation(userID, conversationID uuid.UUID, newLas
 	                      last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at)
 	                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	batch.Query(insertInboxQuery,
-		userID, newLastMessageAt, conversationID,
-		hidden.IsGroup, hidden.OtherUserID, hidden.OtherUserName,
+		gocqlUserID, newLastMessageAt, gocqlConvID,
+		hidden.IsGroup, gocqlOtherUserID, hidden.OtherUserName,
 		hidden.OtherUserAvatar, hidden.Title, hidden.Avatar,
-		lastMessageID, lastMessageBody, lastMessageSender, unreadCount,
+		lastMessageID, lastMessageBody, gocqlLastMessageSender, unreadCount,
 		nil, nil, // last_read_message_id and last_read_at will be null
 	)
 

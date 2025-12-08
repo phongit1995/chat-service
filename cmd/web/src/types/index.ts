@@ -50,12 +50,20 @@ export interface Message {
   id: string
   conversationId: string
   senderId: string
+  senderName?: string
+  senderAvatar?: string
   content: string
-  messageType: string
+  type: string
   status: string
   createdAt: string
   updatedAt: string
-  sender?: User
+  replyToId?: string
+  metadata?: string
+}
+
+export interface MessagesListResponse {
+  messages: Message[]
+  total: number
 }
 
 export interface Conversation {

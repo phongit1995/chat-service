@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
-import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, ConversationsListResponse, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail, UserSearchResult, SearchUsersResponse } from '../types'
+import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, ConversationsListResponse, MessagesListResponse, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail, UserSearchResult, SearchUsersResponse } from '../types'
 import env from '../config/env'
 
 class ApiService {
@@ -66,15 +66,25 @@ class ApiService {
     return response.data
   }
 
-  async getMessages(conversationId: string, limit = 50, offset = 0): Promise<ApiResponse<Message[]>> {
-    const response = await this.api.get<ApiResponse<Message[]>>(`/conversations/${conversationId}/messages`, {
-      params: { limit, offset }
+
+  async sendMessage(data: CreateMessageDTO): Promise<ApiResponse<Message>> {
+    const response = await this.api.post<ApiResponse<Message>>('/messages', data)
+    return response.data
+  }
+
+  async sendDirectMessage(recipientId: string, content: string, type = 'text'): Promise<ApiResponse<Message>> {
+    const response = await this.api.post<ApiResponse<Message>>('/messages/direct', {
+      recipientId,
+      content,
+      type
     })
     return response.data
   }
 
-  async sendMessage(data: CreateMessageDTO): Promise<ApiResponse<Message>> {
-    const response = await this.api.post<ApiResponse<Message>>('/messages', data)
+  async getMessages(conversationId: string, limit = 50, before?: string): Promise<ApiResponse<MessagesListResponse>> {
+    const response = await this.api.get<ApiResponse<MessagesListResponse>>(`/messages/${conversationId}`, {
+      params: { limit, before }
+    })
     return response.data
   }
 

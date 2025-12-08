@@ -133,14 +133,25 @@ export const Chat = () => {
 
   const handleSelectUser = async (result: UserSearchResult) => {
     try {
+      // Clear any existing temp user first
+      setTempChatUser(null)
+      
       // Check if conversation exists
       const response = await apiService.checkDirectConversation(result.id)
       const convData = response.data
 
       if (convData && convData.id) {
-        // Conversation exists, select it
-        await loadConversations()
-        selectConversation(convData.id)
+        // Conversation exists, check if it's already in the list
+        const existingConv = conversations.find(c => c.id === convData.id)
+        
+        if (existingConv) {
+          // Already in list, just select it
+          selectConversation(convData.id)
+        } else {
+          // Need to reload conversations then select
+          await loadConversations()
+          selectConversation(convData.id)
+        }
       } else {
         // No conversation yet, show temp chat UI
         setTempChatUser({
@@ -157,6 +168,17 @@ export const Chat = () => {
       setSearchResults([])
     } catch (error) {
       console.error('Failed to check conversation:', error)
+      // On error, still show temp chat UI
+      setTempChatUser({
+        id: result.id,
+        username: result.username,
+        fullName: result.fullName,
+        avatar: result.avatar,
+        conversationId: undefined
+      })
+      setShowSearch(false)
+      setSearchQuery('')
+      setSearchResults([])
     }
   }
 
@@ -166,24 +188,23 @@ export const Chat = () => {
     try {
       setIsCreatingConversation(true)
       
-      // Create conversation
-      const response = await apiService.createDirectConversation(tempChatUser.id)
-      const newConversation = response.data
+      // Send direct message (API will create conversation if needed)
+      await apiService.sendDirectMessage(tempChatUser.id, messageInput.trim())
       
-      if (newConversation) {
-        // Send the message
-        await sendMessage(newConversation.id, messageInput.trim())
-        
-        // Reload conversations and select the new one
-        await loadConversations()
-        selectConversation(newConversation.id)
-        
-        // Clear temp state
-        setTempChatUser(null)
-        setMessageInput('')
+      // Reload conversations to get the new one
+      await loadConversations()
+      
+      // Find and select the conversation with this user
+      const convResponse = await apiService.checkDirectConversation(tempChatUser.id)
+      if (convResponse.data && convResponse.data.id) {
+        selectConversation(convResponse.data.id)
       }
+      
+      // Clear temp state
+      setTempChatUser(null)
+      setMessageInput('')
     } catch (error) {
-      console.error('Failed to create conversation and send message:', error)
+      console.error('Failed to send direct message:', error)
     } finally {
       setIsCreatingConversation(false)
     }
@@ -387,8 +408,8 @@ export const Chat = () => {
                           : 'bg-white text-gray-800 border border-gray-200'
                       }`}
                     >
-                      {!isOwnMessage && message.sender && (
-                        <p className="text-xs font-semibold mb-1">{message.sender.username}</p>
+                      {!isOwnMessage && message.senderName && (
+                        <p className="text-xs font-semibold mb-1">{message.senderName}</p>
                       )}
                       <p className="break-words">{message.content}</p>
                       <p className={`text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}`}>

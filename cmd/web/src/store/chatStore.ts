@@ -84,12 +84,16 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       set({ isLoading: true, error: null })
       try {
-        const response = await apiService.getConversation(conversationId)
-        const conversation = response.data!
+        // Get messages for this conversation
+        const messagesResponse = await apiService.getMessages(conversationId)
+        const messages = messagesResponse.data?.messages || []
 
+        // Find conversation in list
+        const conv = get().conversations.find(c => c.id === conversationId)
+        
         set({
-          currentConversation: conversation,
-          messages: conversation.messages || [],
+          currentConversation: conv || null,
+          messages,
           typingUsers: new Set(),
           isLoading: false
         })
@@ -104,7 +108,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       set({ isLoading: true, error: null })
       try {
         const response = await apiService.getMessages(conversationId)
-        set({ messages: response.data || [], isLoading: false })
+        set({ messages: response.data?.messages || [], isLoading: false })
       } catch (error: any) {
         set({ error: error.response?.data?.error || 'Failed to load messages', isLoading: false })
       }

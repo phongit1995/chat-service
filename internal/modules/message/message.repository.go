@@ -86,25 +86,73 @@ type Message struct {
 }
 
 func (r *Repository) CreateMessage(msg *Message) error {
+	gocqlConvID, _ := gocql.ParseUUID(msg.ConversationID.String())
+	gocqlSenderID, _ := gocql.ParseUUID(msg.SenderID.String())
+
+	var gocqlReplyToID *gocql.UUID
+	if msg.ReplyToID != nil {
+		gocqlReply, _ := gocql.ParseUUID(msg.ReplyToID.String())
+		gocqlReplyToID = &gocqlReply
+	}
+
 	return r.preparedQueries["create_message"].Bind(
-		msg.ConversationID, msg.MessageID, msg.SenderID, msg.MessageType,
-		msg.Content, msg.Metadata, msg.Status, msg.CreatedAt, msg.UpdatedAt, msg.ReplyToID,
+		gocqlConvID, msg.MessageID, gocqlSenderID, msg.MessageType,
+		msg.Content, msg.Metadata, msg.Status, msg.CreatedAt, msg.UpdatedAt, gocqlReplyToID,
 	).Exec()
 }
 
 func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMessageID *gocql.UUID) ([]Message, error) {
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
 	var messages []Message
 	var iter *gocql.Iter
 
 	if beforeMessageID != nil {
-		iter = r.preparedQueries["get_messages_before"].Bind(conversationID, *beforeMessageID, limit).Iter()
+		iter = r.preparedQueries["get_messages_before"].Bind(gocqlConvID, *beforeMessageID, limit).Iter()
 	} else {
-		iter = r.preparedQueries["get_messages"].Bind(conversationID, limit).Iter()
+		iter = r.preparedQueries["get_messages"].Bind(gocqlConvID, limit).Iter()
 	}
 
-	var msg Message
-	for iter.Scan(&msg.ConversationID, &msg.MessageID, &msg.SenderID, &msg.MessageType,
-		&msg.Content, &msg.Metadata, &msg.Status, &msg.CreatedAt, &msg.UpdatedAt, &msg.DeletedAt, &msg.ReplyToID) {
+	var gocqlMsg struct {
+		ConversationID gocql.UUID
+		MessageID      gocql.UUID
+		SenderID       gocql.UUID
+		MessageType    string
+		Content        string
+		Metadata       string
+		Status         string
+		CreatedAt      time.Time
+		UpdatedAt      time.Time
+		DeletedAt      *time.Time
+		ReplyToID      *gocql.UUID
+	}
+
+	for iter.Scan(&gocqlMsg.ConversationID, &gocqlMsg.MessageID, &gocqlMsg.SenderID, &gocqlMsg.MessageType,
+		&gocqlMsg.Content, &gocqlMsg.Metadata, &gocqlMsg.Status, &gocqlMsg.CreatedAt, &gocqlMsg.UpdatedAt,
+		&gocqlMsg.DeletedAt, &gocqlMsg.ReplyToID) {
+
+		// Convert gocql.UUID to uuid.UUID
+		convID, _ := uuid.Parse(gocqlMsg.ConversationID.String())
+		senderID, _ := uuid.Parse(gocqlMsg.SenderID.String())
+
+		msg := Message{
+			ConversationID: convID,
+			MessageID:      gocqlMsg.MessageID,
+			SenderID:       senderID,
+			MessageType:    gocqlMsg.MessageType,
+			Content:        gocqlMsg.Content,
+			Metadata:       gocqlMsg.Metadata,
+			Status:         gocqlMsg.Status,
+			CreatedAt:      gocqlMsg.CreatedAt,
+			UpdatedAt:      gocqlMsg.UpdatedAt,
+			DeletedAt:      gocqlMsg.DeletedAt,
+		}
+
+		if gocqlMsg.ReplyToID != nil {
+			replyToID, _ := uuid.Parse(gocqlMsg.ReplyToID.String())
+			msg.ReplyToID = &replyToID
+		}
+
 		messages = append(messages, msg)
 	}
 
@@ -116,46 +164,106 @@ func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMess
 }
 
 func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UUID) (*Message, error) {
-	var msg Message
-	err := r.preparedQueries["get_message_by_id"].Bind(conversationID, messageID).Scan(
-		&msg.ConversationID, &msg.MessageID, &msg.SenderID, &msg.MessageType,
-		&msg.Content, &msg.Metadata, &msg.Status, &msg.CreatedAt, &msg.UpdatedAt, &msg.DeletedAt, &msg.ReplyToID,
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
+	var gocqlMsg struct {
+		ConversationID gocql.UUID
+		MessageID      gocql.UUID
+		SenderID       gocql.UUID
+		MessageType    string
+		Content        string
+		Metadata       string
+		Status         string
+		CreatedAt      time.Time
+		UpdatedAt      time.Time
+		DeletedAt      *time.Time
+		ReplyToID      *gocql.UUID
+	}
+
+	err := r.preparedQueries["get_message_by_id"].Bind(gocqlConvID, messageID).Scan(
+		&gocqlMsg.ConversationID, &gocqlMsg.MessageID, &gocqlMsg.SenderID, &gocqlMsg.MessageType,
+		&gocqlMsg.Content, &gocqlMsg.Metadata, &gocqlMsg.Status, &gocqlMsg.CreatedAt, &gocqlMsg.UpdatedAt,
+		&gocqlMsg.DeletedAt, &gocqlMsg.ReplyToID,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return &msg, nil
+
+	// Convert gocql.UUID to uuid.UUID
+	convID, _ := uuid.Parse(gocqlMsg.ConversationID.String())
+	senderID, _ := uuid.Parse(gocqlMsg.SenderID.String())
+
+	msg := &Message{
+		ConversationID: convID,
+		MessageID:      gocqlMsg.MessageID,
+		SenderID:       senderID,
+		MessageType:    gocqlMsg.MessageType,
+		Content:        gocqlMsg.Content,
+		Metadata:       gocqlMsg.Metadata,
+		Status:         gocqlMsg.Status,
+		CreatedAt:      gocqlMsg.CreatedAt,
+		UpdatedAt:      gocqlMsg.UpdatedAt,
+		DeletedAt:      gocqlMsg.DeletedAt,
+	}
+
+	if gocqlMsg.ReplyToID != nil {
+		replyToID, _ := uuid.Parse(gocqlMsg.ReplyToID.String())
+		msg.ReplyToID = &replyToID
+	}
+
+	return msg, nil
 }
 
 func (r *Repository) UpdateMessage(conversationID uuid.UUID, messageID gocql.UUID, newContent string) error {
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
 	now := time.Now()
-	return r.preparedQueries["update_message"].Bind(newContent, now, conversationID, messageID).Exec()
+	return r.preparedQueries["update_message"].Bind(newContent, now, gocqlConvID, messageID).Exec()
 }
 
 func (r *Repository) DeleteMessage(conversationID uuid.UUID, messageID gocql.UUID) error {
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
 	now := time.Now()
-	return r.preparedQueries["delete_message"].Bind(now, now, conversationID, messageID).Exec()
+	return r.preparedQueries["delete_message"].Bind(now, now, gocqlConvID, messageID).Exec()
 }
 
 func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID, newEntry *ConversationInboxUpdate) error {
 	batch := r.session.NewBatch(gocql.UnloggedBatch)
 
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
 	deleteQuery := `DELETE FROM conversations_by_user WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
-	batch.Query(deleteQuery, userID, oldLastMessageAt, conversationID)
+	batch.Query(deleteQuery, gocqlUserID, oldLastMessageAt, gocqlConvID)
+
+	// Convert uuid.UUID to gocql.UUID for newEntry
+	gocqlNewUserID, _ := gocql.ParseUUID(newEntry.UserID.String())
+	gocqlNewConvID, _ := gocql.ParseUUID(newEntry.ConversationID.String())
+
+	var gocqlNewOtherUserID *gocql.UUID
+	if newEntry.OtherUserID != nil {
+		gocqlOther, _ := gocql.ParseUUID(newEntry.OtherUserID.String())
+		gocqlNewOtherUserID = &gocqlOther
+	}
+
+	var gocqlNewLastMessageSender *gocql.UUID
+	if newEntry.LastMessageSender != nil {
+		gocqlSender, _ := gocql.ParseUUID(newEntry.LastMessageSender.String())
+		gocqlNewLastMessageSender = &gocqlSender
+	}
 
 	insertQuery := `INSERT INTO conversations_by_user
 	                (user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
 	                 title, avatar, last_message_id, last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at)
 	                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	batch.Query(insertQuery,
-		newEntry.UserID, newEntry.LastMessageAt, newEntry.ConversationID, newEntry.IsGroup,
-		newEntry.OtherUserID, newEntry.OtherUserName, newEntry.OtherUserAvatar,
+		gocqlNewUserID, newEntry.LastMessageAt, gocqlNewConvID, newEntry.IsGroup,
+		gocqlNewOtherUserID, newEntry.OtherUserName, newEntry.OtherUserAvatar,
 		newEntry.Title, newEntry.Avatar, newEntry.LastMessageID, newEntry.LastMessageBody,
-		newEntry.LastMessageSender, newEntry.UnreadCount, newEntry.LastReadMessageID, newEntry.LastReadAt,
+		gocqlNewLastMessageSender, newEntry.UnreadCount, newEntry.LastReadMessageID, newEntry.LastReadAt,
 	)
 
 	lookupQuery := `INSERT INTO conversation_user_lookup (user_id, conversation_id, last_message_at) VALUES (?, ?, ?)`
-	batch.Query(lookupQuery, userID, conversationID, newEntry.LastMessageAt)
+	batch.Query(lookupQuery, gocqlUserID, gocqlConvID, newEntry.LastMessageAt)
 
 	if err := r.session.ExecuteBatch(batch); err != nil {
 		return fmt.Errorf("failed to update conversation: %w", err)
@@ -183,10 +291,12 @@ type ConversationInboxUpdate struct {
 }
 
 func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID) (*ConversationInboxUpdate, *gocql.UUID, error) {
-	var entry ConversationInboxUpdate
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
 	var oldLastMessageAt gocql.UUID
 
-	err := r.preparedQueries["lookup_conversation"].Bind(userID, conversationID).Scan(&oldLastMessageAt)
+	err := r.preparedQueries["lookup_conversation"].Bind(gocqlUserID, gocqlConvID).Scan(&oldLastMessageAt)
 	if err != nil {
 		if err == gocql.ErrNotFound {
 			return nil, nil, nil
@@ -194,9 +304,28 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 		return nil, nil, fmt.Errorf("lookup query failed: %w", err)
 	}
 
-	err = r.preparedQueries["get_inbox_entry"].Bind(userID, oldLastMessageAt, conversationID).Scan(
-		&entry.UserID, &oldLastMessageAt, &entry.ConversationID, &entry.IsGroup, &entry.OtherUserID, &entry.OtherUserName, &entry.OtherUserAvatar,
-		&entry.Title, &entry.Avatar, &entry.LastMessageID, &entry.LastMessageBody, &entry.LastMessageSender, &entry.UnreadCount, &entry.LastReadMessageID, &entry.LastReadAt,
+	var gocqlEntry struct {
+		UserID            gocql.UUID
+		ConversationID    gocql.UUID
+		IsGroup           bool
+		OtherUserID       *gocql.UUID
+		OtherUserName     string
+		OtherUserAvatar   string
+		Title             string
+		Avatar            string
+		LastMessageID     *gocql.UUID
+		LastMessageBody   string
+		LastMessageSender *gocql.UUID
+		UnreadCount       int
+		LastReadMessageID *gocql.UUID
+		LastReadAt        *time.Time
+	}
+
+	err = r.preparedQueries["get_inbox_entry"].Bind(gocqlUserID, oldLastMessageAt, gocqlConvID).Scan(
+		&gocqlEntry.UserID, &oldLastMessageAt, &gocqlEntry.ConversationID, &gocqlEntry.IsGroup,
+		&gocqlEntry.OtherUserID, &gocqlEntry.OtherUserName, &gocqlEntry.OtherUserAvatar,
+		&gocqlEntry.Title, &gocqlEntry.Avatar, &gocqlEntry.LastMessageID, &gocqlEntry.LastMessageBody,
+		&gocqlEntry.LastMessageSender, &gocqlEntry.UnreadCount, &gocqlEntry.LastReadMessageID, &gocqlEntry.LastReadAt,
 	)
 
 	if err != nil {
@@ -206,8 +335,38 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 		return nil, nil, err
 	}
 
-	entry.LastMessageAt = oldLastMessageAt
-	return &entry, &oldLastMessageAt, nil
+	// Convert gocql.UUID to uuid.UUID
+	resultUserID, _ := uuid.Parse(gocqlEntry.UserID.String())
+	resultConvID, _ := uuid.Parse(gocqlEntry.ConversationID.String())
+
+	entry := &ConversationInboxUpdate{
+		UserID:            resultUserID,
+		LastMessageAt:     oldLastMessageAt,
+		ConversationID:    resultConvID,
+		IsGroup:           gocqlEntry.IsGroup,
+		OtherUserName:     gocqlEntry.OtherUserName,
+		OtherUserAvatar:   gocqlEntry.OtherUserAvatar,
+		Title:             gocqlEntry.Title,
+		Avatar:            gocqlEntry.Avatar,
+		LastMessageID:     gocqlEntry.LastMessageID,
+		LastMessageBody:   gocqlEntry.LastMessageBody,
+		UnreadCount:       gocqlEntry.UnreadCount,
+		LastReadMessageID: gocqlEntry.LastReadMessageID,
+		LastReadAt:        gocqlEntry.LastReadAt,
+	}
+
+	// Convert pointer UUIDs
+	if gocqlEntry.OtherUserID != nil {
+		otherUserID, _ := uuid.Parse(gocqlEntry.OtherUserID.String())
+		entry.OtherUserID = &otherUserID
+	}
+
+	if gocqlEntry.LastMessageSender != nil {
+		lastMessageSender, _ := uuid.Parse(gocqlEntry.LastMessageSender.String())
+		entry.LastMessageSender = &lastMessageSender
+	}
+
+	return entry, &oldLastMessageAt, nil
 }
 
 func (r *Repository) NewBatch() *gocql.Batch {
@@ -219,12 +378,21 @@ func (r *Repository) ExecuteBatch(batch *gocql.Batch) error {
 }
 
 func (r *Repository) AddMessageToBatch(batch *gocql.Batch, msg *Message) {
+	gocqlConvID, _ := gocql.ParseUUID(msg.ConversationID.String())
+	gocqlSenderID, _ := gocql.ParseUUID(msg.SenderID.String())
+
+	var gocqlReplyToID *gocql.UUID
+	if msg.ReplyToID != nil {
+		gocqlReply, _ := gocql.ParseUUID(msg.ReplyToID.String())
+		gocqlReplyToID = &gocqlReply
+	}
+
 	query := `INSERT INTO messages_by_conversation
 	          (conversation_id, message_id, sender_id, message_type, content, metadata, status, created_at, updated_at, reply_to_id)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	batch.Query(query,
-		msg.ConversationID, msg.MessageID, msg.SenderID, msg.MessageType,
-		msg.Content, msg.Metadata, msg.Status, msg.CreatedAt, msg.UpdatedAt, msg.ReplyToID,
+		gocqlConvID, msg.MessageID, gocqlSenderID, msg.MessageType,
+		msg.Content, msg.Metadata, msg.Status, msg.CreatedAt, msg.UpdatedAt, gocqlReplyToID,
 	)
 }
 
@@ -234,14 +402,30 @@ func (r *Repository) DeleteFromInboxBatch(batch *gocql.Batch, userID uuid.UUID, 
 }
 
 func (r *Repository) AddToInboxBatch(batch *gocql.Batch, entry *ConversationInboxUpdate) {
+	// Convert uuid.UUID to gocql.UUID
+	gocqlUserID, _ := gocql.ParseUUID(entry.UserID.String())
+	gocqlConvID, _ := gocql.ParseUUID(entry.ConversationID.String())
+
+	var gocqlOtherUserID *gocql.UUID
+	if entry.OtherUserID != nil {
+		gocqlOther, _ := gocql.ParseUUID(entry.OtherUserID.String())
+		gocqlOtherUserID = &gocqlOther
+	}
+
+	var gocqlLastMessageSender *gocql.UUID
+	if entry.LastMessageSender != nil {
+		gocqlSender, _ := gocql.ParseUUID(entry.LastMessageSender.String())
+		gocqlLastMessageSender = &gocqlSender
+	}
+
 	query := `INSERT INTO conversations_by_user
 	          (user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
 	           title, avatar, last_message_id, last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	batch.Query(query,
-		entry.UserID, entry.LastMessageAt, entry.ConversationID, entry.IsGroup,
-		entry.OtherUserID, entry.OtherUserName, entry.OtherUserAvatar,
+		gocqlUserID, entry.LastMessageAt, gocqlConvID, entry.IsGroup,
+		gocqlOtherUserID, entry.OtherUserName, entry.OtherUserAvatar,
 		entry.Title, entry.Avatar, entry.LastMessageID, entry.LastMessageBody,
-		entry.LastMessageSender, entry.UnreadCount, entry.LastReadMessageID, entry.LastReadAt,
+		gocqlLastMessageSender, entry.UnreadCount, entry.LastReadMessageID, entry.LastReadAt,
 	)
 }
