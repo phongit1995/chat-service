@@ -29,10 +29,15 @@ export const useChatStore = create<ChatState>((set, get) => {
       set({ messages: [...messages, message] })
     }
 
+    // Update conversation list with last message
     set(state => ({
       conversations: state.conversations.map(conv =>
         conv.id === message.conversationId
-          ? { ...conv, lastMessage: message }
+          ? { 
+              ...conv, 
+              lastMessageText: message.content,
+              lastMessageAt: message.createdAt
+            }
           : conv
       )
     }))
@@ -63,7 +68,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       set({ isLoading: true, error: null })
       try {
         const response = await apiService.getConversations()
-        set({ conversations: response.data || [], isLoading: false })
+        const conversations = response.data?.conversations || []
+        set({ conversations, isLoading: false })
       } catch (error: any) {
         set({ error: error.response?.data?.error || 'Failed to load conversations', isLoading: false })
       }

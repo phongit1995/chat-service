@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
-import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail } from '../types'
+import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, ConversationsListResponse, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail, UserSearchResult, SearchUsersResponse } from '../types'
 import env from '../config/env'
 
 class ApiService {
@@ -47,12 +47,12 @@ class ApiService {
   }
 
   async getProfile(): Promise<ApiResponse<User>> {
-    const response = await this.api.get<ApiResponse<User>>('/users/me')
+    const response = await this.api.get<ApiResponse<User>>('/user/profile')
     return response.data
   }
 
-  async getConversations(): Promise<ApiResponse<Conversation[]>> {
-    const response = await this.api.get<ApiResponse<Conversation[]>>('/conversations')
+  async getConversations(): Promise<ApiResponse<ConversationsListResponse>> {
+    const response = await this.api.get<ApiResponse<ConversationsListResponse>>('/conversations')
     return response.data
   }
 
@@ -78,9 +78,16 @@ class ApiService {
     return response.data
   }
 
-  async searchUsers(query: string): Promise<ApiResponse<User[]>> {
-    const response = await this.api.get<ApiResponse<User[]>>('/users/search', {
-      params: { q: query }
+  async searchUsers(query: string, limit = 20): Promise<ApiResponse<SearchUsersResponse>> {
+    const response = await this.api.get<ApiResponse<SearchUsersResponse>>('/users/search', {
+      params: { q: query, limit }
+    })
+    return response.data
+  }
+
+  async createDirectConversation(recipientId: string): Promise<ApiResponse<Conversation>> {
+    const response = await this.api.post<ApiResponse<Conversation>>('/conversations/direct', {
+      recipientId
     })
     return response.data
   }

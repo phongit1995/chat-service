@@ -147,10 +147,20 @@ func executeCQLFileWithKeyspace(session *gocql.Session, filePath string, keyspac
 	contentStr := string(content)
 	contentStr = strings.ReplaceAll(contentStr, "chat_keyspace", keyspace)
 
+	lines := strings.Split(contentStr, "\n")
+	var cleanedLines []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" && !strings.HasPrefix(trimmed, "--") {
+			cleanedLines = append(cleanedLines, line)
+		}
+	}
+	contentStr = strings.Join(cleanedLines, "\n")
+
 	statements := strings.Split(contentStr, ";")
 	for _, stmt := range statements {
 		stmt = strings.TrimSpace(stmt)
-		if stmt == "" || strings.HasPrefix(stmt, "--") {
+		if stmt == "" {
 			continue
 		}
 

@@ -23,4 +23,9 @@ func (r *Router) Setup(api *utils.AppGroup) {
 		user.GET("/profile", r.controller.GetProfile)
 		user.PUT("/profile", r.controller.UpdateProfile)
 	}
+
+	users := api.Group("/users", r.authMiddleware.RequireAuth())
+	{
+		users.GET("/search", r.controller.SearchUsers)
+	}
 }

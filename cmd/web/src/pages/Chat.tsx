@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useChatStore } from '../store/chatStore'
 import { socketService } from '../services/socket'
+import { apiService } from '../services/api'
+import type { UserSearchResult } from '../types'
 
 export const Chat = () => {
   const navigate = useNavigate()
@@ -19,8 +21,13 @@ export const Chat = () => {
 
   const [messageInput, setMessageInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout>()
+  const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
     loadConversations()
@@ -31,8 +38,9 @@ export const Chat = () => {
   }, [messages])
 
   const handleLogout = () => {
+    socketService.disconnect()
     logout()
-    navigate('/login')
+    navigate('/login', { replace: true })
   }
 
   const handleConversationClick = (conversationId: string) => {
@@ -85,6 +93,49 @@ export const Chat = () => {
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
   }
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value
+    setSearchQuery(query)
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (query.trim().length < 2) {
+      setSearchResults([])
+      return
+    }
+
+    setIsSearching(true)
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await apiService.searchUsers(query.trim())
+        setSearchResults(response.data?.users || [])
+      } catch (error) {
+        console.error('Search failed:', error)
+        setSearchResults([])
+      } finally {
+        setIsSearching(false)
+      }
+    }, 300)
+  }
+
+  const handleStartChat = async (userId: string) => {
+    try {
+      const response = await apiService.createDirectConversation(userId)
+      const newConversation = response.data
+      if (newConversation) {
+        await loadConversations()
+        selectConversation(newConversation.id)
+        setShowSearch(false)
+        setSearchQuery('')
+        setSearchResults([])
+      }
+    } catch (error) {
+      console.error('Failed to start conversation:', error)
+    }
+  }
+
   return (
     <div className="flex h-screen bg-gray-100">
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
@@ -98,16 +149,72 @@ export const Chat = () => {
               <p className="text-xs text-green-500">Online</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-gray-500 hover:text-red-600 transition"
-            title="Logout"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowSearch(!showSearch)}
+              className="text-gray-500 hover:text-blue-600 transition"
+              title="New Chat"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="text-gray-500 hover:text-red-600 transition"
+              title="Logout"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {showSearch && (
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search users to start chat..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              autoFocus
+            />
+            {isSearching && (
+              <div className="text-center py-2 text-sm text-gray-500">Searching...</div>
+            )}
+            {searchResults.length > 0 && (
+              <div className="mt-2 max-h-64 overflow-y-auto">
+                {searchResults.map((result) => (
+                  <button
+                    key={result.id}
+                    onClick={() => handleStartChat(result.id)}
+                    className="w-full p-3 rounded-lg hover:bg-white transition flex items-center text-left"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                      {result.username?.charAt(0).toUpperCase() || result.fullName?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div className="ml-3 flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-800 truncate">
+                        {result.fullName || result.username}
+                      </h4>
+                      <p className="text-sm text-gray-600 truncate">@{result.username}</p>
+                      {result.bio && (
+                        <p className="text-xs text-gray-500 truncate">{result.bio}</p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
+              <div className="text-center py-4 text-sm text-gray-500">
+                No users found
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           <div className="p-2">
@@ -136,9 +243,9 @@ export const Chat = () => {
                       <h4 className="font-semibold text-gray-800 truncate">
                         {conv.name || `Conversation ${conv.id.slice(0, 8)}`}
                       </h4>
-                      {conv.lastMessage && (
+                      {conv.lastMessageText && (
                         <p className="text-sm text-gray-600 truncate">
-                          {conv.lastMessage.content}
+                          {conv.lastMessageText}
                         </p>
                       )}
                     </div>
@@ -225,7 +332,7 @@ export const Chat = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">Welcome to Chat Server</h3>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">Welcome to Chat</h3>
               <p className="text-gray-600">Select a conversation to start chatting</p>
             </div>
           </div>

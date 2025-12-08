@@ -62,12 +62,16 @@ export interface Conversation {
   id: string
   type: string
   name?: string
-  avatarURL?: string
-  createdBy: string
-  createdAt: string
-  updatedAt: string
-  lastMessage?: Message
-  members?: User[]
+  avatar?: string
+  lastMessageText?: string
+  lastMessageAt?: string
+  unreadCount?: number
+  participantCount?: number
+}
+
+export interface ConversationsListResponse {
+  conversations: Conversation[]
+  total: number
 }
 
 export interface ConversationDetail extends Conversation {
@@ -84,4 +88,18 @@ export interface CreateConversationDTO {
   type: string
   name?: string
   memberIds: string[]
+}
+
+export interface UserSearchResult {
+  id: string
+  username: string
+  email: string
+  fullName?: string
+  avatar?: string
+  bio?: string
+}
+
+export interface SearchUsersResponse {
+  users: UserSearchResult[]
+  total: number
 }

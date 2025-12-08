@@ -1,12 +1,19 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 
 export const Login = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const { login, isLoading, error, clearError } = useAuthStore()
+  const { login, isLoading, error, clearError, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/chat', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -14,7 +21,7 @@ export const Login = () => {
 
     try {
       await login(email, password)
-      navigate('/chat')
+      navigate('/chat', { replace: true })
     } catch (error) {
       console.error('Login failed:', error)
     }
@@ -25,7 +32,7 @@ export const Login = () => {
       <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Sign in to continue to Chat Server</p>
+          <p className="text-gray-600">Sign in to continue</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

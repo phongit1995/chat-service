@@ -8,13 +8,12 @@ import env from './config/env'
 
 function App() {
   useEffect(() => {
-    document.title = env.appName
+    document.title = 'Chat App'
 
     if (env.isDevelopment) {
       console.log('=== Environment Configuration ===')
       console.log('API Base URL:', env.apiBaseUrl)
       console.log('WebSocket URL:', env.wsUrl)
-      console.log('App Name:', env.appName)
       console.log('Mode:', env.isDevelopment ? 'Development' : 'Production')
       console.log('================================')
     }

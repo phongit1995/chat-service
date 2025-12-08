@@ -149,6 +149,53 @@ func (s *Service) UpdateProfile(userID uuid.UUID, req *UpdateProfileRequest) (*U
 	return s.buildProfileResponse(user), nil
 }
 
+func (s *Service) SearchUsers(query string, limit int, currentUserID uuid.UUID) (*SearchUsersResponse, error) {
+	s.logger.Debugw("Searching users",
+		"query", query,
+		"limit", limit,
+		"current_user_id", currentUserID,
+	)
+
+	if query == "" {
+		return &SearchUsersResponse{Users: []UserSearchResult{}, Total: 0}, nil
+	}
+
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+
+	users, err := s.repo.Search(query, limit, &currentUserID)
+	if err != nil {
+		s.logger.Errorw("Failed to search users",
+			"query", query,
+			"error", err.Error(),
+		)
+		return nil, err
+	}
+
+	results := make([]UserSearchResult, 0, len(users))
+	for _, user := range users {
+		results = append(results, UserSearchResult{
+			ID:       user.ID.String(),
+			Username: user.Username,
+			Email:    user.Email,
+			FullName: user.FullName,
+			Avatar:   user.Avatar,
+			Bio:      user.Bio,
+		})
+	}
+
+	s.logger.Debugw("User search completed",
+		"query", query,
+		"results_count", len(results),
+	)
+
+	return &SearchUsersResponse{
+		Users: results,
+		Total: len(results),
+	}, nil
+}
+
 func (s *Service) buildProfileResponse(user *models.User) *UserProfileResponse {
 	response := &UserProfileResponse{
 		ID:         user.ID.String(),

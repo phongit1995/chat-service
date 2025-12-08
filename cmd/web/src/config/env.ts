@@ -1,7 +1,6 @@
 interface EnvConfig {
   apiBaseUrl: string
   wsUrl: string
-  appName: string
   isDevelopment: boolean
   isProduction: boolean
 }
@@ -14,10 +13,11 @@ const getEnvVar = (key: string, defaultValue?: string): string => {
   return value
 }
 
+const apiBaseUrl = getEnvVar('VITE_API_BASE_URL', 'http://localhost:8080')
+
 export const env: EnvConfig = {
-  apiBaseUrl: getEnvVar('VITE_API_BASE_URL', 'http://localhost:8080'),
-  wsUrl: getEnvVar('VITE_WS_URL', 'http://localhost:8080'),
-  appName: getEnvVar('VITE_APP_NAME', 'Chat Server'),
+  apiBaseUrl,
+  wsUrl: apiBaseUrl, // Use same URL for WebSocket
   isDevelopment: import.meta.env.DEV,
   isProduction: import.meta.env.PROD,
 }

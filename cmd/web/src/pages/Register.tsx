@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 
@@ -8,8 +8,15 @@ export const Register = () => {
   const [password, setPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const { register, isLoading, error, clearError } = useAuthStore()
+  const { register, isLoading, error, clearError, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/chat', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -17,7 +24,7 @@ export const Register = () => {
 
     try {
       await register(username, email, password, firstName, lastName)
-      navigate('/chat')
+      navigate('/chat', { replace: true })
     } catch (error) {
       console.error('Registration failed:', error)
     }
