@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"chat-server/internal/config"
+	"chat-server/internal/constants"
 	"context"
 
 	"github.com/segmentio/kafka-go"
@@ -11,26 +12,24 @@ import (
 type MessageHandler func(ctx context.Context, message []byte) error
 
 type Consumer struct {
-	readers       []*kafka.Reader
-	logger        *zap.SugaredLogger
-	cfg           *config.Config
-	handlers      map[string]MessageHandler
-	ctx           context.Context
-	cancel        context.CancelFunc
-	consumerGroup string
+	readers  []*kafka.Reader
+	logger   *zap.SugaredLogger
+	cfg      *config.Config
+	handlers map[string]MessageHandler
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
-func NewConsumer(cfg *config.Config, logger *zap.SugaredLogger, consumerGroup string) *Consumer {
+func NewConsumer(cfg *config.Config, logger *zap.SugaredLogger) *Consumer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Consumer{
-		readers:       make([]*kafka.Reader, 0),
-		logger:        logger.Named("[kafka_consumer]"),
-		cfg:           cfg,
-		handlers:      make(map[string]MessageHandler),
-		ctx:           ctx,
-		cancel:        cancel,
-		consumerGroup: consumerGroup,
+		readers:  make([]*kafka.Reader, 0),
+		logger:   logger.Named("[kafka_consumer]"),
+		cfg:      cfg,
+		handlers: make(map[string]MessageHandler),
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 }
 
@@ -48,7 +47,7 @@ func (c *Consumer) Start() error {
 	for topic, handler := range c.handlers {
 		reader := kafka.NewReader(kafka.ReaderConfig{
 			Brokers:  c.cfg.KafkaBrokers,
-			GroupID:  c.consumerGroup,
+			GroupID:  constants.KafkaConsumerGroup,
 			Topic:    topic,
 			MinBytes: 10e3,
 			MaxBytes: 10e6,
@@ -59,7 +58,7 @@ func (c *Consumer) Start() error {
 		go c.consumeTopic(reader, handler, topic)
 	}
 
-	c.logger.Infow("✅ Kafka Consumer started", "topics", topics, "consumer_group", c.consumerGroup)
+	c.logger.Infow("✅ Kafka Consumer started", "topics", topics, "consumer_group", constants.KafkaConsumerGroup)
 	return nil
 }
 

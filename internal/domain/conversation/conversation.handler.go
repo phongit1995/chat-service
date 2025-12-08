@@ -9,19 +9,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type ConversationCache interface {
-	GetConversationMembers(conversationID string) ([]string, error)
-}
-
 type EventHandler struct {
 	wsServer  *websocket.Server
-	convCache ConversationCache
+	convCache *ConversationCacheAdapter
 	logger    *zap.SugaredLogger
 }
 
 func NewEventHandler(
 	wsServer *websocket.Server,
-	convCache ConversationCache,
+	convCache *ConversationCacheAdapter,
 	logger *zap.SugaredLogger,
 ) *EventHandler {
 	return &EventHandler{

@@ -2,6 +2,7 @@ package message
 
 import (
 	"chat-server/internal/constants"
+	conversationDomain "chat-server/internal/domain/conversation"
 	"chat-server/internal/infra/websocket"
 	"context"
 	"errors"
@@ -10,19 +11,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type ConversationCache interface {
-	GetConversationMembers(conversationID string) ([]string, error)
-}
-
 type EventHandler struct {
 	wsServer  *websocket.Server
-	convCache ConversationCache
+	convCache *conversationDomain.ConversationCacheAdapter
 	logger    *zap.SugaredLogger
 }
 
 func NewEventHandler(
 	wsServer *websocket.Server,
-	convCache ConversationCache,
+	convCache *conversationDomain.ConversationCacheAdapter,
 	logger *zap.SugaredLogger,
 ) *EventHandler {
 	return &EventHandler{
