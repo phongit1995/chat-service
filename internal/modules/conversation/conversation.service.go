@@ -191,7 +191,22 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		return nil, fmt.Errorf("failed to create direct conversation: %w", err)
 	}
 
-	go s.InvalidateUserConversationsCache([]uuid.UUID{user1ID, user2ID})
+	members := []ConversationMember{*member1, *member2}
+
+	go func() {
+		s.InvalidateUserConversationsCache([]uuid.UUID{user1ID, user2ID})
+		if err := s.cache.SetConversationMembers(conversationID, members); err != nil {
+			s.logger.Warnw("Failed to cache conversation members after creation",
+				"conversation_id", conversationID,
+				"error", err,
+			)
+		} else {
+			s.logger.Debugw("Cached conversation members after creation",
+				"conversation_id", conversationID,
+				"member_count", len(members),
+			)
+		}
+	}()
 
 	return &ConversationResponse{
 		ID:               conversationID.String(),
@@ -245,6 +260,7 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 	s.repo.AddConversationToBatch(batch, conv)
 
 	allParticipantIDs := make([]uuid.UUID, 0, len(uniqueParticipants))
+	members := make([]ConversationMember, 0, len(uniqueParticipants))
 	for participantID := range uniqueParticipants {
 		allParticipantIDs = append(allParticipantIDs, participantID)
 
@@ -261,6 +277,7 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 			Role:           role,
 		}
 		s.repo.AddMemberToBatch(batch, member)
+		members = append(members, *member)
 
 		gocqlParticipantID, err := utils.ToGocqlUUID(participantID)
 		if err != nil {
@@ -287,7 +304,20 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 		return nil, fmt.Errorf("failed to create group conversation: %w", err)
 	}
 
-	go s.InvalidateUserConversationsCache(allParticipantIDs)
+	go func() {
+		s.InvalidateUserConversationsCache(allParticipantIDs)
+		if err := s.cache.SetConversationMembers(conversationID, members); err != nil {
+			s.logger.Warnw("Failed to cache conversation members after creation",
+				"conversation_id", conversationID,
+				"error", err,
+			)
+		} else {
+			s.logger.Debugw("Cached conversation members after creation",
+				"conversation_id", conversationID,
+				"member_count", len(members),
+			)
+		}
+	}()
 
 	return &ConversationResponse{
 		ID:               conversationID.String(),

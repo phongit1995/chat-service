@@ -147,11 +147,27 @@ func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID 
 		return fmt.Errorf("failed to execute batch: %w", err)
 	}
 
+	members := []conversation.ConversationMember{*member1, *member2}
+
 	var wg sync.WaitGroup
-	wg.Add(1)
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		s.convCache.InvalidateUserConversations([]uuid.UUID{user1ID, user2ID})
+	}()
+	go func() {
+		defer wg.Done()
+		if err := s.convCache.SetConversationMembers(conversationID, members); err != nil {
+			s.logger.Warnw("Failed to cache conversation members after creation",
+				"conversation_id", conversationID,
+				"error", err,
+			)
+		} else {
+			s.logger.Debugw("Cached conversation members after creation",
+				"conversation_id", conversationID,
+				"member_count", len(members),
+			)
+		}
 	}()
 	wg.Wait()
 

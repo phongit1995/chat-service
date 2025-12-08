@@ -3,16 +3,20 @@ package conversation
 import (
 	"chat-server/internal/constants"
 	"chat-server/internal/services"
-	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
 type ConversationMember struct {
-	UserID   uuid.UUID `json:"user_id"`
-	IsActive bool      `json:"is_active"`
+	ConversationID uuid.UUID
+	UserID         uuid.UUID
+	JoinedAt       time.Time
+	LeftAt         *time.Time
+	IsActive       bool
+	Role           string
 }
 
 type ConversationCache struct {
@@ -30,15 +34,9 @@ func NewConversationCache(cache *services.CacheService, logger *zap.SugaredLogge
 func (c *ConversationCache) GetConversationMembers(conversationID uuid.UUID) ([]ConversationMember, error) {
 	key := fmt.Sprintf(constants.CacheKeyConversationMembers, conversationID.String())
 
-	var data string
-	if err := c.cache.Get(key, &data); err != nil {
-		c.logger.Debugw("Cache miss for conversation members", "conversation_id", conversationID, "error", err)
-		return nil, err
-	}
-
 	var members []ConversationMember
-	if err := json.Unmarshal([]byte(data), &members); err != nil {
-		c.logger.Errorw("Failed to unmarshal conversation members", "conversation_id", conversationID, "error", err)
+	if err := c.cache.Get(key, &members); err != nil {
+		c.logger.Debugw("Cache miss for conversation members", "conversation_id", conversationID, "error", err)
 		return nil, err
 	}
 
