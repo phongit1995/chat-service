@@ -46,7 +46,9 @@ type Config struct {
 	WSReadBufferSize  int `env:"WS_READ_BUFFER_SIZE" envDefault:"1024" validate:"min=1024"`
 	WSWriteBufferSize int `env:"WS_WRITE_BUFFER_SIZE" envDefault:"1024" validate:"min=1024"`
 
-	KafkaBrokers []string `env:"KAFKA_BROKERS" envSeparator:"," validate:"required,min=1"`
+	KafkaBrokers           []string `env:"KAFKA_BROKERS" envSeparator:"," validate:"required,min=1"`
+	KafkaConsumerWorkers   int      `env:"KAFKA_CONSUMER_WORKERS" envDefault:"10" validate:"min=1,max=100"`
+	KafkaMessageTimeoutSec int      `env:"KAFKA_MESSAGE_TIMEOUT_SEC" envDefault:"10" validate:"min=1,max=300"`
 }
 
 func LoadConfig() (*Config, error) {

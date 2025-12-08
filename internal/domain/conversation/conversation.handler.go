@@ -4,6 +4,7 @@ import (
 	"chat-server/internal/constants"
 	"chat-server/internal/infra/websocket"
 	"context"
+	"encoding/json"
 	"errors"
 
 	"go.uber.org/zap"
@@ -27,17 +28,53 @@ func NewEventHandler(
 	}
 }
 
-func (h *EventHandler) OnCreated(ctx context.Context, event *CreatedEvent) error {
-	if err := h.validateCreatedEvent(event); err != nil {
+func (h *EventHandler) OnCreated(ctx context.Context, message []byte) error {
+	h.logger.Debugw("📥 Received CONVERSATION_CREATED from Kafka",
+		"raw_size", len(message),
+	)
+
+	var event CreatedEvent
+
+	if err := json.Unmarshal(message, &event); err != nil {
+		h.logger.Errorw("Failed to unmarshal ConversationCreated", "error", err, "raw_message", string(message))
+		return err
+	}
+
+	h.logger.Infow("🔄 Processing CONVERSATION_CREATED event",
+		"conversation_id", event.ConversationID,
+	)
+
+	if err := h.validateCreatedEvent(&event); err != nil {
 		h.logger.Errorw("Invalid ConversationCreated event", "error", err)
 		return err
 	}
 
+	h.logger.Infow("✅ CONVERSATION_CREATED processed successfully",
+		"conversation_id", event.ConversationID,
+	)
+
 	return nil
 }
 
-func (h *EventHandler) OnUpdated(ctx context.Context, event *UpdatedEvent) error {
-	if err := h.validateUpdatedEvent(event); err != nil {
+func (h *EventHandler) OnUpdated(ctx context.Context, message []byte) error {
+	h.logger.Debugw("📥 Received CONVERSATION_UPDATED from Kafka",
+		"raw_size", len(message),
+	)
+
+	var event UpdatedEvent
+
+	if err := json.Unmarshal(message, &event); err != nil {
+		h.logger.Errorw("Failed to unmarshal ConversationUpdated", "error", err, "raw_message", string(message))
+		return err
+	}
+
+	dataJSON, _ := json.Marshal(event.Data)
+	h.logger.Infow("🔄 Processing CONVERSATION_UPDATED event",
+		"conversation_id", event.ConversationID,
+		"data", string(dataJSON),
+	)
+
+	if err := h.validateUpdatedEvent(&event); err != nil {
 		h.logger.Errorw("Invalid ConversationUpdated event", "error", err)
 		return err
 	}
@@ -51,6 +88,12 @@ func (h *EventHandler) OnUpdated(ctx context.Context, event *UpdatedEvent) error
 		return err
 	}
 
+	h.logger.Infow("👥 Got conversation members",
+		"conversation_id", event.ConversationID,
+		"member_count", len(userIDs),
+		"user_ids", userIDs,
+	)
+
 	if len(userIDs) == 0 {
 		h.logger.Warnw("No members found in conversation",
 			"conversation_id", event.ConversationID,
@@ -58,16 +101,47 @@ func (h *EventHandler) OnUpdated(ctx context.Context, event *UpdatedEvent) error
 		return nil
 	}
 
+	h.logger.Infow("📡 Emitting CONVERSATION_UPDATED to WebSocket",
+		"conversation_id", event.ConversationID,
+		"recipient_count", len(userIDs),
+		"recipients", userIDs,
+		"data", string(dataJSON),
+	)
+
 	h.wsServer.EmitToUsers(userIDs, constants.WebSocketEventConversationUpdated, event.Data)
+
+	h.logger.Infow("✅ CONVERSATION_UPDATED processed successfully",
+		"conversation_id", event.ConversationID,
+		"emitted_to", len(userIDs),
+	)
 
 	return nil
 }
 
-func (h *EventHandler) OnDeleted(ctx context.Context, event *DeletedEvent) error {
-	if err := h.validateDeletedEvent(event); err != nil {
+func (h *EventHandler) OnDeleted(ctx context.Context, message []byte) error {
+	h.logger.Debugw("📥 Received CONVERSATION_DELETED from Kafka",
+		"raw_size", len(message),
+	)
+
+	var event DeletedEvent
+
+	if err := json.Unmarshal(message, &event); err != nil {
+		h.logger.Errorw("Failed to unmarshal ConversationDeleted", "error", err, "raw_message", string(message))
+		return err
+	}
+
+	h.logger.Infow("🔄 Processing CONVERSATION_DELETED event",
+		"conversation_id", event.ConversationID,
+	)
+
+	if err := h.validateDeletedEvent(&event); err != nil {
 		h.logger.Errorw("Invalid ConversationDeleted event", "error", err)
 		return err
 	}
+
+	h.logger.Infow("✅ CONVERSATION_DELETED processed successfully",
+		"conversation_id", event.ConversationID,
+	)
 
 	return nil
 }

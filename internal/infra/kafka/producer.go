@@ -35,15 +35,15 @@ func NewProducer(cfg *config.Config, logger *zap.SugaredLogger) (*Producer, erro
 	}, nil
 }
 
-func (p *Producer) PublishMessageCreated(ctx context.Context, event *messageEvents.CreatedEvent) error {
+func (p *Producer) PublishMessageCreated(ctx context.Context, event *messageEvents.MessageCreatedEvent) error {
 	return p.publish(ctx, constants.KafkaTopicMessageCreated, event)
 }
 
-func (p *Producer) PublishMessageDeleted(ctx context.Context, event *messageEvents.DeletedEvent) error {
+func (p *Producer) PublishMessageDeleted(ctx context.Context, event *messageEvents.MessageDeletedEvent) error {
 	return p.publish(ctx, constants.KafkaTopicMessageDeleted, event)
 }
 
-func (p *Producer) PublishMessageUpdated(ctx context.Context, event *messageEvents.UpdatedEvent) error {
+func (p *Producer) PublishMessageUpdated(ctx context.Context, event *messageEvents.MessageUpdatedEvent) error {
 	return p.publish(ctx, constants.KafkaTopicMessageUpdated, event)
 }
 

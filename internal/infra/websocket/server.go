@@ -127,12 +127,28 @@ func (s *Server) EmitUserOnlineStatus(userID string, isOnline bool) {
 func (s *Server) EmitToUser(userID string, event string, data any) {
 	room := "user:" + userID
 	s.io.To(socket.Room(room)).Emit(event, data)
+	s.logger.Debugw("📤 Emitted WebSocket event to user",
+		"user_id", userID,
+		"event", event,
+		"room", room,
+	)
 }
 
 func (s *Server) EmitToUsers(userIDs []string, event string, data any) {
+	s.logger.Infow("📤 Emitting WebSocket event to multiple users",
+		"event", event,
+		"user_count", len(userIDs),
+		"user_ids", userIDs,
+	)
+
 	for _, userID := range userIDs {
 		s.EmitToUser(userID, event, data)
 	}
+
+	s.logger.Infow("✅ WebSocket emit completed",
+		"event", event,
+		"total_users", len(userIDs),
+	)
 }
 
 func (s *Server) GetPresenceService() *PresenceService {

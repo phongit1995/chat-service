@@ -72,27 +72,44 @@ func main() {
 		log.Printf("📡 Received signal: %v", sig)
 		log.Println("🛑 Chat Service shutdown...")
 
-		if kafkaConsumer != nil {
-			log.Println("📨 Closing Kafka consumer...")
-			if err := kafkaConsumer.Close(); err != nil {
-				log.Printf("⚠️ Error closing Kafka consumer: %v", err)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+
+		shutdownDone := make(chan bool, 1)
+
+		go func() {
+			if srv != nil {
+				log.Println("🌐 Shutting down HTTP server...")
+				if err := srv.Shutdown(shutdownCtx); err != nil {
+					log.Printf("⚠️ Error shutting down HTTP server: %v", err)
+				} else {
+					log.Println("✅ HTTP server shut down")
+				}
 			}
-		}
 
-		if wsServer != nil {
-			log.Println("🔌 Closing WebSocket connections...")
-			wsServer.Close()
-		}
-
-		if srv != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			if err := srv.Shutdown(ctx); err != nil {
-				log.Printf("⚠️ Error shutting down HTTP server: %v", err)
+			if wsServer != nil {
+				log.Println("🔌 Closing WebSocket connections...")
+				wsServer.Close()
+				log.Println("✅ WebSocket server closed")
 			}
-		}
 
-		log.Println("✅ Chat Service shutdown successfully!")
+			if kafkaConsumer != nil {
+				log.Println("📨 Closing Kafka consumer...")
+				if err := kafkaConsumer.Close(); err != nil {
+					log.Printf("⚠️ Error closing Kafka consumer: %v", err)
+				} else {
+					log.Println("✅ Kafka consumer closed")
+				}
+			}
+
+			shutdownDone <- true
+		}()
+
+		select {
+		case <-shutdownDone:
+			log.Println("✅ Chat Service shutdown successfully!")
+		case <-shutdownCtx.Done():
+			log.Println("⚠️ Shutdown timeout exceeded, forcing exit...")
+		}
 	}
 }

@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore'
 import { useChatStore } from '../store/chatStore'
 import { socketService } from '../services/socket'
 import { apiService } from '../services/api'
-import type { UserSearchResult, TempChatUser } from '../types'
+import type { UserSearchResult, TempChatUser, Conversation } from '../types'
 
 export const Chat = () => {
   const navigate = useNavigate()
@@ -28,8 +28,8 @@ export const Chat = () => {
   const [tempChatUser, setTempChatUser] = useState<TempChatUser | null>(null)
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const typingTimeoutRef = useRef<NodeJS.Timeout>()
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
   useEffect(() => {
     loadConversations()
@@ -102,6 +102,35 @@ export const Chat = () => {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const formatConversationTime = (dateString?: string) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  const getConversationDisplayName = (conv: Conversation) => {
+    if (conv.name) return conv.name
+    if (conv.type === 'direct') return 'Direct Message'
+    return `Group Chat`
+  }
+
+  const getConversationInitial = (conv: Conversation) => {
+    if (conv.name) return conv.name.charAt(0).toUpperCase()
+    if (conv.type === 'direct') return 'D'
+    return 'G'
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -299,33 +328,96 @@ export const Chat = () => {
                 <p className="text-sm mt-2">Start a new chat!</p>
               </div>
             ) : (
-              conversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => handleConversationClick(conv.id)}
-                  className={`w-full p-3 rounded-lg mb-1 text-left transition ${
-                    currentConversation?.id === conv.id
-                      ? 'bg-blue-50 border-l-4 border-blue-600'
-                      : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                      {conv.name?.charAt(0).toUpperCase() || 'C'}
-                    </div>
-                    <div className="ml-3 flex-1 min-w-0">
-                      <h4 className="font-semibold text-gray-800 truncate">
-                        {conv.name || `Conversation ${conv.id.slice(0, 8)}`}
-                      </h4>
-                      {conv.lastMessageText && (
-                        <p className="text-sm text-gray-600 truncate">
-                          {conv.lastMessageText}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))
+              [...conversations]
+                .sort((a, b) => {
+                  // Sort by lastMessageAt (most recent first)
+                  const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
+                  const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
+                  return timeB - timeA
+                })
+                .map((conv) => {
+                  const isActive = currentConversation?.id === conv.id
+                  const hasUnread = (conv.unreadCount || 0) > 0
+                  
+                  return (
+                    <button
+                      key={conv.id}
+                      onClick={() => handleConversationClick(conv.id)}
+                      className={`w-full p-3 rounded-lg mb-1 text-left transition relative ${
+                        isActive
+                          ? 'bg-blue-50 border-l-4 border-blue-600'
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        {/* Avatar */}
+                        {conv.avatar ? (
+                          <img
+                            src={conv.avatar}
+                            alt={getConversationDisplayName(conv)}
+                            className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 ${
+                            conv.type === 'direct'
+                              ? 'bg-gradient-to-br from-green-500 to-teal-600'
+                              : 'bg-gradient-to-br from-purple-500 to-pink-600'
+                          }`}>
+                            {getConversationInitial(conv)}
+                          </div>
+                        )}
+                        
+                        {/* Content */}
+                        <div className="ml-3 flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className={`font-semibold truncate ${
+                              isActive ? 'text-blue-900' : 'text-gray-800'
+                            }`}>
+                              {getConversationDisplayName(conv)}
+                            </h4>
+                            {conv.lastMessageAt && (
+                              <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                                {formatConversationTime(conv.lastMessageAt)}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            {conv.lastMessageText ? (
+                              <p className={`text-sm truncate flex-1 ${
+                                hasUnread ? 'font-semibold text-gray-900' : 'text-gray-600'
+                              }`}>
+                                {conv.lastMessageText}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-400 italic flex-1">
+                                No messages yet
+                              </p>
+                            )}
+                            
+                            {/* Unread badge */}
+                            {hasUnread && (
+                              <span className="ml-2 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
+                                {conv.unreadCount! > 99 ? '99+' : conv.unreadCount}
+                              </span>
+                            )}
+                            
+                            {/* Type indicator */}
+                            {!hasUnread && conv.type && (
+                              <span className={`ml-2 text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
+                                conv.type === 'direct'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                {conv.type === 'direct' ? 'DM' : 'Group'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })
             )}
           </div>
         </div>
@@ -394,31 +486,38 @@ export const Chat = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => {
-                const isOwnMessage = message.senderId === user?.id
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
-                  >
+              {[...messages]
+                .sort((a, b) => {
+                  // Sort by createdAt ascending (oldest first, newest last)
+                  const timeA = new Date(a.createdAt).getTime()
+                  const timeB = new Date(b.createdAt).getTime()
+                  return timeA - timeB
+                })
+                .map((message) => {
+                  const isOwnMessage = message.senderId === user?.id
+                  return (
                     <div
-                      className={`max-w-xs lg:max-w-md xl:max-w-lg px-4 py-2 rounded-lg ${
-                        isOwnMessage
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white text-gray-800 border border-gray-200'
-                      }`}
+                      key={message.id}
+                      className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                     >
-                      {!isOwnMessage && message.senderName && (
-                        <p className="text-xs font-semibold mb-1">{message.senderName}</p>
-                      )}
-                      <p className="break-words">{message.content}</p>
-                      <p className={`text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}`}>
-                        {formatTime(message.createdAt)}
-                      </p>
+                      <div
+                        className={`max-w-xs lg:max-w-md xl:max-w-lg px-4 py-2 rounded-lg ${
+                          isOwnMessage
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white text-gray-800 border border-gray-200'
+                        }`}
+                      >
+                        {!isOwnMessage && message.senderName && (
+                          <p className="text-xs font-semibold mb-1">{message.senderName}</p>
+                        )}
+                        <p className="break-words">{message.content}</p>
+                        <p className={`text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}`}>
+                          {formatTime(message.createdAt)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
               {typingUsers.size > 0 && (
                 <div className="flex justify-start">
                   <div className="bg-gray-200 text-gray-600 px-4 py-2 rounded-lg">

@@ -354,22 +354,73 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	// Fire-and-forget cache invalidation
 	go s.invalidateCachesAfterSend(conversationID, memberIDs)
 
-	// Async Kafka publishing - copy response to avoid race condition
+	// Async Kafka publishing - copy data to avoid race condition
 	responseCopy := *response
-	go func(resp MessageResponse) {
+	conversationIDCopy := conversationID
+	membersCopy := make([]conversation.ConversationMember, len(members))
+	copy(membersCopy, members)
+
+	go func(resp MessageResponse, convID uuid.UUID, mems []conversation.ConversationMember) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		event := &messageEvents.CreatedEvent{
+		// Get conversation data
+		conv, err := s.getConversationByIDCached(convID)
+		var convData *messageEvents.ConversationData
+		if err == nil && conv != nil {
+			convData = &messageEvents.ConversationData{
+				ID:               conv.ConversationID.String(),
+				Type:             conv.Type,
+				Name:             conv.Name,
+				Avatar:           conv.Avatar,
+				CreatedAt:        conv.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:        conv.UpdatedAt.Format(time.RFC3339),
+				ParticipantCount: conv.ParticipantCount,
+			}
+		}
+
+		// Convert members
+		memberDataList := make([]*messageEvents.ConversationMemberData, 0, len(mems))
+		for _, m := range mems {
+			memberData := &messageEvents.ConversationMemberData{
+				UserID:         m.UserID.String(),
+				ConversationID: m.ConversationID.String(),
+				JoinedAt:       m.JoinedAt.Format(time.RFC3339),
+				IsActive:       m.IsActive,
+				Role:           m.Role,
+			}
+			if m.LeftAt != nil {
+				memberData.LeftAt = m.LeftAt.Format(time.RFC3339)
+			}
+			memberDataList = append(memberDataList, memberData)
+		}
+
+		// Create message data
+		messageData := &messageEvents.MessageData{
+			ID:             resp.ID,
 			ConversationID: resp.ConversationID,
-			MessageID:      resp.ID,
 			SenderID:       resp.SenderID,
-			Data:           &resp,
+			SenderName:     resp.SenderName,
+			SenderAvatar:   resp.SenderAvatar,
+			Type:           resp.Type,
+			Content:        resp.Content,
+			Metadata:       resp.Metadata,
+			Status:         resp.Status,
+			CreatedAt:      resp.CreatedAt,
+			UpdatedAt:      resp.UpdatedAt,
+			ReplyToID:      resp.ReplyToID,
+		}
+
+		event := &messageEvents.MessageCreatedEvent{
+			Timestamp:           time.Now(),
+			Message:             messageData,
+			Conversation:        convData,
+			ConversationMembers: memberDataList,
 		}
 		if err := s.kafkaProducer.PublishMessageCreated(ctx, event); err != nil {
 			s.logger.Errorw("Failed to publish message created event", "error", err)
 		}
-	}(responseCopy)
+	}(responseCopy, conversationIDCopy, membersCopy)
 
 	return response, nil
 }
@@ -568,17 +619,71 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 	wg.Wait()
 
 	// Publish event to Kafka
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	responseCopy := *response
+	conversationIDCopy := conversationID
+	membersCopy := make([]conversation.ConversationMember, len(members))
+	copy(membersCopy, members)
 
-	event := &messageEvents.UpdatedEvent{
-		ConversationID: conversationIDStr,
-		MessageID:      messageIDStr,
-		Data:           response,
-	}
-	if err := s.kafkaProducer.PublishMessageUpdated(ctx, event); err != nil {
-		s.logger.Errorw("Failed to publish message updated event", "error", err)
-	}
+	go func(resp MessageResponse, convID uuid.UUID, mems []conversation.ConversationMember) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// Get conversation data
+		conv, err := s.getConversationByIDCached(convID)
+		var convData *messageEvents.ConversationData
+		if err == nil && conv != nil {
+			convData = &messageEvents.ConversationData{
+				ID:               conv.ConversationID.String(),
+				Type:             conv.Type,
+				Name:             conv.Name,
+				Avatar:           conv.Avatar,
+				CreatedAt:        conv.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:        conv.UpdatedAt.Format(time.RFC3339),
+				ParticipantCount: conv.ParticipantCount,
+			}
+		}
+
+		// Convert members
+		memberDataList := make([]*messageEvents.ConversationMemberData, 0, len(mems))
+		for _, m := range mems {
+			memberData := &messageEvents.ConversationMemberData{
+				UserID:         m.UserID.String(),
+				ConversationID: m.ConversationID.String(),
+				JoinedAt:       m.JoinedAt.Format(time.RFC3339),
+				IsActive:       m.IsActive,
+				Role:           m.Role,
+			}
+			if m.LeftAt != nil {
+				memberData.LeftAt = m.LeftAt.Format(time.RFC3339)
+			}
+			memberDataList = append(memberDataList, memberData)
+		}
+
+		// Create message data
+		messageData := &messageEvents.MessageData{
+			ID:             resp.ID,
+			ConversationID: resp.ConversationID,
+			SenderID:       resp.SenderID,
+			SenderName:     resp.SenderName,
+			SenderAvatar:   resp.SenderAvatar,
+			Type:           resp.Type,
+			Content:        resp.Content,
+			Metadata:       resp.Metadata,
+			Status:         resp.Status,
+			CreatedAt:      resp.CreatedAt,
+			UpdatedAt:      resp.UpdatedAt,
+			ReplyToID:      resp.ReplyToID,
+		}
+
+		event := &messageEvents.MessageUpdatedEvent{
+			Message:             messageData,
+			Conversation:        convData,
+			ConversationMembers: memberDataList,
+		}
+		if err := s.kafkaProducer.PublishMessageUpdated(ctx, event); err != nil {
+			s.logger.Errorw("Failed to publish message updated event", "error", err)
+		}
+	}(responseCopy, conversationIDCopy, membersCopy)
 
 	s.logger.Infow("Message updated successfully",
 		"conversation_id", conversationID,
@@ -637,7 +742,7 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	event := &messageEvents.DeletedEvent{
+	event := &messageEvents.MessageDeletedEvent{
 		ConversationID: conversationIDStr,
 		MessageID:      messageIDStr,
 	}
