@@ -242,16 +242,27 @@ func (r *Repository) GetOrCreateDirectConversation(user1ID, user2ID uuid.UUID) (
 }
 
 func (r *Repository) GetDirectConversationID(userA, userB uuid.UUID) (*uuid.UUID, error) {
-	var conversationID uuid.UUID
+	var conversationID gocql.UUID
 	query := `SELECT conversation_id FROM direct_conversations_by_user_pair WHERE user_a = ? AND user_b = ?`
-	err := r.session.Query(query, userA, userB).Scan(&conversationID)
+	
+	// Convert uuid.UUID to gocql.UUID for querying
+	gocqlUserA, _ := gocql.ParseUUID(userA.String())
+	gocqlUserB, _ := gocql.ParseUUID(userB.String())
+	
+	err := r.session.Query(query, gocqlUserA, gocqlUserB).Scan(&conversationID)
 	if err == gocql.ErrNotFound {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &conversationID, nil
+	
+	// Convert back to uuid.UUID
+	resultUUID, err := uuid.Parse(conversationID.String())
+	if err != nil {
+		return nil, err
+	}
+	return &resultUUID, nil
 }
 
 func (r *Repository) UpdateConversationInUserInbox(userID uuid.UUID, oldLastMessageAt gocql.UUID, conv *ConversationByUser) error {

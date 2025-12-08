@@ -85,6 +85,13 @@ class ApiService {
     return response.data
   }
 
+  async checkDirectConversation(recipientId: string): Promise<ApiResponse<Conversation>> {
+    const response = await this.api.get<ApiResponse<Conversation>>('/conversations/direct/check', {
+      params: { recipientId }
+    })
+    return response.data
+  }
+
   async createDirectConversation(recipientId: string): Promise<ApiResponse<Conversation>> {
     const response = await this.api.post<ApiResponse<Conversation>>('/conversations/direct', {
       recipientId

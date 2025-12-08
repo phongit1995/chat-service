@@ -99,6 +99,14 @@ export interface UserSearchResult {
   bio?: string
 }
 
+export interface TempChatUser {
+  id: string
+  username: string
+  fullName?: string
+  avatar?: string
+  conversationId?: string
+}
+
 export interface SearchUsersResponse {
   users: UserSearchResult[]
   total: number

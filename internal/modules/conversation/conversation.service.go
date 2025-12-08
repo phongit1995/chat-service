@@ -28,6 +28,51 @@ func NewService(repo *Repository, cache *CacheService, db *gorm.DB, logger *zap.
 	}
 }
 
+func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*ConversationResponse, error) {
+	if user1ID == user2ID {
+		return nil, fmt.Errorf("cannot check conversation with yourself")
+	}
+
+	var user2 models.User
+	if err := s.db.First(&user2, "id = ?", user2ID).Error; err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	userA, userB := user1ID, user2ID
+	if user1ID.String() > user2ID.String() {
+		userA, userB = user2ID, user1ID
+	}
+
+	existingConvID, err := s.repo.GetDirectConversationID(userA, userB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing conversation: %w", err)
+	}
+
+	if existingConvID == nil {
+		// Return user info but no conversation
+		return &ConversationResponse{
+			ID:               "",
+			Type:             "direct",
+			Name:             user2.Username,
+			Avatar:           user2.Avatar,
+			ParticipantCount: 0,
+			IsNew:            false,
+		}, nil
+	}
+
+	now := time.Now()
+	return &ConversationResponse{
+		ID:               existingConvID.String(),
+		Type:             "direct",
+		Name:             user2.Username,
+		Avatar:           user2.Avatar,
+		CreatedAt:        now.Format(time.RFC3339),
+		UpdatedAt:        now.Format(time.RFC3339),
+		ParticipantCount: 2,
+		IsNew:            false,
+	}, nil
+}
+
 func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*ConversationResponse, error) {
 	if user1ID == user2ID {
 		return nil, fmt.Errorf("cannot create conversation with yourself")

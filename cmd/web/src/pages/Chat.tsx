@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore'
 import { useChatStore } from '../store/chatStore'
 import { socketService } from '../services/socket'
 import { apiService } from '../services/api'
-import type { UserSearchResult } from '../types'
+import type { UserSearchResult, TempChatUser } from '../types'
 
 export const Chat = () => {
   const navigate = useNavigate()
@@ -25,6 +25,8 @@ export const Chat = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [tempChatUser, setTempChatUser] = useState<TempChatUser | null>(null)
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout>()
   const searchTimeoutRef = useRef<NodeJS.Timeout>()
@@ -44,11 +46,20 @@ export const Chat = () => {
   }
 
   const handleConversationClick = (conversationId: string) => {
+    setTempChatUser(null) // Clear temp user when selecting existing conversation
     selectConversation(conversationId)
   }
 
   const handleSendMessage = async (e: FormEvent) => {
     e.preventDefault()
+    
+    // Handle new user chat (no conversation yet)
+    if (tempChatUser && !currentConversation) {
+      await handleSendMessageToNewUser()
+      return
+    }
+    
+    // Handle existing conversation
     if (!messageInput.trim() || !currentConversation) return
 
     try {
@@ -120,19 +131,61 @@ export const Chat = () => {
     }, 300)
   }
 
-  const handleStartChat = async (userId: string) => {
+  const handleSelectUser = async (result: UserSearchResult) => {
     try {
-      const response = await apiService.createDirectConversation(userId)
+      // Check if conversation exists
+      const response = await apiService.checkDirectConversation(result.id)
+      const convData = response.data
+
+      if (convData && convData.id) {
+        // Conversation exists, select it
+        await loadConversations()
+        selectConversation(convData.id)
+      } else {
+        // No conversation yet, show temp chat UI
+        setTempChatUser({
+          id: result.id,
+          username: result.username,
+          fullName: result.fullName,
+          avatar: result.avatar,
+          conversationId: undefined
+        })
+      }
+      
+      setShowSearch(false)
+      setSearchQuery('')
+      setSearchResults([])
+    } catch (error) {
+      console.error('Failed to check conversation:', error)
+    }
+  }
+
+  const handleSendMessageToNewUser = async () => {
+    if (!messageInput.trim() || !tempChatUser || isCreatingConversation) return
+
+    try {
+      setIsCreatingConversation(true)
+      
+      // Create conversation
+      const response = await apiService.createDirectConversation(tempChatUser.id)
       const newConversation = response.data
+      
       if (newConversation) {
+        // Send the message
+        await sendMessage(newConversation.id, messageInput.trim())
+        
+        // Reload conversations and select the new one
         await loadConversations()
         selectConversation(newConversation.id)
-        setShowSearch(false)
-        setSearchQuery('')
-        setSearchResults([])
+        
+        // Clear temp state
+        setTempChatUser(null)
+        setMessageInput('')
       }
     } catch (error) {
-      console.error('Failed to start conversation:', error)
+      console.error('Failed to create conversation and send message:', error)
+    } finally {
+      setIsCreatingConversation(false)
     }
   }
 
@@ -189,7 +242,7 @@ export const Chat = () => {
                 {searchResults.map((result) => (
                   <button
                     key={result.id}
-                    onClick={() => handleStartChat(result.id)}
+                    onClick={() => handleSelectUser(result)}
                     className="w-full p-3 rounded-lg hover:bg-white transition flex items-center text-left"
                   >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white font-bold flex-shrink-0">
@@ -258,7 +311,59 @@ export const Chat = () => {
       </div>
 
       <div className="flex-1 flex flex-col">
-        {currentConversation ? (
+        {tempChatUser && !currentConversation ? (
+          <>
+            <div className="bg-white border-b border-gray-200 p-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                {tempChatUser.fullName || tempChatUser.username}
+              </h2>
+              <p className="text-sm text-gray-600">@{tempChatUser.username}</p>
+            </div>
+
+            <div className="flex-1 flex items-center justify-center bg-gray-50">
+              <div className="text-center px-4">
+                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white text-3xl font-bold">
+                  {tempChatUser.username?.charAt(0).toUpperCase() || tempChatUser.fullName?.charAt(0).toUpperCase() || '?'}
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                  Start conversation with {tempChatUser.fullName || tempChatUser.username}
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Send a message to start chatting
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white border-t border-gray-200 p-4">
+              <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  placeholder="Type your first message..."
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  disabled={isCreatingConversation}
+                />
+                <button
+                  type="submit"
+                  disabled={!messageInput.trim() || isCreatingConversation}
+                  className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCreatingConversation ? (
+                    <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  )}
+                </button>
+              </form>
+            </div>
+          </>
+        ) : currentConversation ? (
           <>
             <div className="bg-white border-b border-gray-200 p-4">
               <h2 className="text-xl font-semibold text-gray-800">

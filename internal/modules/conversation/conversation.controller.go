@@ -61,6 +61,42 @@ func (ctrl *Controller) CreateDirectConversation(c *gin.Context) (interface{}, e
 	return conversation, nil
 }
 
+// CheckDirectConversation godoc
+// @Summary      Check direct conversation
+// @Description  Check if direct conversation exists without creating it
+// @Tags         conversations
+// @Produce      json
+// @Security     BearerAuth
+// @Param        recipientId query string true "Recipient User ID"
+// @Success      200  {object}  ConversationSuccessResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Router       /conversations/direct/check [get]
+func (ctrl *Controller) CheckDirectConversation(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	recipientIDStr := c.Query("recipientId")
+	if recipientIDStr == "" {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "recipientId is required")
+	}
+
+	recipientID, err := uuid.Parse(recipientIDStr)
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid recipient ID")
+	}
+
+	conversation, err := ctrl.service.CheckDirectConversation(userID, recipientID)
+	if err != nil {
+		ctrl.logger.Errorw("Failed to check direct conversation", "error", err)
+		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to check conversation")
+	}
+
+	return conversation, nil
+}
+
 // CreateGroupConversation godoc
 // @Summary      Create group conversation
 // @Description  Create a new group conversation with multiple participants

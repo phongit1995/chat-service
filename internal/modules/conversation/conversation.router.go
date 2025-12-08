@@ -21,6 +21,7 @@ func (r *Router) Setup(router *utils.AppGroup) {
 	conversations := router.Group("/conversations")
 	conversations.Use(r.authMiddleware.RequireAuth())
 	{
+		conversations.GET("/direct/check", r.controller.CheckDirectConversation)
 		conversations.POST("/direct", r.controller.CreateDirectConversation)
 		conversations.POST("/group", r.controller.CreateGroupConversation)
 		conversations.GET("", r.controller.GetUserConversations)
