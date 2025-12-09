@@ -32,7 +32,7 @@ func NewContainer() (*dig.Container, error) {
 
 	modules := []func(*dig.Container) error{
 		websocket.Provider,
-		kafka.ProvideConsumer, // This already provides conversationDomain & messageDomain
+		kafka.ProvideConsumer,
 	}
 
 	for _, module := range modules {
