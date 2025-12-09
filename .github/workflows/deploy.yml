@@ -70,6 +70,7 @@ jobs:
         run: |
           sshpass -f ~/.ssh/server_password scp -P ${{ secrets.SERVER_PORT || 22 }} \
             docker-compose.yml \
+            env.production \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_DEPLOY_PATH }}/
 
       - name: Deploy application
@@ -80,15 +81,16 @@ jobs:
             
             echo "🚀 Starting deployment..."
             
-            cat > .env << 'ENVFILE'
-          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-          API_VERSION=${{ inputs.version || 'latest' }}
-          CHAT_VERSION=${{ inputs.version || 'latest' }}
-          MIGRATE_VERSION=${{ inputs.version || 'latest' }}
-          WEB_VERSION=${{ inputs.version || 'latest' }}
-          ENVFILE
+            echo "📝 Setting up environment file..."
+            cp env.production .env
             
-            echo "✅ Environment file created"
+            sed -i "s/DOCKERHUB_USERNAME=.*/DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}/" .env
+            sed -i "s/API_VERSION=.*/API_VERSION=${{ inputs.version || 'latest' }}/" .env
+            sed -i "s/CHAT_VERSION=.*/CHAT_VERSION=${{ inputs.version || 'latest' }}/" .env
+            sed -i "s/MIGRATE_VERSION=.*/MIGRATE_VERSION=${{ inputs.version || 'latest' }}/" .env
+            sed -i "s/WEB_VERSION=.*/WEB_VERSION=${{ inputs.version || 'latest' }}/" .env
+            
+            echo "✅ Environment file configured"
             
             echo "📥 Pulling latest Docker images..."
             docker compose pull
