@@ -1,14 +1,12 @@
 import { io, Socket } from 'socket.io-client'
 import type {
-  Message,
   WebSocketMessage,
   MessageCreatedEventData,
   MessageUpdatedEventData,
   MessageDeletedEventData,
   UserTypingData,
   UserStatusData,
-  ConversationCreatedData,
-  WebSocketEventTypeKeys
+  ConversationCreatedData
 } from '../types'
 import { WebSocketEventType } from '../types'
 import env from '../config/env'

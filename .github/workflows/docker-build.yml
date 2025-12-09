@@ -170,9 +170,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VITE_API_BASE_URL=http://localhost:5444
-            VITE_WS_URL=ws://localhost:5444
-            VITE_APP_NAME=Chat Server
+            VITE_API_BASE_URL=https://chat-server-api.ola-server.click
 
   security-scan:
     needs: [build-api, build-chat, build-migrate, build-web]

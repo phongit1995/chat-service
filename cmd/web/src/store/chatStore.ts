@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import type {
   Conversation,
   Message,
-  User,
   MessageCreatedEventData,
   MessageUpdatedEventData,
   MessageDeletedEventData,

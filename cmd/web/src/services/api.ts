@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
-import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, ConversationsListResponse, MessagesListResponse, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail, UserSearchResult, SearchUsersResponse } from '../types'
+import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, ConversationsListResponse, MessagesListResponse, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail, SearchUsersResponse } from '../types'
 import env from '../config/env'
 
 class ApiService {

@@ -96,8 +96,6 @@ services:
       - "${WEB_PORT:-5445}:80"
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080}
-      - VITE_WS_URL=${VITE_WS_URL:-ws://localhost:8080}
-      - VITE_APP_NAME=${VITE_APP_NAME:-Chat Server}
     depends_on:
       - api
     networks:
