@@ -1,0 +1,13 @@
+cmd/web/node_modules
+cmd/web/dist
+cmd/web/.vite
+.git
+.gitignore
+README.md
+*.md
+.env
+.env.local
+.env.*.local
+cmd/web/coverage
+.DS_Store
+*.log

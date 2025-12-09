@@ -1,0 +1,212 @@
+name: Deploy to Production Server
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (default: latest)'
+        required: false
+        default: 'latest'
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install sshpass
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_PASSWORD }}" > ~/.ssh/server_password
+          chmod 600 ~/.ssh/server_password
+
+      - name: Add server to known hosts
+        run: |
+          ssh-keyscan -H -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Pre-deployment checks
+        run: |
+          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            echo "🔍 Running pre-deployment checks..."
+            
+            available=$(df -BG / | awk 'NR==2 {print $4}' | sed 's/G//')
+            if [ "$available" -lt 10 ]; then
+              echo "❌ Not enough disk space. Available: ${available}GB, Required: 10GB"
+              exit 1
+            fi
+            echo "✅ Disk space OK: ${available}GB available"
+            
+            if ! docker info > /dev/null 2>&1; then
+              echo "❌ Docker is not running"
+              exit 1
+            fi
+            echo "✅ Docker is running"
+            
+            if [ ! -d "${{ secrets.SERVER_DEPLOY_PATH }}" ]; then
+              echo "📁 Creating deployment directory: ${{ secrets.SERVER_DEPLOY_PATH }}"
+              mkdir -p ${{ secrets.SERVER_DEPLOY_PATH }}
+            fi
+            
+            echo "✅ Pre-deployment checks passed"
+          EOF
+
+      - name: Copy deployment files
+        run: |
+          sshpass -f ~/.ssh/server_password scp -P ${{ secrets.SERVER_PORT || 22 }} \
+            docker-compose.yml \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_DEPLOY_PATH }}/
+
+      - name: Deploy application
+        run: |
+          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            cd ${{ secrets.SERVER_DEPLOY_PATH }}
+            
+            echo "🚀 Starting deployment..."
+            
+            cat > .env << 'ENVFILE'
+          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+          API_VERSION=${{ inputs.version || 'latest' }}
+          CHAT_VERSION=${{ inputs.version || 'latest' }}
+          MIGRATE_VERSION=${{ inputs.version || 'latest' }}
+          WEB_VERSION=${{ inputs.version || 'latest' }}
+          ENVFILE
+            
+            echo "✅ Environment file created"
+            
+            echo "📥 Pulling latest Docker images..."
+            docker compose pull
+            
+            echo "🛑 Stopping old containers..."
+            docker compose down --timeout 30
+            
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+            
+            echo "🚀 Starting new containers..."
+            docker compose up -d
+            
+            echo "✅ Deployment completed"
+          EOF
+
+      - name: Wait for services to be ready
+        run: |
+          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            cd ${{ secrets.SERVER_DEPLOY_PATH }}
+            
+            echo "⏳ Waiting for services to be ready..."
+            
+            timeout=300
+            elapsed=0
+            interval=10
+            
+            while [ $elapsed -lt $timeout ]; do
+              healthy_count=$(docker compose ps --format json | jq -r 'select(.Health == "healthy") | .Name' | wc -l)
+              total_count=$(docker compose ps --format json | jq -r '.Name' | wc -l)
+              
+              echo "⏳ Healthy: $healthy_count/$total_count ($elapsed/$timeout seconds)"
+              
+              if [ "$healthy_count" -ge 3 ]; then
+                echo "✅ Services are healthy"
+                break
+              fi
+              
+              sleep $interval
+              elapsed=$((elapsed + interval))
+            done
+            
+            if [ $elapsed -ge $timeout ]; then
+              echo "❌ Services failed to become healthy within timeout"
+              docker compose ps
+              exit 1
+            fi
+          EOF
+
+      - name: Health check
+        id: health_check
+        run: |
+          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+            
+            echo "🏥 Running health checks..."
+            
+            api_health=$(curl -sf http://localhost:8080/api/health || echo "failed")
+            if [ "$api_health" = "failed" ]; then
+              echo "❌ API service health check failed"
+              exit 1
+            fi
+            echo "✅ API service is healthy"
+            
+            ws_check=$(curl -sf -I http://localhost:8080/socket.io/ || echo "failed")
+            if [ "$ws_check" = "failed" ]; then
+              echo "❌ WebSocket service check failed"
+              exit 1
+            fi
+            echo "✅ WebSocket service is accessible"
+            
+            unhealthy=$(docker compose ps --format json | jq -r 'select(.Health == "unhealthy") | .Name' | wc -l)
+            if [ "$unhealthy" -gt 0 ]; then
+              echo "❌ Found $unhealthy unhealthy containers"
+              docker compose ps
+              exit 1
+            fi
+            echo "✅ All containers are healthy"
+            
+            echo "✅ All health checks passed"
+          EOF
+
+      - name: Send deployment notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ job.status }}"
+          COLOR="good"
+          EMOJI="✅"
+          if [ "$STATUS" != "success" ]; then
+            COLOR="danger"
+            EMOJI="❌"
+          fi
+          
+          VERSION="${{ inputs.version || 'latest' }}"
+          COMMIT_SHORT="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT_SHORT:0:7}"
+          
+          MESSAGE="$EMOJI Deployment *$STATUS*"
+          FIELDS="Version: \`$VERSION\`\nBranch: \`${{ github.ref_name }}\`\nCommit: \`$COMMIT_SHORT\`\nTriggered by: ${{ github.actor }}"
+          
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST "$SLACK_WEBHOOK_URL" \
+              -H 'Content-Type: application/json' \
+              -d "{
+                \"attachments\": [{
+                  \"color\": \"$COLOR\",
+                  \"title\": \"Chat Server Deployment\",
+                  \"text\": \"$MESSAGE\",
+                  \"fields\": [
+                    {\"title\": \"Details\", \"value\": \"$FIELDS\", \"short\": false}
+                  ],
+                  \"footer\": \"GitHub Actions\",
+                  \"ts\": $(date +%s)
+                }]
+              }"
+          fi
+          
+          echo "$EMOJI Deployment $STATUS"
