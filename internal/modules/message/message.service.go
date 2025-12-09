@@ -409,14 +409,11 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 
 	responseCopy := *response
 	conversationIDCopy := conversationID
-	membersCopy := make([]conversation.ConversationMember, len(members))
-	copy(membersCopy, members)
 
-	go func(resp MessageResponse, convID uuid.UUID, mems []conversation.ConversationMember) {
+	go func(resp MessageResponse, convID uuid.UUID) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Get conversation data
 		conv, err := s.getConversationByIDCached(convID)
 		var convData *messageEvents.ConversationData
 		if err == nil && conv != nil {
@@ -431,23 +428,6 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 			}
 		}
 
-		// Convert members
-		memberDataList := make([]*messageEvents.ConversationMemberData, 0, len(mems))
-		for _, m := range mems {
-			memberData := &messageEvents.ConversationMemberData{
-				UserID:         m.UserID.String(),
-				ConversationID: m.ConversationID.String(),
-				JoinedAt:       m.JoinedAt.Format(time.RFC3339),
-				IsActive:       m.IsActive,
-				Role:           m.Role,
-			}
-			if m.LeftAt != nil {
-				memberData.LeftAt = m.LeftAt.Format(time.RFC3339)
-			}
-			memberDataList = append(memberDataList, memberData)
-		}
-
-		// Create message data
 		messageData := &messageEvents.MessageData{
 			ID:             resp.ID,
 			ConversationID: resp.ConversationID,
@@ -464,15 +444,13 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		}
 
 		event := &messageEvents.MessageCreatedEvent{
-			Timestamp:           time.Now(),
-			Message:             messageData,
-			Conversation:        convData,
-			ConversationMembers: memberDataList,
+			Conversation: convData,
+			Message:      messageData,
 		}
 		if err := s.kafkaProducer.PublishMessageCreated(ctx, event); err != nil {
 			s.logger.Errorw("Failed to publish message created event", "error", err)
 		}
-	}(responseCopy, conversationIDCopy, membersCopy)
+	}(responseCopy, conversationIDCopy)
 
 	return response, nil
 }
@@ -667,14 +645,11 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 
 	responseCopy := *response
 	conversationIDCopy := conversationID
-	membersCopy := make([]conversation.ConversationMember, len(members))
-	copy(membersCopy, members)
 
-	go func(resp MessageResponse, convID uuid.UUID, mems []conversation.ConversationMember) {
+	go func(resp MessageResponse, convID uuid.UUID) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Get conversation data
 		conv, err := s.getConversationByIDCached(convID)
 		var convData *messageEvents.ConversationData
 		if err == nil && conv != nil {
@@ -689,23 +664,6 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 			}
 		}
 
-		// Convert members
-		memberDataList := make([]*messageEvents.ConversationMemberData, 0, len(mems))
-		for _, m := range mems {
-			memberData := &messageEvents.ConversationMemberData{
-				UserID:         m.UserID.String(),
-				ConversationID: m.ConversationID.String(),
-				JoinedAt:       m.JoinedAt.Format(time.RFC3339),
-				IsActive:       m.IsActive,
-				Role:           m.Role,
-			}
-			if m.LeftAt != nil {
-				memberData.LeftAt = m.LeftAt.Format(time.RFC3339)
-			}
-			memberDataList = append(memberDataList, memberData)
-		}
-
-		// Create message data
 		messageData := &messageEvents.MessageData{
 			ID:             resp.ID,
 			ConversationID: resp.ConversationID,
@@ -722,14 +680,13 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		}
 
 		event := &messageEvents.MessageUpdatedEvent{
-			Message:             messageData,
-			Conversation:        convData,
-			ConversationMembers: memberDataList,
+			Conversation: convData,
+			Message:      messageData,
 		}
 		if err := s.kafkaProducer.PublishMessageUpdated(ctx, event); err != nil {
 			s.logger.Errorw("Failed to publish message updated event", "error", err)
 		}
-	}(responseCopy, conversationIDCopy, membersCopy)
+	}(responseCopy, conversationIDCopy)
 
 	s.logger.Infow("Message updated successfully",
 		"conversation_id", conversationID,
@@ -779,16 +736,32 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 
 	go s.invalidateCachesAfterDelete(conversationID, messageID)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	go func(convID uuid.UUID, msgID string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	event := &messageEvents.MessageDeletedEvent{
-		ConversationID: conversationIDStr,
-		MessageID:      messageIDStr,
-	}
-	if err := s.kafkaProducer.PublishMessageDeleted(ctx, event); err != nil {
-		s.logger.Errorw("Failed to publish message deleted event", "error", err)
-	}
+		conv, err := s.getConversationByIDCached(convID)
+		var convData *messageEvents.ConversationData
+		if err == nil && conv != nil {
+			convData = &messageEvents.ConversationData{
+				ID:               conv.ConversationID.String(),
+				Type:             conv.Type,
+				Name:             conv.Name,
+				Avatar:           conv.Avatar,
+				CreatedAt:        conv.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:        conv.UpdatedAt.Format(time.RFC3339),
+				ParticipantCount: conv.ParticipantCount,
+			}
+		}
+
+		event := &messageEvents.MessageDeletedEvent{
+			Conversation: convData,
+			MessageID:    msgID,
+		}
+		if err := s.kafkaProducer.PublishMessageDeleted(ctx, event); err != nil {
+			s.logger.Errorw("Failed to publish message deleted event", "error", err)
+		}
+	}(conversationID, messageIDStr)
 
 	return nil
 }

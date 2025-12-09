@@ -1,7 +1,5 @@
 package message
 
-import "time"
-
 // MessageData contains the message and conversation information for events
 type MessageData struct {
 	ID             string `json:"id"`
@@ -44,21 +42,18 @@ type ConversationMemberData struct {
 
 // MessageCreatedEvent represents a message creation event
 type MessageCreatedEvent struct {
-	Timestamp           time.Time                 `json:"timestamp,omitempty"`
-	Message             *MessageData              `json:"message,omitempty"`
-	Conversation        *ConversationData         `json:"conversation,omitempty"`
-	ConversationMembers []*ConversationMemberData `json:"conversationMembers,omitempty"`
+	Conversation *ConversationData `json:"conversation"`
+	Message      *MessageData      `json:"message"`
 }
 
 // MessageDeletedEvent represents a message deletion event
 type MessageDeletedEvent struct {
-	ConversationID string `json:"conversation_id"`
-	MessageID      string `json:"message_id"`
+	Conversation *ConversationData `json:"conversation"`
+	MessageID    string            `json:"messageId"`
 }
 
 // MessageUpdatedEvent represents a message update event
 type MessageUpdatedEvent struct {
-	Message             *MessageData              `json:"message,omitempty"`
-	Conversation        *ConversationData         `json:"conversation,omitempty"`
-	ConversationMembers []*ConversationMemberData `json:"conversationMembers,omitempty"`
+	Conversation *ConversationData `json:"conversation"`
+	Message      *MessageData      `json:"message"`
 }

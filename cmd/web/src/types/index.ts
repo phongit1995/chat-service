@@ -125,8 +125,18 @@ export interface WebSocketMessage<T = any> {
   data: T
 }
 
-export interface MessageDeletedData {
-  conversationId: string
+export interface MessageCreatedEventData {
+  conversation: Conversation
+  message: Message
+}
+
+export interface MessageUpdatedEventData {
+  conversation: Conversation
+  message: Message
+}
+
+export interface MessageDeletedEventData {
+  conversation: Conversation
   messageId: string
 }
 
@@ -141,13 +151,11 @@ export interface UserStatusData {
   status: string
 }
 
-export interface ConversationCreatedData {
-  conversation: Conversation
-  message?: Message
-}
+export interface ConversationCreatedData extends Conversation {}
 
 export const WebSocketEventType = {
   MESSAGE_CREATED: 'MESSAGE_CREATED',
+  NEW_MESSAGE: 'NEW_MESSAGE',
   MESSAGE_UPDATED: 'MESSAGE_UPDATED',
   MESSAGE_DELETED: 'MESSAGE_DELETED',
   CONVERSATION_CREATED: 'CONVERSATION_CREATED',

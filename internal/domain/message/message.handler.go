@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"time"
 
 	"go.uber.org/zap"
 )
@@ -48,13 +47,14 @@ func (h *EventHandler) OnCreated(ctx context.Context, message []byte) error {
 		return err
 	}
 
-	if event.Timestamp.IsZero() {
-		event.Timestamp = time.Now()
-	}
-
 	if event.Message == nil {
 		h.logger.Errorw("Message is required in MessageCreatedEvent")
 		return errors.New("message is required")
+	}
+
+	if event.Conversation == nil {
+		h.logger.Errorw("Conversation is required in MessageCreatedEvent")
+		return errors.New("conversation is required")
 	}
 
 	conversationID := event.Message.ConversationID
@@ -63,12 +63,12 @@ func (h *EventHandler) OnCreated(ctx context.Context, message []byte) error {
 		return errors.New("conversation_id is required")
 	}
 
-	messageJSON, _ := json.Marshal(event.Message)
+	eventJSON, _ := json.Marshal(event)
 	h.logger.Infow("🔄 Processing MESSAGE_CREATED event",
 		"conversation_id", conversationID,
 		"message_id", event.Message.ID,
 		"sender_id", event.Message.SenderID,
-		"message", string(messageJSON),
+		"event", string(eventJSON),
 	)
 
 	h.logger.Debugw("📋 Getting conversation members from cache",
@@ -102,10 +102,14 @@ func (h *EventHandler) OnCreated(ctx context.Context, message []byte) error {
 		"message_id", event.Message.ID,
 		"recipient_count", len(userIDs),
 		"recipients", userIDs,
-		"message", string(messageJSON),
+		"event", string(eventJSON),
 	)
 
-	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventNewMessage, event.Message)
+	payload := map[string]interface{}{
+		"conversation": event.Conversation,
+		"message":      event.Message,
+	}
+	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventNewMessage, payload)
 	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)
 
 	h.logger.Infow("✅ MESSAGE_CREATED processed successfully",
@@ -118,6 +122,9 @@ func (h *EventHandler) OnCreated(ctx context.Context, message []byte) error {
 }
 
 func (h *EventHandler) validateCreatedEvent(event *MessageCreatedEvent) error {
+	if event.Conversation == nil {
+		return errors.New("conversation is required")
+	}
 	if event.Message == nil {
 		return errors.New("message is required")
 	}
@@ -150,50 +157,56 @@ func (h *EventHandler) OnDeleted(ctx context.Context, message []byte) error {
 		return err
 	}
 
+	if event.Conversation == nil {
+		h.logger.Errorw("Conversation is required in MessageDeletedEvent")
+		return errors.New("conversation is required")
+	}
+
+	conversationID := event.Conversation.ID
 	h.logger.Infow("🔄 Processing MESSAGE_DELETED event",
-		"conversation_id", event.ConversationID,
+		"conversation_id", conversationID,
 		"message_id", event.MessageID,
 	)
 
-	userIDs, err := h.convCache.GetConversationMembers(event.ConversationID)
+	userIDs, err := h.convCache.GetConversationMembers(conversationID)
 	if err != nil {
 		h.logger.Errorw("Failed to get conversation members from cache",
-			"conversation_id", event.ConversationID,
+			"conversation_id", conversationID,
 			"error", err,
 		)
 		return err
 	}
 
 	h.logger.Infow("👥 Got conversation members",
-		"conversation_id", event.ConversationID,
+		"conversation_id", conversationID,
 		"member_count", len(userIDs),
 		"user_ids", userIDs,
 	)
 
 	if len(userIDs) == 0 {
 		h.logger.Warnw("No members found in conversation",
-			"conversation_id", event.ConversationID,
+			"conversation_id", conversationID,
 		)
 		return nil
 	}
 
-	data := map[string]any{
-		"conversation_id": event.ConversationID,
-		"message_id":      event.MessageID,
+	payload := map[string]interface{}{
+		"conversation": event.Conversation,
+		"messageId":    event.MessageID,
 	}
 
 	h.logger.Infow("📡 Emitting MESSAGE_DELETED to WebSocket",
-		"conversation_id", event.ConversationID,
+		"conversation_id", conversationID,
 		"message_id", event.MessageID,
 		"recipient_count", len(userIDs),
 		"recipients", userIDs,
 	)
 
-	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventMessageDeleted, data)
+	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventMessageDeleted, payload)
 	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)
 
 	h.logger.Infow("✅ MESSAGE_DELETED processed successfully",
-		"conversation_id", event.ConversationID,
+		"conversation_id", conversationID,
 		"message_id", event.MessageID,
 		"emitted_to", len(userIDs),
 	)
@@ -202,8 +215,8 @@ func (h *EventHandler) OnDeleted(ctx context.Context, message []byte) error {
 }
 
 func (h *EventHandler) validateDeletedEvent(event *MessageDeletedEvent) error {
-	if event.ConversationID == "" {
-		return errors.New("conversation_id is required")
+	if event.Conversation == nil {
+		return errors.New("conversation is required")
 	}
 	if event.MessageID == "" {
 		return errors.New("message_id is required")
@@ -233,17 +246,22 @@ func (h *EventHandler) OnUpdated(ctx context.Context, message []byte) error {
 		return errors.New("message is required")
 	}
 
+	if event.Conversation == nil {
+		h.logger.Errorw("Conversation is required in MessageUpdatedEvent")
+		return errors.New("conversation is required")
+	}
+
 	conversationID := event.Message.ConversationID
 	if conversationID == "" {
 		h.logger.Errorw("ConversationID is required in message")
 		return errors.New("conversation_id is required")
 	}
 
-	messageJSON, _ := json.Marshal(event.Message)
+	eventJSON, _ := json.Marshal(event)
 	h.logger.Infow("🔄 Processing MESSAGE_UPDATED event",
 		"conversation_id", conversationID,
 		"message_id", event.Message.ID,
-		"message", string(messageJSON),
+		"event", string(eventJSON),
 	)
 
 	userIDs, err := h.convCache.GetConversationMembers(conversationID)
@@ -273,10 +291,14 @@ func (h *EventHandler) OnUpdated(ctx context.Context, message []byte) error {
 		"message_id", event.Message.ID,
 		"recipient_count", len(userIDs),
 		"recipients", userIDs,
-		"message", string(messageJSON),
+		"event", string(eventJSON),
 	)
 
-	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventMessageUpdated, event.Message)
+	payload := map[string]interface{}{
+		"conversation": event.Conversation,
+		"message":      event.Message,
+	}
+	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventMessageUpdated, payload)
 	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)
 
 	h.logger.Infow("✅ MESSAGE_UPDATED processed successfully",
@@ -289,6 +311,9 @@ func (h *EventHandler) OnUpdated(ctx context.Context, message []byte) error {
 }
 
 func (h *EventHandler) validateUpdatedEvent(event *MessageUpdatedEvent) error {
+	if event.Conversation == nil {
+		return errors.New("conversation is required")
+	}
 	if event.Message == nil {
 		return errors.New("message is required")
 	}

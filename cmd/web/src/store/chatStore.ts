@@ -1,11 +1,13 @@
 import { create } from 'zustand'
-import type { 
-  Conversation, 
-  Message, 
-  User, 
-  MessageDeletedData, 
-  UserTypingData, 
-  ConversationCreatedData 
+import type {
+  Conversation,
+  Message,
+  User,
+  MessageCreatedEventData,
+  MessageUpdatedEventData,
+  MessageDeletedEventData,
+  UserTypingData,
+  ConversationCreatedData
 } from '../types'
 import { WebSocketEventType } from '../types'
 import { apiService } from '../services/api'
@@ -31,8 +33,10 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set, get) => {
-  socketService.on(WebSocketEventType.MESSAGE_CREATED, (message: Message) => {
+  socketService.on(WebSocketEventType.MESSAGE_CREATED, (eventData: MessageCreatedEventData) => {
     const { currentConversation, messages } = get()
+    const { conversation, message } = eventData
+
     if (message.conversationId === currentConversation?.id) {
       set({ messages: [...messages, message] })
     }
@@ -40,18 +44,21 @@ export const useChatStore = create<ChatState>((set, get) => {
     set(state => ({
       conversations: state.conversations.map(conv =>
         conv.id === message.conversationId
-          ? { 
-              ...conv, 
+          ? {
+              ...conv,
               lastMessageText: message.content,
-              lastMessageAt: message.createdAt
+              lastMessageAt: message.createdAt,
+              participantCount: conversation.participantCount
             }
           : conv
       )
     }))
   })
 
-  socketService.on(WebSocketEventType.MESSAGE_UPDATED, (message: Message) => {
+  socketService.on(WebSocketEventType.MESSAGE_UPDATED, (eventData: MessageUpdatedEventData) => {
     const { currentConversation, messages } = get()
+    const { conversation, message } = eventData
+
     if (message.conversationId === currentConversation?.id) {
       set({
         messages: messages.map(msg =>
@@ -63,21 +70,24 @@ export const useChatStore = create<ChatState>((set, get) => {
     set(state => ({
       conversations: state.conversations.map(conv =>
         conv.id === message.conversationId
-          ? { 
-              ...conv, 
+          ? {
+              ...conv,
               lastMessageText: message.content,
-              lastMessageAt: message.updatedAt
+              lastMessageAt: message.updatedAt,
+              participantCount: conversation.participantCount
             }
           : conv
       )
     }))
   })
 
-  socketService.on(WebSocketEventType.MESSAGE_DELETED, (data: MessageDeletedData) => {
+  socketService.on(WebSocketEventType.MESSAGE_DELETED, (eventData: MessageDeletedEventData) => {
     const { currentConversation, messages } = get()
-    if (data.conversationId === currentConversation?.id) {
+    const { conversation, messageId } = eventData
+
+    if (conversation.id === currentConversation?.id) {
       set({
-        messages: messages.filter(msg => msg.id !== data.messageId)
+        messages: messages.filter(msg => msg.id !== messageId)
       })
     }
   })
@@ -85,10 +95,10 @@ export const useChatStore = create<ChatState>((set, get) => {
   socketService.on(WebSocketEventType.CONVERSATION_CREATED, (data: ConversationCreatedData) => {
     const { conversations } = get()
     
-    const existingConv = conversations.find(c => c.id === data.conversation.id)
+    const existingConv = conversations.find(c => c.id === data.id)
     if (!existingConv) {
       set({
-        conversations: [data.conversation, ...conversations]
+        conversations: [data, ...conversations]
       })
     }
   })

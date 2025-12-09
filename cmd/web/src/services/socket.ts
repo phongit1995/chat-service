@@ -1,9 +1,11 @@
 import { io, Socket } from 'socket.io-client'
-import type { 
-  Message, 
-  WebSocketMessage, 
-  MessageDeletedData, 
-  UserTypingData, 
+import type {
+  Message,
+  WebSocketMessage,
+  MessageCreatedEventData,
+  MessageUpdatedEventData,
+  MessageDeletedEventData,
+  UserTypingData,
   UserStatusData,
   ConversationCreatedData,
   WebSocketEventTypeKeys
@@ -42,15 +44,16 @@ class SocketService {
       
       switch (wrapper.type) {
         case WebSocketEventType.MESSAGE_CREATED:
-          this.emit(WebSocketEventType.MESSAGE_CREATED, wrapper.data as Message)
+        case WebSocketEventType.NEW_MESSAGE:
+          this.emit(WebSocketEventType.MESSAGE_CREATED, wrapper.data as MessageCreatedEventData)
           break
           
         case WebSocketEventType.MESSAGE_UPDATED:
-          this.emit(WebSocketEventType.MESSAGE_UPDATED, wrapper.data as Message)
+          this.emit(WebSocketEventType.MESSAGE_UPDATED, wrapper.data as MessageUpdatedEventData)
           break
           
         case WebSocketEventType.MESSAGE_DELETED:
-          this.emit(WebSocketEventType.MESSAGE_DELETED, wrapper.data as MessageDeletedData)
+          this.emit(WebSocketEventType.MESSAGE_DELETED, wrapper.data as MessageDeletedEventData)
           break
           
         case WebSocketEventType.CONVERSATION_CREATED:
