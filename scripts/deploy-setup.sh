@@ -79,14 +79,14 @@ cd "$(dirname "$0")/.."
 
 echo "🏥 Running health checks..."
 
-API_HEALTH=$(curl -sf http://localhost:8080/api/health 2>/dev/null || echo "failed")
+API_HEALTH=$(curl -sf http://localhost:5444/api/health 2>/dev/null || echo "failed")
 if [ "$API_HEALTH" = "failed" ]; then
   echo "❌ API service health check failed"
   exit 1
 fi
 echo "✅ API service is healthy"
 
-WS_CHECK=$(curl -sf -I http://localhost:8080/socket.io/ 2>/dev/null || echo "failed")
+WS_CHECK=$(curl -sf -I http://localhost:5444/socket.io/ 2>/dev/null || echo "failed")
 if [ "$WS_CHECK" = "failed" ]; then
   echo "❌ WebSocket service check failed"
   exit 1
@@ -156,9 +156,9 @@ echo "✅ Helper scripts created in $DEPLOY_PATH/scripts/"
 # Configure UFW firewall
 echo "🔒 Configuring firewall..."
 if command -v ufw &> /dev/null; then
-  sudo ufw allow 22/tcp  # SSH
-  sudo ufw allow 8080/tcp  # API
-  sudo ufw allow 8081/tcp  # Chat (optional)
+  sudo ufw allow 22/tcp    # SSH
+  sudo ufw allow 5444/tcp  # API
+  sudo ufw allow 5445/tcp  # Web
   echo "✅ Firewall rules configured"
 else
   echo "⚠️  UFW not installed, skipping firewall configuration"

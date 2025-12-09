@@ -147,14 +147,14 @@ jobs:
             
             echo "🏥 Running health checks..."
             
-            api_health=$(curl -sf http://localhost:8080/api/health || echo "failed")
+            api_health=$(curl -sf http://localhost:5444/api/health || echo "failed")
             if [ "$api_health" = "failed" ]; then
               echo "❌ API service health check failed"
               exit 1
             fi
             echo "✅ API service is healthy"
             
-            ws_check=$(curl -sf -I http://localhost:8080/socket.io/ || echo "failed")
+            ws_check=$(curl -sf -I http://localhost:5444/socket.io/ || echo "failed")
             if [ "$ws_check" = "failed" ]; then
               echo "❌ WebSocket service check failed"
               exit 1

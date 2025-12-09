@@ -31,7 +31,7 @@ services:
     container_name: chat-server-api
     restart: unless-stopped
     ports:
-      - "${API_PORT:-8080}:8080"
+      - "${API_PORT:-5444}:8080"
     environment:
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
@@ -93,7 +93,7 @@ services:
     container_name: chat-server-web
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-3000}:80"
+      - "${WEB_PORT:-5445}:80"
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080}
       - VITE_WS_URL=${VITE_WS_URL:-ws://localhost:8080}
