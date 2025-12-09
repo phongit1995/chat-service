@@ -34,10 +34,6 @@ func (h *EventHandler) handleConnection(client *socket.Socket, userID string) {
 		h.server.logger.Errorw("Failed to add presence", "user_id", userID, "error", err)
 	}
 
-	if isFirstConnection {
-		h.server.EmitUserOnlineStatus(userID, true)
-	}
-
 	h.server.logger.Infow("WebSocket connected",
 		"user_id", userID,
 		"socket_id", client.Id(),
@@ -67,10 +63,6 @@ func (h *EventHandler) handleDisconnect(client *socket.Socket, userID string) {
 	isLastConnection, err := h.presenceService.RemoveConnection(userID)
 	if err != nil {
 		h.server.logger.Errorw("Failed to remove presence", "user_id", userID, "error", err)
-	}
-
-	if isLastConnection {
-		h.server.EmitUserOnlineStatus(userID, false)
 	}
 
 	h.server.logger.Infow("WebSocket disconnected",

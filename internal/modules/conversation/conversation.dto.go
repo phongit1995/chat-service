@@ -54,3 +54,12 @@ type UnhideConversationResponse struct {
 	Success bool   `json:"success" example:"true"`
 	Message string `json:"message" example:"Conversation unhidden successfully"`
 }
+
+type TypingIndicatorRequest struct {
+	ConversationID string `json:"conversationId" validate:"required,uuid" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`
+}
+
+type TypingIndicatorResponse struct {
+	Success bool   `json:"success" example:"true"`
+	Message string `json:"message" example:"Typing indicator sent"`
+}

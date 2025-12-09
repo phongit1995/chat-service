@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"chat-server/internal/config"
-	"chat-server/internal/constants"
 	"chat-server/internal/services"
 	"context"
 	"fmt"
@@ -110,18 +109,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Close() {
 	s.io.Close(nil)
 	s.redisAdapter.Close()
-}
-
-func (s *Server) EmitUserOnlineStatus(userID string, isOnline bool) {
-	data := map[string]any{
-		"user_id":   userID,
-		"is_online": isOnline,
-	}
-	if isOnline {
-		s.io.Emit(constants.WebSocketEventUserOnline, data)
-	} else {
-		s.io.Emit(constants.WebSocketEventUserOffline, data)
-	}
 }
 
 func (s *Server) EmitToUser(userID string, event string, data any) {

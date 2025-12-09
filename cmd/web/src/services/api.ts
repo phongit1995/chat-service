@@ -113,6 +113,13 @@ class ApiService {
     })
     return response.data
   }
+
+  async sendTypingIndicator(conversationId: string): Promise<ApiResponse<any>> {
+    const response = await this.api.post<ApiResponse<any>>('/conversations/typing', {
+      conversationId
+    })
+    return response.data
+  }
 }
 
 export const apiService = new ApiService()

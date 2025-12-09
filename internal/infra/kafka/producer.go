@@ -71,6 +71,10 @@ func (p *Producer) PublishUserTyping(ctx context.Context, event *userEvents.Typi
 	return p.publish(ctx, constants.KafkaTopicUserTyping, event)
 }
 
+func (p *Producer) PublishConversationTyping(ctx context.Context, event *conversationEvents.TypingEvent) error {
+	return p.publish(ctx, constants.KafkaTopicUserTyping, event)
+}
+
 func (p *Producer) publish(ctx context.Context, topic string, payload interface{}) error {
 	data, err := json.Marshal(payload)
 	if err != nil {

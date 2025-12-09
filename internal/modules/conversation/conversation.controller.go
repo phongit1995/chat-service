@@ -268,3 +268,43 @@ func (ctrl *Controller) UnhideConversation(c *gin.Context) (interface{}, error) 
 		Message: "Conversation unhidden successfully",
 	}, nil
 }
+
+// SendTypingIndicator godoc
+// @Summary      Send typing indicator
+// @Description  Send typing indicator to conversation members (rate limited to 5s)
+// @Tags         conversations
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body TypingIndicatorRequest true "Typing Indicator"
+// @Success      200  {object}  TypingIndicatorResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Failure      403  {object}  utils.APIError
+// @Router       /conversations/typing [post]
+func (ctrl *Controller) SendTypingIndicator(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	var req TypingIndicatorRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	conversationID, err := uuid.Parse(req.ConversationID)
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid conversation ID")
+	}
+
+	if err := ctrl.service.SendTypingIndicator(userID, conversationID, true); err != nil {
+		ctrl.logger.Errorw("Failed to send typing indicator", "error", err, "user_id", userID, "conversation_id", conversationID)
+		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to send typing indicator")
+	}
+
+	return &TypingIndicatorResponse{
+		Success: true,
+		Message: "Typing indicator sent",
+	}, nil
+}

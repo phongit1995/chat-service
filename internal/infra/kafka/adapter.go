@@ -59,7 +59,7 @@ func (a *KafkaEventAdapter) HandleUserOffline(ctx context.Context, message []byt
 }
 
 func (a *KafkaEventAdapter) HandleUserTyping(ctx context.Context, message []byte) error {
-	return a.userHandler.OnTyping(ctx, message)
+	return a.conversationHandler.OnTyping(ctx, message)
 }
 
 func RegisterEventHandlers(consumer *Consumer, adapter *KafkaEventAdapter) {

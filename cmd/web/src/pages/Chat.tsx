@@ -71,7 +71,7 @@ export const Chat = () => {
     }
   }
 
-  const handleTyping = (typing: boolean) => {
+  const handleTyping = async (typing: boolean) => {
     if (!currentConversation) return
 
     if (typingTimeoutRef.current) {
@@ -80,17 +80,19 @@ export const Chat = () => {
 
     if (typing && !isTyping) {
       setIsTyping(true)
-      socketService.sendTyping(currentConversation.id, true)
+      try {
+        await apiService.sendTypingIndicator(currentConversation.id)
+      } catch (error) {
+        console.error('Failed to send typing indicator:', error)
+      }
     }
 
     if (typing) {
       typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false)
-        socketService.sendTyping(currentConversation.id, false)
-      }, 2000)
+      }, 3000)
     } else {
       setIsTyping(false)
-      socketService.sendTyping(currentConversation.id, false)
     }
   }
 
@@ -521,8 +523,15 @@ export const Chat = () => {
                 })}
               {typingUsers.size > 0 && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-200 text-gray-600 px-4 py-2 rounded-lg">
-                    <span className="text-sm">Someone is typing...</span>
+                  <div className="bg-gray-200 text-gray-600 px-4 py-2 rounded-lg flex items-center space-x-2">
+                    <div className="flex space-x-1">
+                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                    </div>
+                    <span className="text-sm">
+                      {typingUsers.size === 1 ? 'Someone is' : `${typingUsers.size} people are`} typing...
+                    </span>
                   </div>
                 </div>
               )}

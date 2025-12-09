@@ -1,8 +1,12 @@
 package conversation
 
 import (
+	"chat-server/internal/constants"
+	conversationEvents "chat-server/internal/domain/conversation"
+	"chat-server/internal/infra/kafka"
 	"chat-server/internal/models"
 	"chat-server/internal/utils"
+	"context"
 	"fmt"
 	"time"
 
@@ -13,18 +17,20 @@ import (
 )
 
 type Service struct {
-	repo   *Repository
-	cache  *CacheService
-	db     *gorm.DB
-	logger *zap.SugaredLogger
+	repo          *Repository
+	cache         *CacheService
+	db            *gorm.DB
+	kafkaProducer *kafka.Producer
+	logger        *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, cache *CacheService, db *gorm.DB, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, cache *CacheService, db *gorm.DB, kafkaProducer *kafka.Producer, logger *zap.SugaredLogger) *Service {
 	return &Service{
-		repo:   repo,
-		cache:  cache,
-		db:     db,
-		logger: logger.Named("[conversation_service]"),
+		repo:          repo,
+		cache:         cache,
+		db:            db,
+		kafkaProducer: kafkaProducer,
+		logger:        logger.Named("[conversation_service]"),
 	}
 }
 
@@ -615,9 +621,65 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 		if err := s.cache.RemoveHiddenConversation(userID, conversationID); err != nil {
 			s.logger.Warnw("Failed to update hidden cache", "user_id", userID, "conversation_id", conversationID, "error", err)
 		}
-		// Invalidate user's conversation list cache
 		s.InvalidateUserConversationsCache([]uuid.UUID{userID})
 	}()
 
+	return nil
+}
+
+func (s *Service) SendTypingIndicator(userID, conversationID uuid.UUID, isTyping bool) error {
+	rateLimitKey := fmt.Sprintf(constants.CacheKeyTypingRateLimit, userID.String(), conversationID.String())
+
+	if isTyping {
+		var dummy string
+		err := s.cache.cache.Get(rateLimitKey, &dummy)
+		if err == nil {
+			s.logger.Debugw("Typing indicator rate limited", "user_id", userID, "conversation_id", conversationID)
+			return nil
+		}
+
+		if err := s.cache.cache.Set(rateLimitKey, "1", 5*time.Second); err != nil {
+			s.logger.Warnw("Failed to set rate limit", "error", err)
+		}
+	}
+
+	members, err := s.GetMembersCached(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get members: %w", err)
+	}
+
+	isMember := false
+	for _, m := range members {
+		if m.UserID == userID && m.IsActive {
+			isMember = true
+			break
+		}
+	}
+
+	if !isMember {
+		return fmt.Errorf("user is not a member of this conversation")
+	}
+
+	var user models.User
+	if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	event := &conversationEvents.TypingEvent{
+		ConversationID: conversationID.String(),
+		UserID:         userID.String(),
+		Username:       user.Username,
+		IsTyping:       isTyping,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if err := s.kafkaProducer.PublishConversationTyping(ctx, event); err != nil {
+		s.logger.Errorw("Failed to publish typing event", "error", err)
+		return fmt.Errorf("failed to publish typing event: %w", err)
+	}
+
+	s.logger.Debugw("Typing indicator sent", "user_id", userID, "conversation_id", conversationID, "is_typing", isTyping)
 	return nil
 }

@@ -203,3 +203,95 @@ func (h *EventHandler) validateDeletedEvent(event *DeletedEvent) error {
 	}
 	return nil
 }
+
+func (h *EventHandler) OnTyping(ctx context.Context, message []byte) error {
+	h.logger.Debugw("📥 Received USER_TYPING from Kafka",
+		"raw_size", len(message),
+	)
+
+	var event TypingEvent
+
+	if err := json.Unmarshal(message, &event); err != nil {
+		h.logger.Errorw("Failed to unmarshal TypingEvent", "error", err, "raw_message", string(message))
+		return err
+	}
+
+	h.logger.Infow("🔄 Processing USER_TYPING event",
+		"conversation_id", event.ConversationID,
+		"user_id", event.UserID,
+		"username", event.Username,
+		"is_typing", event.IsTyping,
+	)
+
+	if err := h.validateTypingEvent(&event); err != nil {
+		h.logger.Errorw("Invalid TypingEvent", "error", err)
+		return err
+	}
+
+	userIDs, err := h.convCache.GetConversationMembers(event.ConversationID)
+	if err != nil {
+		h.logger.Errorw("Failed to get conversation members from cache",
+			"conversation_id", event.ConversationID,
+			"error", err,
+		)
+		return err
+	}
+
+	h.logger.Infow("👥 Got conversation members",
+		"conversation_id", event.ConversationID,
+		"member_count", len(userIDs),
+	)
+
+	if len(userIDs) == 0 {
+		h.logger.Warnw("No members found in conversation",
+			"conversation_id", event.ConversationID,
+		)
+		return nil
+	}
+
+	recipients := make([]string, 0, len(userIDs))
+	for _, uid := range userIDs {
+		if uid != event.UserID {
+			recipients = append(recipients, uid)
+		}
+	}
+
+	if len(recipients) == 0 {
+		h.logger.Debugw("No recipients for typing indicator (only sender in conversation)",
+			"conversation_id", event.ConversationID,
+		)
+		return nil
+	}
+
+	h.logger.Infow("📡 Emitting USER_TYPING to WebSocket",
+		"conversation_id", event.ConversationID,
+		"sender_id", event.UserID,
+		"recipient_count", len(recipients),
+		"is_typing", event.IsTyping,
+	)
+
+	eventType := constants.WebSocketEventUserTyping
+	if !event.IsTyping {
+		eventType = constants.WebSocketEventUserStopTyping
+	}
+
+	wrappedData := utils.WrapWebSocketMessage(eventType, event)
+	h.wsServer.EmitToUsers(recipients, constants.WebSocketMessageEvent, wrappedData)
+
+	h.logger.Infow("✅ USER_TYPING processed successfully",
+		"conversation_id", event.ConversationID,
+		"emitted_to", len(recipients),
+	)
+
+	return nil
+}
+
+func (h *EventHandler) validateTypingEvent(event *TypingEvent) error {
+	if event.ConversationID == "" {
+		return errors.New("conversation_id is required")
+	}
+	if event.UserID == "" {
+		return errors.New("user_id is required")
+	}
+	return nil
+}

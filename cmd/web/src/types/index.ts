@@ -161,6 +161,7 @@ export const WebSocketEventType = {
   CONVERSATION_CREATED: 'CONVERSATION_CREATED',
   USER_STATUS_CHANGED: 'USER_STATUS_CHANGED',
   USER_TYPING: 'USER_TYPING',
+  USER_STOP_TYPING: 'USER_STOP_TYPING',
 } as const
 
 export type WebSocketEventTypeKeys = keyof typeof WebSocketEventType

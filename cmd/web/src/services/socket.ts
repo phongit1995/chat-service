@@ -68,6 +68,10 @@ class SocketService {
           this.emit(WebSocketEventType.USER_TYPING, wrapper.data as UserTypingData)
           break
           
+        case WebSocketEventType.USER_STOP_TYPING:
+          this.emit(WebSocketEventType.USER_STOP_TYPING, wrapper.data as UserTypingData)
+          break
+          
         default:
           console.warn('Unknown WebSocket event type:', wrapper.type)
       }

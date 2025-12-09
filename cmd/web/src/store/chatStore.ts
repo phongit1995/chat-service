@@ -19,6 +19,7 @@ interface ChatState {
   currentConversation: Conversation | null
   messages: Message[]
   typingUsers: Set<string>
+  typingTimeouts: Map<string, ReturnType<typeof setTimeout>>
   isLoading: boolean
   error: string | null
 
@@ -245,15 +246,68 @@ export const useChatStore = create<ChatState>((set, get) => {
   })
 
   socketService.on(WebSocketEventType.USER_TYPING, (data: UserTypingData) => {
-    const { currentConversation, typingUsers } = get()
+    const { currentConversation, typingUsers, typingTimeouts } = get()
+    const currentUser = useAuthStore.getState().user
+    
+    if (data.userId === currentUser?.id) return
+    
     if (data.conversationId === currentConversation?.id) {
       const newTypingUsers = new Set(typingUsers)
+      const newTypingTimeouts = new Map(typingTimeouts)
+      
       if (data.isTyping) {
         newTypingUsers.add(data.userId)
+        
+        // Clear existing timeout for this user
+        if (newTypingTimeouts.has(data.userId)) {
+          clearTimeout(newTypingTimeouts.get(data.userId)!)
+        }
+        
+        // Set new timeout to auto-remove after 3 seconds
+        const timeout = setTimeout(() => {
+          const { typingUsers: currentTypingUsers, typingTimeouts: currentTimeouts } = get()
+          const updatedUsers = new Set(currentTypingUsers)
+          const updatedTimeouts = new Map(currentTimeouts)
+          
+          updatedUsers.delete(data.userId)
+          updatedTimeouts.delete(data.userId)
+          
+          set({ typingUsers: updatedUsers, typingTimeouts: updatedTimeouts })
+        }, 3000)
+        
+        newTypingTimeouts.set(data.userId, timeout)
       } else {
         newTypingUsers.delete(data.userId)
+        
+        // Clear timeout when user stops typing
+        if (newTypingTimeouts.has(data.userId)) {
+          clearTimeout(newTypingTimeouts.get(data.userId)!)
+          newTypingTimeouts.delete(data.userId)
+        }
       }
-      set({ typingUsers: newTypingUsers })
+      
+      set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
+    }
+  })
+
+  socketService.on(WebSocketEventType.USER_STOP_TYPING, (data: UserTypingData) => {
+    const { currentConversation, typingUsers, typingTimeouts } = get()
+    const currentUser = useAuthStore.getState().user
+    
+    if (data.userId === currentUser?.id) return
+    
+    if (data.conversationId === currentConversation?.id) {
+      const newTypingUsers = new Set(typingUsers)
+      const newTypingTimeouts = new Map(typingTimeouts)
+      
+      newTypingUsers.delete(data.userId)
+      
+      if (newTypingTimeouts.has(data.userId)) {
+        clearTimeout(newTypingTimeouts.get(data.userId)!)
+        newTypingTimeouts.delete(data.userId)
+      }
+      
+      set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
     }
   })
 
@@ -266,6 +320,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     currentConversation: null,
     messages: [],
     typingUsers: new Set(),
+    typingTimeouts: new Map(),
     isLoading: false,
     error: null,
 
@@ -298,6 +353,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           currentConversation: conv || null,
           messages,
           typingUsers: new Set(),
+          typingTimeouts: new Map(),
           isLoading: false
         })
 
@@ -396,15 +452,20 @@ export const useChatStore = create<ChatState>((set, get) => {
     clearError: () => set({ error: null }),
 
     reset: () => {
-      const { currentConversation } = get()
+      const { currentConversation, typingTimeouts } = get()
       if (currentConversation) {
         socketService.leaveConversation(currentConversation.id)
       }
+      
+      // Clear all typing timeouts
+      typingTimeouts.forEach(timeout => clearTimeout(timeout))
+      
       set({
         conversations: [],
         currentConversation: null,
         messages: [],
         typingUsers: new Set(),
+        typingTimeouts: new Map(),
         isLoading: false,
         error: null,
       })

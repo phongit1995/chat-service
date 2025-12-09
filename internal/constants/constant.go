@@ -31,6 +31,7 @@ const (
 	CacheKeyRelationshipList    = "USER:%s:RELATIONSHIPS"
 	CacheKeyUnreadCount         = "USER:%s:UNREAD:%s"
 	CacheKeyTypingUsers         = "CONVERSATION:%s:TYPING"
+	CacheKeyTypingRateLimit     = "TYPING:%s:%s:RATE_LIMIT"
 	CacheKeyRateLimitLogin      = "RATE_LIMIT:%s:LOGIN"
 	CacheKeyRateLimitRegister   = "RATE_LIMIT:%s:REGISTER"
 	CacheKeyRateLimitAPI        = "RATE_LIMIT:%s:API"
