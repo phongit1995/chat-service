@@ -486,7 +486,8 @@ export const Chat = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {[...messages]
+              {messages
+                .slice()
                 .sort((a, b) => {
                   // Sort by createdAt ascending (oldest first, newest last)
                   const timeA = new Date(a.createdAt).getTime()

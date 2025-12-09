@@ -68,7 +68,12 @@ class ApiService {
 
 
   async sendMessage(data: CreateMessageDTO): Promise<ApiResponse<Message>> {
-    const response = await this.api.post<ApiResponse<Message>>('/messages', data)
+    const requestData = {
+      conversationId: data.conversationId,
+      content: data.content,
+      type: data.messageType || 'text'
+    }
+    const response = await this.api.post<ApiResponse<Message>>('/messages', requestData)
     return response.data
   }
 

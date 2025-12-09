@@ -61,11 +61,14 @@ func (c *Consumer) Start() error {
 
 	for topic, handler := range c.handlers {
 		reader := kafka.NewReader(kafka.ReaderConfig{
-			Brokers:  c.cfg.KafkaBrokers,
-			GroupID:  constants.KafkaConsumerGroup,
-			Topic:    topic,
-			MinBytes: 10e3,
-			MaxBytes: 10e6,
+			Brokers:        c.cfg.KafkaBrokers,
+			GroupID:        constants.KafkaConsumerGroup,
+			Topic:          topic,
+			MinBytes:       1,                      // Read immediately when ANY data available
+			MaxBytes:       10e6,                   // Max 10MB per fetch
+			MaxWait:        100 * time.Millisecond, // Max wait time before returning
+			CommitInterval: time.Second,            // Commit offset every second
+			StartOffset:    kafka.LastOffset,       // Start from latest for new consumers
 		})
 
 		c.readers = append(c.readers, reader)
