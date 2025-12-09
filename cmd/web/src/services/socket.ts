@@ -1,5 +1,14 @@
 import { io, Socket } from 'socket.io-client'
-import type { Message } from '../types'
+import type { 
+  Message, 
+  WebSocketMessage, 
+  MessageDeletedData, 
+  UserTypingData, 
+  UserStatusData,
+  ConversationCreatedData,
+  WebSocketEventTypeKeys
+} from '../types'
+import { WebSocketEventType } from '../types'
 import env from '../config/env'
 
 class SocketService {
@@ -28,28 +37,37 @@ class SocketService {
       console.error('Socket error:', error)
     })
 
-    this.socket.on('NEW_MESSAGE', (message: Message) => {
-      this.emit('NEW_MESSAGE', message)
-    })
-
-    this.socket.on('MESSAGE_DELETED', (data: { messageId: string; conversationId: string }) => {
-      this.emit('MESSAGE_DELETED', data)
-    })
-
-    this.socket.on('MESSAGE_UPDATED', (message: Message) => {
-      this.emit('MESSAGE_UPDATED', message)
-    })
-
-    this.socket.on('USER_TYPING', (data: { userId: string; conversationId: string; isTyping: boolean }) => {
-      this.emit('USER_TYPING', data)
-    })
-
-    this.socket.on('USER_ONLINE', (data: { userId: string }) => {
-      this.emit('USER_ONLINE', data)
-    })
-
-    this.socket.on('USER_OFFLINE', (data: { userId: string }) => {
-      this.emit('USER_OFFLINE', data)
+    this.socket.on('message', (wrapper: WebSocketMessage) => {
+      console.log('WebSocket event received:', wrapper.type, wrapper.data)
+      
+      switch (wrapper.type) {
+        case WebSocketEventType.MESSAGE_CREATED:
+          this.emit(WebSocketEventType.MESSAGE_CREATED, wrapper.data as Message)
+          break
+          
+        case WebSocketEventType.MESSAGE_UPDATED:
+          this.emit(WebSocketEventType.MESSAGE_UPDATED, wrapper.data as Message)
+          break
+          
+        case WebSocketEventType.MESSAGE_DELETED:
+          this.emit(WebSocketEventType.MESSAGE_DELETED, wrapper.data as MessageDeletedData)
+          break
+          
+        case WebSocketEventType.CONVERSATION_CREATED:
+          this.emit(WebSocketEventType.CONVERSATION_CREATED, wrapper.data as ConversationCreatedData)
+          break
+          
+        case WebSocketEventType.USER_STATUS_CHANGED:
+          this.emit(WebSocketEventType.USER_STATUS_CHANGED, wrapper.data as UserStatusData)
+          break
+          
+        case WebSocketEventType.USER_TYPING:
+          this.emit(WebSocketEventType.USER_TYPING, wrapper.data as UserTypingData)
+          break
+          
+        default:
+          console.warn('Unknown WebSocket event type:', wrapper.type)
+      }
     })
   }
 

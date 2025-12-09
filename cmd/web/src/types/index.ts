@@ -119,3 +119,40 @@ export interface SearchUsersResponse {
   users: UserSearchResult[]
   total: number
 }
+
+export interface WebSocketMessage<T = any> {
+  type: string
+  data: T
+}
+
+export interface MessageDeletedData {
+  conversationId: string
+  messageId: string
+}
+
+export interface UserTypingData {
+  userId: string
+  conversationId: string
+  isTyping: boolean
+}
+
+export interface UserStatusData {
+  userId: string
+  status: string
+}
+
+export interface ConversationCreatedData {
+  conversation: Conversation
+  message?: Message
+}
+
+export const WebSocketEventType = {
+  MESSAGE_CREATED: 'MESSAGE_CREATED',
+  MESSAGE_UPDATED: 'MESSAGE_UPDATED',
+  MESSAGE_DELETED: 'MESSAGE_DELETED',
+  CONVERSATION_CREATED: 'CONVERSATION_CREATED',
+  USER_STATUS_CHANGED: 'USER_STATUS_CHANGED',
+  USER_TYPING: 'USER_TYPING',
+} as const
+
+export type WebSocketEventTypeKeys = keyof typeof WebSocketEventType

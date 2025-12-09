@@ -1,5 +1,13 @@
 import { create } from 'zustand'
-import type { Conversation, Message, User } from '../types'
+import type { 
+  Conversation, 
+  Message, 
+  User, 
+  MessageDeletedData, 
+  UserTypingData, 
+  ConversationCreatedData 
+} from '../types'
+import { WebSocketEventType } from '../types'
 import { apiService } from '../services/api'
 import { socketService } from '../services/socket'
 
@@ -23,13 +31,12 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set, get) => {
-  socketService.on('NEW_MESSAGE', (message: Message) => {
+  socketService.on(WebSocketEventType.MESSAGE_CREATED, (message: Message) => {
     const { currentConversation, messages } = get()
     if (message.conversationId === currentConversation?.id) {
       set({ messages: [...messages, message] })
     }
 
-    // Update conversation list with last message
     set(state => ({
       conversations: state.conversations.map(conv =>
         conv.id === message.conversationId
@@ -43,17 +50,64 @@ export const useChatStore = create<ChatState>((set, get) => {
     }))
   })
 
-  socketService.on('USER_TYPING', ({ userId, conversationId, isTyping }: any) => {
+  socketService.on(WebSocketEventType.MESSAGE_UPDATED, (message: Message) => {
+    const { currentConversation, messages } = get()
+    if (message.conversationId === currentConversation?.id) {
+      set({
+        messages: messages.map(msg =>
+          msg.id === message.id ? message : msg
+        )
+      })
+    }
+
+    set(state => ({
+      conversations: state.conversations.map(conv =>
+        conv.id === message.conversationId
+          ? { 
+              ...conv, 
+              lastMessageText: message.content,
+              lastMessageAt: message.updatedAt
+            }
+          : conv
+      )
+    }))
+  })
+
+  socketService.on(WebSocketEventType.MESSAGE_DELETED, (data: MessageDeletedData) => {
+    const { currentConversation, messages } = get()
+    if (data.conversationId === currentConversation?.id) {
+      set({
+        messages: messages.filter(msg => msg.id !== data.messageId)
+      })
+    }
+  })
+
+  socketService.on(WebSocketEventType.CONVERSATION_CREATED, (data: ConversationCreatedData) => {
+    const { conversations } = get()
+    
+    const existingConv = conversations.find(c => c.id === data.conversation.id)
+    if (!existingConv) {
+      set({
+        conversations: [data.conversation, ...conversations]
+      })
+    }
+  })
+
+  socketService.on(WebSocketEventType.USER_TYPING, (data: UserTypingData) => {
     const { currentConversation, typingUsers } = get()
-    if (conversationId === currentConversation?.id) {
+    if (data.conversationId === currentConversation?.id) {
       const newTypingUsers = new Set(typingUsers)
-      if (isTyping) {
-        newTypingUsers.add(userId)
+      if (data.isTyping) {
+        newTypingUsers.add(data.userId)
       } else {
-        newTypingUsers.delete(userId)
+        newTypingUsers.delete(data.userId)
       }
       set({ typingUsers: newTypingUsers })
     }
+  })
+
+  socketService.on(WebSocketEventType.USER_STATUS_CHANGED, (data: { userId: string; status: string }) => {
+    console.log('User status changed:', data)
   })
 
   return {
@@ -84,11 +138,9 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       set({ isLoading: true, error: null })
       try {
-        // Get messages for this conversation
         const messagesResponse = await apiService.getMessages(conversationId)
         const messages = messagesResponse.data?.messages || []
 
-        // Find conversation in list
         const conv = get().conversations.find(c => c.id === conversationId)
         
         set({
