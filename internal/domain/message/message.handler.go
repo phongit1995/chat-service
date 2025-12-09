@@ -4,6 +4,7 @@ import (
 	"chat-server/internal/constants"
 	conversationDomain "chat-server/internal/domain/conversation"
 	"chat-server/internal/infra/websocket"
+	"chat-server/internal/utils"
 	"context"
 	"encoding/json"
 	"errors"
@@ -104,7 +105,8 @@ func (h *EventHandler) OnCreated(ctx context.Context, message []byte) error {
 		"message", string(messageJSON),
 	)
 
-	h.wsServer.EmitToUsers(userIDs, constants.WebSocketEventNewMessage, event.Message)
+	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventNewMessage, event.Message)
+	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)
 
 	h.logger.Infow("✅ MESSAGE_CREATED processed successfully",
 		"conversation_id", conversationID,
@@ -187,7 +189,8 @@ func (h *EventHandler) OnDeleted(ctx context.Context, message []byte) error {
 		"recipients", userIDs,
 	)
 
-	h.wsServer.EmitToUsers(userIDs, constants.WebSocketEventMessageDeleted, data)
+	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventMessageDeleted, data)
+	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)
 
 	h.logger.Infow("✅ MESSAGE_DELETED processed successfully",
 		"conversation_id", event.ConversationID,
@@ -273,7 +276,8 @@ func (h *EventHandler) OnUpdated(ctx context.Context, message []byte) error {
 		"message", string(messageJSON),
 	)
 
-	h.wsServer.EmitToUsers(userIDs, constants.WebSocketEventMessageUpdated, event.Message)
+	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventMessageUpdated, event.Message)
+	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)
 
 	h.logger.Infow("✅ MESSAGE_UPDATED processed successfully",
 		"conversation_id", conversationID,

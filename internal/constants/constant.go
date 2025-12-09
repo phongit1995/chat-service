@@ -44,12 +44,18 @@ const (
 	WebSocketEventNewMessage          = "NEW_MESSAGE"
 	WebSocketEventMessageDeleted      = "MESSAGE_DELETED"
 	WebSocketEventMessageUpdated      = "MESSAGE_UPDATED"
+	WebSocketEventConversationCreated = "CONVERSATION_CREATED"
 	WebSocketEventConversationUpdated = "CONVERSATION_UPDATED"
+	WebSocketEventConversationDeleted = "CONVERSATION_DELETED"
 	WebSocketEventUserOnline          = "USER_ONLINE"
 	WebSocketEventUserOffline         = "USER_OFFLINE"
 	WebSocketEventUserTyping          = "USER_TYPING"
 	WebSocketEventUserStopTyping      = "USER_STOP_TYPING"
 	WebSocketEventError               = "ERROR"
+)
+
+const (
+	WebSocketMessageEvent = "message"
 )
 
 const (

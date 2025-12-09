@@ -3,6 +3,7 @@ package conversation
 import (
 	"chat-server/internal/constants"
 	"chat-server/internal/infra/websocket"
+	"chat-server/internal/utils"
 	"context"
 	"encoding/json"
 	"errors"
@@ -40,8 +41,10 @@ func (h *EventHandler) OnCreated(ctx context.Context, message []byte) error {
 		return err
 	}
 
+	dataJSON, _ := json.Marshal(event.Data)
 	h.logger.Infow("🔄 Processing CONVERSATION_CREATED event",
 		"conversation_id", event.ConversationID,
+		"data", string(dataJSON),
 	)
 
 	if err := h.validateCreatedEvent(&event); err != nil {
@@ -49,8 +52,41 @@ func (h *EventHandler) OnCreated(ctx context.Context, message []byte) error {
 		return err
 	}
 
+	userIDs, err := h.convCache.GetConversationMembers(event.ConversationID)
+	if err != nil {
+		h.logger.Errorw("Failed to get conversation members from cache",
+			"conversation_id", event.ConversationID,
+			"error", err,
+		)
+		return err
+	}
+
+	h.logger.Infow("👥 Got conversation members",
+		"conversation_id", event.ConversationID,
+		"member_count", len(userIDs),
+		"user_ids", userIDs,
+	)
+
+	if len(userIDs) == 0 {
+		h.logger.Warnw("No members found in conversation",
+			"conversation_id", event.ConversationID,
+		)
+		return nil
+	}
+
+	h.logger.Infow("📡 Emitting CONVERSATION_CREATED to WebSocket",
+		"conversation_id", event.ConversationID,
+		"recipient_count", len(userIDs),
+		"recipients", userIDs,
+		"data", string(dataJSON),
+	)
+
+	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventConversationCreated, event.Data)
+	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)
+
 	h.logger.Infow("✅ CONVERSATION_CREATED processed successfully",
 		"conversation_id", event.ConversationID,
+		"emitted_to", len(userIDs),
 	)
 
 	return nil
@@ -108,7 +144,8 @@ func (h *EventHandler) OnUpdated(ctx context.Context, message []byte) error {
 		"data", string(dataJSON),
 	)
 
-	h.wsServer.EmitToUsers(userIDs, constants.WebSocketEventConversationUpdated, event.Data)
+	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventConversationUpdated, event.Data)
+	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)
 
 	h.logger.Infow("✅ CONVERSATION_UPDATED processed successfully",
 		"conversation_id", event.ConversationID,

@@ -86,12 +86,21 @@ type Message struct {
 }
 
 func (r *Repository) CreateMessage(msg *Message) error {
-	gocqlConvID, _ := gocql.ParseUUID(msg.ConversationID.String())
-	gocqlSenderID, _ := gocql.ParseUUID(msg.SenderID.String())
+	gocqlConvID, err := gocql.ParseUUID(msg.ConversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
+	gocqlSenderID, err := gocql.ParseUUID(msg.SenderID.String())
+	if err != nil {
+		return fmt.Errorf("invalid sender ID: %w", err)
+	}
 
 	var gocqlReplyToID *gocql.UUID
 	if msg.ReplyToID != nil {
-		gocqlReply, _ := gocql.ParseUUID(msg.ReplyToID.String())
+		gocqlReply, err := gocql.ParseUUID(msg.ReplyToID.String())
+		if err != nil {
+			return fmt.Errorf("invalid reply to ID: %w", err)
+		}
 		gocqlReplyToID = &gocqlReply
 	}
 
@@ -102,7 +111,10 @@ func (r *Repository) CreateMessage(msg *Message) error {
 }
 
 func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMessageID *gocql.UUID) ([]Message, error) {
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return nil, fmt.Errorf("invalid conversation ID: %w", err)
+	}
 
 	var messages []Message
 	var iter *gocql.Iter
@@ -132,8 +144,16 @@ func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMess
 		&gocqlMsg.DeletedAt, &gocqlMsg.ReplyToID) {
 
 		// Convert gocql.UUID to uuid.UUID
-		convID, _ := uuid.Parse(gocqlMsg.ConversationID.String())
-		senderID, _ := uuid.Parse(gocqlMsg.SenderID.String())
+		convID, err := uuid.Parse(gocqlMsg.ConversationID.String())
+		if err != nil {
+			r.logger.Warnw("Invalid conversation ID in message", "error", err)
+			continue
+		}
+		senderID, err := uuid.Parse(gocqlMsg.SenderID.String())
+		if err != nil {
+			r.logger.Warnw("Invalid sender ID in message", "error", err)
+			continue
+		}
 
 		msg := Message{
 			ConversationID: convID,
@@ -149,8 +169,12 @@ func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMess
 		}
 
 		if gocqlMsg.ReplyToID != nil {
-			replyToID, _ := uuid.Parse(gocqlMsg.ReplyToID.String())
-			msg.ReplyToID = &replyToID
+			replyToID, err := uuid.Parse(gocqlMsg.ReplyToID.String())
+			if err != nil {
+				r.logger.Warnw("Invalid reply to ID in message", "error", err)
+			} else {
+				msg.ReplyToID = &replyToID
+			}
 		}
 
 		messages = append(messages, msg)
@@ -164,7 +188,10 @@ func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMess
 }
 
 func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UUID) (*Message, error) {
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return nil, fmt.Errorf("invalid conversation ID: %w", err)
+	}
 
 	var gocqlMsg struct {
 		ConversationID gocql.UUID
@@ -180,7 +207,7 @@ func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UU
 		ReplyToID      *gocql.UUID
 	}
 
-	err := r.preparedQueries["get_message_by_id"].Bind(gocqlConvID, messageID).Scan(
+	err = r.preparedQueries["get_message_by_id"].Bind(gocqlConvID, messageID).Scan(
 		&gocqlMsg.ConversationID, &gocqlMsg.MessageID, &gocqlMsg.SenderID, &gocqlMsg.MessageType,
 		&gocqlMsg.Content, &gocqlMsg.Metadata, &gocqlMsg.Status, &gocqlMsg.CreatedAt, &gocqlMsg.UpdatedAt,
 		&gocqlMsg.DeletedAt, &gocqlMsg.ReplyToID,
@@ -189,9 +216,14 @@ func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UU
 		return nil, err
 	}
 
-	// Convert gocql.UUID to uuid.UUID
-	convID, _ := uuid.Parse(gocqlMsg.ConversationID.String())
-	senderID, _ := uuid.Parse(gocqlMsg.SenderID.String())
+	convID, err := uuid.Parse(gocqlMsg.ConversationID.String())
+	if err != nil {
+		return nil, fmt.Errorf("invalid conversation ID in result: %w", err)
+	}
+	senderID, err := uuid.Parse(gocqlMsg.SenderID.String())
+	if err != nil {
+		return nil, fmt.Errorf("invalid sender ID in result: %w", err)
+	}
 
 	msg := &Message{
 		ConversationID: convID,
@@ -207,7 +239,10 @@ func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UU
 	}
 
 	if gocqlMsg.ReplyToID != nil {
-		replyToID, _ := uuid.Parse(gocqlMsg.ReplyToID.String())
+		replyToID, err := uuid.Parse(gocqlMsg.ReplyToID.String())
+		if err != nil {
+			return nil, fmt.Errorf("invalid reply to ID in result: %w", err)
+		}
 		msg.ReplyToID = &replyToID
 	}
 
@@ -215,13 +250,19 @@ func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UU
 }
 
 func (r *Repository) UpdateMessage(conversationID uuid.UUID, messageID gocql.UUID, newContent string) error {
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
 	now := time.Now()
 	return r.preparedQueries["update_message"].Bind(newContent, now, gocqlConvID, messageID).Exec()
 }
 
 func (r *Repository) DeleteMessage(conversationID uuid.UUID, messageID gocql.UUID) error {
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
 	now := time.Now()
 	return r.preparedQueries["delete_message"].Bind(now, now, gocqlConvID, messageID).Exec()
 }
@@ -229,25 +270,42 @@ func (r *Repository) DeleteMessage(conversationID uuid.UUID, messageID gocql.UUI
 func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID, newEntry *ConversationInboxUpdate) error {
 	batch := r.session.NewBatch(gocql.UnloggedBatch)
 
-	gocqlUserID, _ := gocql.ParseUUID(userID.String())
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+	gocqlUserID, err := gocql.ParseUUID(userID.String())
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
 
 	deleteQuery := `DELETE FROM conversations_by_user WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
 	batch.Query(deleteQuery, gocqlUserID, oldLastMessageAt, gocqlConvID)
 
-	// Convert uuid.UUID to gocql.UUID for newEntry
-	gocqlNewUserID, _ := gocql.ParseUUID(newEntry.UserID.String())
-	gocqlNewConvID, _ := gocql.ParseUUID(newEntry.ConversationID.String())
+	gocqlNewUserID, err := gocql.ParseUUID(newEntry.UserID.String())
+	if err != nil {
+		return fmt.Errorf("invalid new entry user ID: %w", err)
+	}
+	gocqlNewConvID, err := gocql.ParseUUID(newEntry.ConversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid new entry conversation ID: %w", err)
+	}
 
 	var gocqlNewOtherUserID *gocql.UUID
 	if newEntry.OtherUserID != nil {
-		gocqlOther, _ := gocql.ParseUUID(newEntry.OtherUserID.String())
+		gocqlOther, err := gocql.ParseUUID(newEntry.OtherUserID.String())
+		if err != nil {
+			return fmt.Errorf("invalid other user ID: %w", err)
+		}
 		gocqlNewOtherUserID = &gocqlOther
 	}
 
 	var gocqlNewLastMessageSender *gocql.UUID
 	if newEntry.LastMessageSender != nil {
-		gocqlSender, _ := gocql.ParseUUID(newEntry.LastMessageSender.String())
+		gocqlSender, err := gocql.ParseUUID(newEntry.LastMessageSender.String())
+		if err != nil {
+			return fmt.Errorf("invalid last message sender ID: %w", err)
+		}
 		gocqlNewLastMessageSender = &gocqlSender
 	}
 
@@ -291,12 +349,18 @@ type ConversationInboxUpdate struct {
 }
 
 func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID) (*ConversationInboxUpdate, *gocql.UUID, error) {
-	gocqlUserID, _ := gocql.ParseUUID(userID.String())
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+	gocqlUserID, err := gocql.ParseUUID(userID.String())
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid conversation ID: %w", err)
+	}
 
 	var oldLastMessageAt gocql.UUID
 
-	err := r.preparedQueries["lookup_conversation"].Bind(gocqlUserID, gocqlConvID).Scan(&oldLastMessageAt)
+	err = r.preparedQueries["lookup_conversation"].Bind(gocqlUserID, gocqlConvID).Scan(&oldLastMessageAt)
 	if err != nil {
 		if err == gocql.ErrNotFound {
 			return nil, nil, nil
@@ -335,9 +399,14 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 		return nil, nil, err
 	}
 
-	// Convert gocql.UUID to uuid.UUID
-	resultUserID, _ := uuid.Parse(gocqlEntry.UserID.String())
-	resultConvID, _ := uuid.Parse(gocqlEntry.ConversationID.String())
+	resultUserID, err := uuid.Parse(gocqlEntry.UserID.String())
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid user ID in result: %w", err)
+	}
+	resultConvID, err := uuid.Parse(gocqlEntry.ConversationID.String())
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid conversation ID in result: %w", err)
+	}
 
 	entry := &ConversationInboxUpdate{
 		UserID:            resultUserID,
@@ -355,14 +424,19 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 		LastReadAt:        gocqlEntry.LastReadAt,
 	}
 
-	// Convert pointer UUIDs
 	if gocqlEntry.OtherUserID != nil {
-		otherUserID, _ := uuid.Parse(gocqlEntry.OtherUserID.String())
+		otherUserID, err := uuid.Parse(gocqlEntry.OtherUserID.String())
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid other user ID in result: %w", err)
+		}
 		entry.OtherUserID = &otherUserID
 	}
 
 	if gocqlEntry.LastMessageSender != nil {
-		lastMessageSender, _ := uuid.Parse(gocqlEntry.LastMessageSender.String())
+		lastMessageSender, err := uuid.Parse(gocqlEntry.LastMessageSender.String())
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid last message sender ID in result: %w", err)
+		}
 		entry.LastMessageSender = &lastMessageSender
 	}
 
@@ -377,13 +451,22 @@ func (r *Repository) ExecuteBatch(batch *gocql.Batch) error {
 	return r.session.ExecuteBatch(batch)
 }
 
-func (r *Repository) AddMessageToBatch(batch *gocql.Batch, msg *Message) {
-	gocqlConvID, _ := gocql.ParseUUID(msg.ConversationID.String())
-	gocqlSenderID, _ := gocql.ParseUUID(msg.SenderID.String())
+func (r *Repository) AddMessageToBatch(batch *gocql.Batch, msg *Message) error {
+	gocqlConvID, err := gocql.ParseUUID(msg.ConversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
+	gocqlSenderID, err := gocql.ParseUUID(msg.SenderID.String())
+	if err != nil {
+		return fmt.Errorf("invalid sender ID: %w", err)
+	}
 
 	var gocqlReplyToID *gocql.UUID
 	if msg.ReplyToID != nil {
-		gocqlReply, _ := gocql.ParseUUID(msg.ReplyToID.String())
+		gocqlReply, err := gocql.ParseUUID(msg.ReplyToID.String())
+		if err != nil {
+			return fmt.Errorf("invalid reply to ID: %w", err)
+		}
 		gocqlReplyToID = &gocqlReply
 	}
 
@@ -394,6 +477,7 @@ func (r *Repository) AddMessageToBatch(batch *gocql.Batch, msg *Message) {
 		gocqlConvID, msg.MessageID, gocqlSenderID, msg.MessageType,
 		msg.Content, msg.Metadata, msg.Status, msg.CreatedAt, msg.UpdatedAt, gocqlReplyToID,
 	)
+	return nil
 }
 
 func (r *Repository) DeleteFromInboxBatch(batch *gocql.Batch, userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID) {
@@ -401,20 +485,31 @@ func (r *Repository) DeleteFromInboxBatch(batch *gocql.Batch, userID uuid.UUID, 
 	batch.Query(query, userID, oldLastMessageAt, conversationID)
 }
 
-func (r *Repository) AddToInboxBatch(batch *gocql.Batch, entry *ConversationInboxUpdate) {
-	// Convert uuid.UUID to gocql.UUID
-	gocqlUserID, _ := gocql.ParseUUID(entry.UserID.String())
-	gocqlConvID, _ := gocql.ParseUUID(entry.ConversationID.String())
+func (r *Repository) AddToInboxBatch(batch *gocql.Batch, entry *ConversationInboxUpdate) error {
+	gocqlUserID, err := gocql.ParseUUID(entry.UserID.String())
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+	gocqlConvID, err := gocql.ParseUUID(entry.ConversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
 
 	var gocqlOtherUserID *gocql.UUID
 	if entry.OtherUserID != nil {
-		gocqlOther, _ := gocql.ParseUUID(entry.OtherUserID.String())
+		gocqlOther, err := gocql.ParseUUID(entry.OtherUserID.String())
+		if err != nil {
+			return fmt.Errorf("invalid other user ID: %w", err)
+		}
 		gocqlOtherUserID = &gocqlOther
 	}
 
 	var gocqlLastMessageSender *gocql.UUID
 	if entry.LastMessageSender != nil {
-		gocqlSender, _ := gocql.ParseUUID(entry.LastMessageSender.String())
+		gocqlSender, err := gocql.ParseUUID(entry.LastMessageSender.String())
+		if err != nil {
+			return fmt.Errorf("invalid last message sender ID: %w", err)
+		}
 		gocqlLastMessageSender = &gocqlSender
 	}
 
@@ -428,4 +523,5 @@ func (r *Repository) AddToInboxBatch(batch *gocql.Batch, entry *ConversationInbo
 		entry.Title, entry.Avatar, entry.LastMessageID, entry.LastMessageBody,
 		gocqlLastMessageSender, entry.UnreadCount, entry.LastReadMessageID, entry.LastReadAt,
 	)
+	return nil
 }
