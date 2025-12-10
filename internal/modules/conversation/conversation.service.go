@@ -405,11 +405,36 @@ func (s *Service) MarkConversationAsRead(userID, conversationID uuid.UUID) error
 		lastReadMessageID = userConv.LastMessageAt
 	}
 
+	updatedEntry := &ConversationByUser{
+		UserID:            userConv.UserID,
+		LastMessageAt:     userConv.LastMessageAt,
+		ConversationID:    userConv.ConversationID,
+		IsGroup:           userConv.IsGroup,
+		OtherUserID:       userConv.OtherUserID,
+		OtherUserName:     userConv.OtherUserName,
+		OtherUserAvatar:   userConv.OtherUserAvatar,
+		Title:             userConv.Title,
+		Avatar:            userConv.Avatar,
+		LastMessageID:     userConv.LastMessageID,
+		LastMessageBody:   userConv.LastMessageBody,
+		LastMessageSender: userConv.LastMessageSender,
+		UnreadCount:       0,
+		LastReadMessageID: &lastReadMessageID,
+		LastReadAt:        &now,
+	}
+
+	if err := s.repo.UpdateConversationInUserInbox(userID, userConv.LastMessageAt, updatedEntry); err != nil {
+		return fmt.Errorf("failed to update conversation inbox: %w", err)
+	}
+
 	if err := s.repo.MarkAsRead(conversationID, userID, lastReadMessageID, now); err != nil {
 		return fmt.Errorf("failed to mark as read: %w", err)
 	}
 
-	s.cache.ResetUnreadCount(conversationID, userID)
+	go func() {
+		s.cache.ResetUnreadCount(conversationID, userID)
+		s.InvalidateUserConversationsCache([]uuid.UUID{userID})
+	}()
 
 	return nil
 }

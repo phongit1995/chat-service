@@ -151,7 +151,15 @@ export interface UserStatusData {
   status: string
 }
 
-export interface ConversationCreatedData extends Conversation {}
+export interface ConversationParticipant {
+  userId: string
+  username: string
+  avatar: string
+}
+
+export interface ConversationCreatedData extends Conversation {
+  participants?: ConversationParticipant[]
+}
 
 export const WebSocketEventType = {
   MESSAGE_CREATED: 'MESSAGE_CREATED',

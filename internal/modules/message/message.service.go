@@ -67,6 +67,16 @@ func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType
 				return
 			}
 
+			var senderUser, recipientUser models.User
+			if err := s.db.First(&senderUser, "id = ?", sender).Error; err != nil {
+				s.logger.Errorw("Failed to get sender user", "user_id", sender, "error", err)
+				return
+			}
+			if err := s.db.First(&recipientUser, "id = ?", recipient).Error; err != nil {
+				s.logger.Errorw("Failed to get recipient user", "user_id", recipient, "error", err)
+				return
+			}
+
 			event := &conversationEvents.CreatedEvent{
 				ConversationID: convID.String(),
 				Data: map[string]interface{}{
@@ -77,6 +87,21 @@ func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType
 					"createdAt":        conv.CreatedAt.Format(time.RFC3339),
 					"updatedAt":        conv.UpdatedAt.Format(time.RFC3339),
 					"participantCount": conv.ParticipantCount,
+					"lastMessageText":  "",
+					"lastMessageAt":    conv.CreatedAt.Format(time.RFC3339),
+					"unreadCount":      0,
+					"participants": []map[string]interface{}{
+						{
+							"userId":   sender.String(),
+							"username": senderUser.Username,
+							"avatar":   senderUser.Avatar,
+						},
+						{
+							"userId":   recipient.String(),
+							"username": recipientUser.Username,
+							"avatar":   recipientUser.Avatar,
+						},
+					},
 				},
 			}
 

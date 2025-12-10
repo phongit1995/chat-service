@@ -29,6 +29,7 @@ interface ChatState {
   createConversation: (type: string, memberIds: string[], name?: string) => Promise<void>
   addMessage: (message: Message) => void
   setTyping: (userId: string, isTyping: boolean) => void
+  markAsRead: (conversationId: string) => Promise<void>
   clearError: () => void
   reset: () => void
 }
@@ -220,27 +221,45 @@ export const useChatStore = create<ChatState>((set, get) => {
 
   socketService.on(WebSocketEventType.CONVERSATION_CREATED, (data: ConversationCreatedData) => {
     const { conversations } = get()
+    const currentUser = useAuthStore.getState().user
     
     // ✅ Fix: Use correct field name from backend
-    const convId = (data as any).ID || data.id
+    const convId = (data as any).id || (data as any).ID
     
     const existingConv = conversations.find(c => c.id === convId)
     if (!existingConv) {
-      // ✅ Normalize conversation object (no createdAt/updatedAt in Conversation type)
+      // ✅ Get other participant info for direct conversations
+      const participants = (data as any).participants || data.participants || []
+      const otherParticipant = participants.find((p: any) =>
+        (p.userId || p.UserId) !== currentUser?.id
+      )
+      
+      // ✅ For direct conversations, use other user's name and avatar
+      const isDirectConversation = ((data as any).type || data.type) === 'direct'
+      const displayName = isDirectConversation && otherParticipant
+        ? (otherParticipant.username || otherParticipant.Username)
+        : ((data as any).name || data.name || '')
+      const displayAvatar = isDirectConversation && otherParticipant
+        ? (otherParticipant.avatar || otherParticipant.Avatar)
+        : ((data as any).avatar || data.avatar || '')
+      
+      // ✅ Normalize conversation object with complete data
       const normalizedConv: Conversation = {
         id: convId,
-        type: (data as any).Type || data.type,
-        name: (data as any).Name || data.name,
-        avatar: (data as any).Avatar || data.avatar,
-        participantCount: (data as any).ParticipantCount || data.participantCount,
-        lastMessageText: (data as any).LastMessageText || data.lastMessageText || '',
-        lastMessageAt: (data as any).LastMessageAt || data.lastMessageAt || '',
-        unreadCount: (data as any).UnreadCount || data.unreadCount || 0,
+        type: (data as any).type || data.type,
+        name: displayName,
+        avatar: displayAvatar,
+        participantCount: (data as any).participantCount || data.participantCount || 2,
+        lastMessageText: (data as any).lastMessageText || data.lastMessageText || '',
+        lastMessageAt: (data as any).lastMessageAt || data.lastMessageAt || new Date().toISOString(),
+        unreadCount: (data as any).unreadCount || data.unreadCount || 0,
       }
       
       set({
         conversations: [normalizedConv, ...conversations]
       })
+      
+      console.log('✅ New conversation created:', normalizedConv)
     }
   })
 
@@ -357,6 +376,10 @@ export const useChatStore = create<ChatState>((set, get) => {
         })
 
         socketService.joinConversation(conversationId)
+
+        if (conv && conv.unreadCount && conv.unreadCount > 0) {
+          get().markAsRead(conversationId)
+        }
       } catch (error: any) {
         set({ error: error.response?.data?.error || 'Failed to load conversation', isLoading: false })
       }
@@ -446,6 +469,22 @@ export const useChatStore = create<ChatState>((set, get) => {
         newTypingUsers.delete(userId)
       }
       set({ typingUsers: newTypingUsers })
+    },
+
+    markAsRead: async (conversationId: string) => {
+      try {
+        await apiService.markConversationAsRead(conversationId)
+        
+        set((state) => ({
+          conversations: state.conversations.map(conv =>
+            conv.id === conversationId
+              ? { ...conv, unreadCount: 0 }
+              : conv
+          ),
+        }))
+      } catch (error: any) {
+        console.error('Failed to mark as read:', error)
+      }
     },
 
     clearError: () => set({ error: null }),

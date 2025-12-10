@@ -120,6 +120,11 @@ class ApiService {
     })
     return response.data
   }
+
+  async markConversationAsRead(conversationId: string): Promise<ApiResponse<any>> {
+    const response = await this.api.put<ApiResponse<any>>(`/conversations/${conversationId}/read`)
+    return response.data
+  }
 }
 
 export const apiService = new ApiService()
