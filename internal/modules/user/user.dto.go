@@ -12,6 +12,8 @@ type UserProfileResponse struct {
 	Bio         string                 `json:"bio,omitempty" example:"Software developer"`
 	DateOfBirth string                 `json:"dateOfBirth,omitempty" example:"1990-01-01"`
 	CustomInfo  map[string]interface{} `json:"customInfo,omitempty" swaggertype:"object" example:"{\"theme\":\"dark\",\"language\":\"en\"}"`
+	CreatedAt   string                 `json:"createdAt" example:"2024-01-01T00:00:00Z"`
+	UpdatedAt   string                 `json:"updatedAt" example:"2024-01-01T00:00:00Z"`
 }
 
 type UpdateProfileRequest struct {
@@ -20,7 +22,7 @@ type UpdateProfileRequest struct {
 	FullName    string                 `json:"fullName,omitempty" example:"John Doe"`
 	Bio         string                 `json:"bio,omitempty" example:"Software developer"`
 	DateOfBirth string                 `json:"dateOfBirth,omitempty" example:"1990-01-01"`
-	CustomInfo  map[string]interface{} `json:"customInfo,omitempty" swaggertype:"object" example:"{\"theme\":\"dark\",\"language\":\"en\"}"`
+	CustomInfo  map[string]interface{} `json:"customInfo,omitempty" swaggertype:"object"`
 }
 
 type UserSearchResult struct {
@@ -37,5 +39,15 @@ type SearchUsersResponse struct {
 	Total int                `json:"total" example:"5"`
 }
 
+type UploadAvatarResponse struct {
+	URL       string `json:"url" example:"https://res.cloudinary.com/demo/image/upload/avatars/user123.webp"`
+	SecureURL string `json:"secureUrl" example:"https://res.cloudinary.com/demo/image/upload/avatars/user123.webp"`
+	PublicID  string `json:"publicId" example:"avatars/user123"`
+	Format    string `json:"format" example:"webp"`
+	Width     int    `json:"width" example:"400"`
+	Height    int    `json:"height" example:"400"`
+}
+
 type UserProfileSuccessResponse = utils.BaseResponse[UserProfileResponse]
 type SearchUsersSuccessResponse = utils.BaseResponse[SearchUsersResponse]
+type UploadAvatarSuccessResponse = utils.BaseResponse[UploadAvatarResponse]

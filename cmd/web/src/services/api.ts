@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
-import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, ConversationsListResponse, MessagesListResponse, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail, SearchUsersResponse } from '../types'
+import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, ConversationsListResponse, MessagesListResponse, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail, SearchUsersResponse, UpdateProfileDTO, UploadImageResponse } from '../types'
 import env from '../config/env'
 
 class ApiService {
@@ -47,7 +47,7 @@ class ApiService {
   }
 
   async getProfile(): Promise<ApiResponse<User>> {
-    const response = await this.api.get<ApiResponse<User>>('/user/profile')
+    const response = await this.api.get<ApiResponse<User>>('/user/me')
     return response.data
   }
 
@@ -94,8 +94,24 @@ class ApiService {
   }
 
   async searchUsers(query: string, limit = 20): Promise<ApiResponse<SearchUsersResponse>> {
-    const response = await this.api.get<ApiResponse<SearchUsersResponse>>('/users/search', {
+    const response = await this.api.get<ApiResponse<SearchUsersResponse>>('/user/search', {
       params: { q: query, limit }
+    })
+    return response.data
+  }
+
+  async updateProfile(data: UpdateProfileDTO): Promise<ApiResponse<User>> {
+    const response = await this.api.put<ApiResponse<User>>('/user/me', data)
+    return response.data
+  }
+
+  async uploadImage(file: File): Promise<ApiResponse<UploadImageResponse>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await this.api.post<ApiResponse<UploadImageResponse>>('/user/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     })
     return response.data
   }

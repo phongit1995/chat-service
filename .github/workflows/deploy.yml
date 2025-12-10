@@ -88,14 +88,11 @@ jobs:
             echo "📥 Pulling latest Docker images..."
             docker compose pull
             
-            echo "🛑 Stopping old containers..."
-            docker compose down --timeout 30
+            echo "🔄 Updating containers (preserving data)..."
+            docker compose up -d --remove-orphans
             
-            echo "🧹 Cleaning up old images..."
-            docker image prune -f
-            
-            echo "🚀 Starting new containers..."
-            docker compose up -d
+            echo "🧹 Cleaning up dangling images only..."
+            docker image prune -f --filter "dangling=true"
             
             echo "✅ Deployment completed"
           EOF

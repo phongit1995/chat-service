@@ -5,9 +5,33 @@ export interface User {
   firstName?: string
   lastName?: string
   avatarURL?: string
+  avatar?: string
+  phone?: string
+  fullName?: string
+  bio?: string
+  dateOfBirth?: string
+  customInfo?: Record<string, any>
   status: string
   createdAt: string
   updatedAt: string
+}
+
+export interface UpdateProfileDTO {
+  avatar?: string
+  phone?: string
+  fullName?: string
+  bio?: string
+  dateOfBirth?: string
+  customInfo?: Record<string, any>
+}
+
+export interface UploadImageResponse {
+  url: string
+  secureUrl: string
+  publicId: string
+  format: string
+  width: number
+  height: number
 }
 
 export interface AuthResponse {

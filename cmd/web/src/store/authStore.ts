@@ -15,6 +15,7 @@ interface AuthState {
   register: (username: string, email: string, password: string, firstName?: string, lastName?: string) => Promise<void>
   logout: () => void
   loadUser: () => Promise<void>
+  setUser: (user: User) => void
   clearError: () => void
 }
 
@@ -120,6 +121,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: false
       })
     }
+  },
+
+  setUser: (user) => {
+    localStorage.setItem('user', JSON.stringify(user))
+    set({ user })
   },
 
   clearError: () => set({ error: null }),

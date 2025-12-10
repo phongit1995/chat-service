@@ -60,6 +60,7 @@ services:
       - WS_READ_BUFFER_SIZE=${WS_READ_BUFFER_SIZE:-1024}
       - WS_WRITE_BUFFER_SIZE=${WS_WRITE_BUFFER_SIZE:-1024}
       - KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
+      - CLOUDINARY_URL=${CLOUDINARY_URL}
       - SWAGGER_HOST=${SWAGGER_HOST:-api:8080}
     depends_on:
       - postgres

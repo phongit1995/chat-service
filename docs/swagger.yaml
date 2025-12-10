@@ -128,10 +128,45 @@ definitions:
     - name
     - participantIds
     type: object
+  conversation.HideConversationResponse:
+    properties:
+      message:
+        example: Conversation hidden successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
   conversation.SimpleSuccessResponse:
     properties:
       message:
         example: Operation completed successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  conversation.TypingIndicatorRequest:
+    properties:
+      conversationId:
+        example: ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd
+        type: string
+    required:
+    - conversationId
+    type: object
+  conversation.TypingIndicatorResponse:
+    properties:
+      message:
+        example: Typing indicator sent
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  conversation.UnhideConversationResponse:
+    properties:
+      message:
+        example: Conversation unhidden successfully
         type: string
       success:
         example: true
@@ -210,6 +245,32 @@ definitions:
         example: true
         type: boolean
     type: object
+  message.SendDirectMessageRequest:
+    properties:
+      content:
+        example: Hello, how are you?
+        minLength: 1
+        type: string
+      metadata:
+        example: '{"fileName":"image.png"}'
+        type: string
+      recipientId:
+        example: ca4c6d54-870c-4735-b9a6-cce05a04aedb
+        type: string
+      type:
+        enum:
+        - text
+        - image
+        - file
+        - video
+        - audio
+        example: text
+        type: string
+    required:
+    - content
+    - recipientId
+    - type
+    type: object
   message.SendMessageRequest:
     properties:
       content:
@@ -248,6 +309,15 @@ definitions:
         example: true
         type: boolean
     type: object
+  message.UpdateMessageRequest:
+    properties:
+      content:
+        example: Updated message content
+        minLength: 1
+        type: string
+    required:
+    - content
+    type: object
   relationships.FriendListSuccessResponse:
     type: object
   relationships.RelationshipListSuccessResponse:
@@ -273,7 +343,29 @@ definitions:
     required:
     - addresseeId
     type: object
+  user.SearchUsersSuccessResponse:
+    type: object
   user.UpdateProfileRequest:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      bio:
+        example: Software developer
+        type: string
+      customInfo:
+        type: object
+      dateOfBirth:
+        example: "1990-01-01"
+        type: string
+      fullName:
+        example: John Doe
+        type: string
+      phone:
+        example: "+84987654321"
+        type: string
+    type: object
+  user.UploadAvatarSuccessResponse:
     type: object
   user.UserProfileSuccessResponse:
     type: object
@@ -395,6 +487,40 @@ paths:
       summary: Get user conversations
       tags:
       - conversations
+  /conversations/{id}/hide:
+    post:
+      description: Hide a conversation from the user's inbox. It will reappear when
+        a new message arrives.
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/conversation.HideConversationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Hide conversation
+      tags:
+      - conversations
   /conversations/{id}/read:
     put:
       description: Mark all messages in a conversation as read for the authenticated
@@ -427,6 +553,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Mark conversation as read
+      tags:
+      - conversations
+  /conversations/{id}/unhide:
+    post:
+      description: Manually unhide a previously hidden conversation
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/conversation.UnhideConversationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Unhide conversation
       tags:
       - conversations
   /conversations/direct:
@@ -465,6 +624,35 @@ paths:
       summary: Create direct conversation
       tags:
       - conversations
+  /conversations/direct/check:
+    get:
+      description: Check if direct conversation exists without creating it
+      parameters:
+      - description: Recipient User ID
+        in: query
+        name: recipientId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/conversation.ConversationSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Check direct conversation
+      tags:
+      - conversations
   /conversations/group:
     post:
       consumes:
@@ -495,6 +683,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Create group conversation
+      tags:
+      - conversations
+  /conversations/typing:
+    post:
+      consumes:
+      - application/json
+      description: Send typing indicator to conversation members (rate limited to
+        5s)
+      parameters:
+      - description: Typing Indicator
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/conversation.TypingIndicatorRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/conversation.TypingIndicatorResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Send typing indicator
       tags:
       - conversations
   /health:
@@ -640,6 +865,92 @@ paths:
       security:
       - BearerAuth: []
       summary: Delete message
+      tags:
+      - messages
+    patch:
+      consumes:
+      - application/json
+      description: Update message content (edit message)
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID (timeuuid)
+        in: path
+        name: messageId
+        required: true
+        type: string
+      - description: Update Message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/message.UpdateMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/message.MessageSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Update message
+      tags:
+      - messages
+  /messages/direct:
+    post:
+      consumes:
+      - application/json
+      description: Send a message directly to a user (creates conversation if not
+        exists)
+      parameters:
+      - description: Send Direct Message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/message.SendDirectMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/message.MessageSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Send direct message
       tags:
       - messages
   /relationships/{id}/cancel:
@@ -920,7 +1231,7 @@ paths:
       summary: Get sent friend requests
       tags:
       - relationships
-  /user/profile:
+  /user/me:
     get:
       description: Get authenticated user's profile information
       produces:
@@ -978,6 +1289,75 @@ paths:
       summary: Update user profile
       tags:
       - user
+  /user/search:
+    get:
+      description: Search users by username, full name, or email
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - default: 20
+        description: Limit results
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.SearchUsersSuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Search users
+      tags:
+      - user
+  /user/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload image to Cloudinary and get URL (does not update user profile)
+      parameters:
+      - description: Image file (jpg, png, gif, webp)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.UploadAvatarSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "413":
+          description: File too large
+          schema:
+            $ref: '#/definitions/utils.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Upload image
+      tags:
+      - upload
 schemes:
 - http
 - https

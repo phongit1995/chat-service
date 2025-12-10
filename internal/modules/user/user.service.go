@@ -2,7 +2,10 @@ package user
 
 import (
 	"chat-server/internal/models"
+	"chat-server/internal/services"
+	"context"
 	"errors"
+	"mime/multipart"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,16 +14,23 @@ import (
 )
 
 type Service struct {
-	repo   *Repository
-	cache  *CacheService
-	logger *zap.SugaredLogger
+	repo              *Repository
+	cache             *CacheService
+	cloudinaryService *services.CloudinaryService
+	logger            *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, cache *CacheService, logger *zap.SugaredLogger) *Service {
+func NewService(
+	repo *Repository,
+	cache *CacheService,
+	cloudinaryService *services.CloudinaryService,
+	logger *zap.SugaredLogger,
+) *Service {
 	return &Service{
-		repo:   repo,
-		cache:  cache,
-		logger: logger.Named("[user_service]"),
+		repo:              repo,
+		cache:             cache,
+		cloudinaryService: cloudinaryService,
+		logger:            logger.Named("[user_service]"),
 	}
 }
 
@@ -206,6 +216,8 @@ func (s *Service) buildProfileResponse(user *models.User) *UserProfileResponse {
 		FullName:   user.FullName,
 		Bio:        user.Bio,
 		CustomInfo: user.CustomInfo,
+		CreatedAt:  user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  user.UpdatedAt.Format(time.RFC3339),
 	}
 
 	if user.DateOfBirth != nil {
@@ -213,4 +225,34 @@ func (s *Service) buildProfileResponse(user *models.User) *UserProfileResponse {
 	}
 
 	return response
+}
+
+func (s *Service) UploadImage(ctx context.Context, userID uuid.UUID, file multipart.File, filename string) (*UploadAvatarResponse, error) {
+	s.logger.Infow("Uploading image",
+		"user_id", userID,
+		"filename", filename,
+	)
+
+	result, err := s.cloudinaryService.UploadAvatar(ctx, file, filename)
+	if err != nil {
+		s.logger.Errorw("Failed to upload image to Cloudinary",
+			"user_id", userID,
+			"error", err.Error(),
+		)
+		return nil, err
+	}
+
+	s.logger.Infow("Image uploaded successfully",
+		"user_id", userID,
+		"url", result.SecureURL,
+	)
+
+	return &UploadAvatarResponse{
+		URL:       result.URL,
+		SecureURL: result.SecureURL,
+		PublicID:  result.PublicID,
+		Format:    result.Format,
+		Width:     result.Width,
+		Height:    result.Height,
+	}, nil
 }

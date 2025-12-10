@@ -44,6 +44,10 @@ func CreateServer(
 		MaxAge:           12 * 3600,
 	}))
 
+	r.GET("/swagger", func(c *gin.Context) {
+		c.Redirect(301, "/swagger/index.html")
+	})
+
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
 		ginSwagger.URL("/swagger/doc.json"),
 		ginSwagger.DefaultModelsExpandDepth(-1)))
@@ -62,6 +66,10 @@ func CreateServer(
 		conversationRouter.Setup(api)
 		messageRouter.Setup(api)
 	}
+
+	r.NoRoute(func(c *gin.Context) {
+		utils.RespondError(c, 404, "route not found")
+	})
 
 	return &Server{Router: r}
 }

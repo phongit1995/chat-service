@@ -49,6 +49,8 @@ type Config struct {
 	KafkaBrokers           []string `env:"KAFKA_BROKERS" envSeparator:"," validate:"required,min=1"`
 	KafkaConsumerWorkers   int      `env:"KAFKA_CONSUMER_WORKERS" envDefault:"10" validate:"min=1,max=100"`
 	KafkaMessageTimeoutSec int      `env:"KAFKA_MESSAGE_TIMEOUT_SEC" envDefault:"10" validate:"min=1,max=300"`
+
+	CloudinaryURL string `env:"CLOUDINARY_URL" validate:"required"`
 }
 
 func LoadConfig() (*Config, error) {

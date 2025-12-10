@@ -7,11 +7,12 @@ import { socketService } from '../services/socket'
 import { apiService } from '../services/api'
 import { Avatar, Button } from '../components/ui'
 import { ConversationItem, MessageBubble, TypingIndicator, ChatHeader } from '../components/chat'
+import { ProfileEditModal } from '../components/ProfileEditModal'
 import type { UserSearchResult, TempChatUser } from '../types'
 
 export const Chat = () => {
   const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
+  const { user, logout, loadUser } = useAuthStore()
   const {
     conversations,
     currentConversation,
@@ -30,13 +31,15 @@ export const Chat = () => {
   const [isSearching, setIsSearching] = useState(false)
   const [tempChatUser, setTempChatUser] = useState<TempChatUser | null>(null)
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
+  const [showProfileEdit, setShowProfileEdit] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
   useEffect(() => {
     loadConversations()
-  }, [loadConversations])
+    loadUser()
+  }, [loadConversations, loadUser])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -206,17 +209,21 @@ export const Chat = () => {
         {/* User Header */}
         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowProfileEdit(true)}
+              className="flex items-center gap-3 hover:bg-white/10 rounded-lg p-1 pr-3 transition"
+            >
               <Avatar
-                name={user?.username || ''}
+                name={user?.fullName || user?.username || ''}
+                src={user?.avatar}
                 size="md"
                 status="online"
               />
-              <div>
-                <h2 className="font-semibold text-white">{user?.username}</h2>
+              <div className="text-left">
+                <h2 className="font-semibold text-white">{user?.fullName || user?.username}</h2>
                 <p className="text-xs text-blue-100">Online</p>
               </div>
-            </div>
+            </button>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowSearch(!showSearch)}
@@ -418,6 +425,11 @@ export const Chat = () => {
           </div>
         )}
       </div>
+
+      <ProfileEditModal
+        isOpen={showProfileEdit}
+        onClose={() => setShowProfileEdit(false)}
+      />
     </div>
   )
 }

@@ -212,6 +212,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/conversations/direct/check": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Check if direct conversation exists without creating it",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Check direct conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Recipient User ID",
+                        "name": "recipientId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/conversation.ConversationSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/conversations/group": {
             "post": {
                 "security": [
@@ -256,6 +302,115 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/typing": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Send typing indicator to conversation members (rate limited to 5s)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Send typing indicator",
+                "parameters": [
+                    {
+                        "description": "Typing Indicator",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/conversation.TypingIndicatorRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/conversation.TypingIndicatorResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/{id}/hide": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Hide a conversation from the user's inbox. It will reappear when a new message arrives.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Hide conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/conversation.HideConversationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIError"
                         }
@@ -308,6 +463,58 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/{id}/unhide": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Manually unhide a previously hidden conversation",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Unhide conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/conversation.UnhideConversationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/utils.APIError"
                         }
@@ -391,6 +598,63 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/messages/direct": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Send a message directly to a user (creates conversation if not exists)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Send direct message",
+                "parameters": [
+                    {
+                        "description": "Send Direct Message",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/message.SendDirectMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/message.MessageSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/utils.APIError"
                         }
@@ -511,6 +775,81 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/message.SimpleSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update message content (edit message)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Update message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message ID (timeuuid)",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Message",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/message.UpdateMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/message.MessageSuccessResponse"
                         }
                     },
                     "400": {
@@ -983,7 +1322,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/user/profile": {
+        "/user/me": {
             "get": {
                 "security": [
                     {
@@ -1068,6 +1407,114 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/search": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Search users by username, full name, or email",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Search users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search query",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit results",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.SearchUsersSuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/upload": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload image to Cloudinary and get URL (does not update user profile)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "upload"
+                ],
+                "summary": "Upload image",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Image file (jpg, png, gif, webp)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.UploadAvatarSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "413": {
+                        "description": "File too large",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/utils.APIError"
                         }
@@ -1256,12 +1703,63 @@ const docTemplate = `{
                 }
             }
         },
+        "conversation.HideConversationResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Conversation hidden successfully"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "conversation.SimpleSuccessResponse": {
             "type": "object",
             "properties": {
                 "message": {
                     "type": "string",
                     "example": "Operation completed successfully"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "conversation.TypingIndicatorRequest": {
+            "type": "object",
+            "required": [
+                "conversationId"
+            ],
+            "properties": {
+                "conversationId": {
+                    "type": "string",
+                    "example": "ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"
+                }
+            }
+        },
+        "conversation.TypingIndicatorResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Typing indicator sent"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "conversation.UnhideConversationResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Conversation unhidden successfully"
                 },
                 "success": {
                     "type": "boolean",
@@ -1372,6 +1870,40 @@ const docTemplate = `{
                 }
             }
         },
+        "message.SendDirectMessageRequest": {
+            "type": "object",
+            "required": [
+                "content",
+                "recipientId",
+                "type"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "example": "Hello, how are you?"
+                },
+                "metadata": {
+                    "type": "string",
+                    "example": "{\"fileName\":\"image.png\"}"
+                },
+                "recipientId": {
+                    "type": "string",
+                    "example": "ca4c6d54-870c-4735-b9a6-cce05a04aedb"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "text",
+                        "image",
+                        "file",
+                        "video",
+                        "audio"
+                    ],
+                    "example": "text"
+                }
+            }
+        },
         "message.SendMessageRequest": {
             "type": "object",
             "required": [
@@ -1423,6 +1955,19 @@ const docTemplate = `{
                 }
             }
         },
+        "message.UpdateMessageRequest": {
+            "type": "object",
+            "required": [
+                "content"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "example": "Updated message content"
+                }
+            }
+        },
         "relationships.FriendListSuccessResponse": {
             "type": "object"
         },
@@ -1460,7 +2005,38 @@ const docTemplate = `{
                 }
             }
         },
+        "user.SearchUsersSuccessResponse": {
+            "type": "object"
+        },
         "user.UpdateProfileRequest": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "bio": {
+                    "type": "string",
+                    "example": "Software developer"
+                },
+                "customInfo": {
+                    "type": "object"
+                },
+                "dateOfBirth": {
+                    "type": "string",
+                    "example": "1990-01-01"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+84987654321"
+                }
+            }
+        },
+        "user.UploadAvatarSuccessResponse": {
             "type": "object"
         },
         "user.UserProfileSuccessResponse": {

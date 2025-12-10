@@ -20,12 +20,9 @@ func NewRouter(controller *Controller, authMiddleware *middleware.AuthMiddleware
 func (r *Router) Setup(api *utils.AppGroup) {
 	user := api.Group("/user", r.authMiddleware.RequireAuth())
 	{
-		user.GET("/profile", r.controller.GetProfile)
-		user.PUT("/profile", r.controller.UpdateProfile)
-	}
-
-	users := api.Group("/users", r.authMiddleware.RequireAuth())
-	{
-		users.GET("/search", r.controller.SearchUsers)
+		user.GET("/me", r.controller.GetProfile)
+		user.PUT("/me", r.controller.UpdateProfile)
+		user.POST("/upload", r.controller.Upload)
+		user.GET("/search", r.controller.SearchUsers)
 	}
 }
