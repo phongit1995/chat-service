@@ -17,6 +17,8 @@ type Service struct {
 	repo              *Repository
 	cache             *CacheService
 	cloudinaryService *services.CloudinaryService
+	cacheService      *services.CacheService
+	db                *gorm.DB
 	logger            *zap.SugaredLogger
 }
 
@@ -24,12 +26,16 @@ func NewService(
 	repo *Repository,
 	cache *CacheService,
 	cloudinaryService *services.CloudinaryService,
+	cacheService *services.CacheService,
+	db *gorm.DB,
 	logger *zap.SugaredLogger,
 ) *Service {
 	return &Service{
 		repo:              repo,
 		cache:             cache,
 		cloudinaryService: cloudinaryService,
+		cacheService:      cacheService,
+		db:                db,
 		logger:            logger.Named("[user_service]"),
 	}
 }

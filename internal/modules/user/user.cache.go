@@ -9,16 +9,19 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type CacheService struct {
 	cache  *services.CacheService
+	db     *gorm.DB
 	logger *zap.SugaredLogger
 }
 
-func NewCacheService(cache *services.CacheService, logger *zap.SugaredLogger) *CacheService {
+func NewCacheService(cache *services.CacheService, db *gorm.DB, logger *zap.SugaredLogger) *CacheService {
 	return &CacheService{
 		cache:  cache,
+		db:     db,
 		logger: logger.Named("[user_cache]"),
 	}
 }
@@ -34,7 +37,7 @@ func (c *CacheService) GetUser(userID uuid.UUID) (*models.User, error) {
 
 func (c *CacheService) SetUser(userID uuid.UUID, user *models.User) error {
 	key := fmt.Sprintf(constants.CacheKeyUserProfile, userID.String())
-	return c.cache.Set(key, user, constants.CacheTTLUserProfile*time.Second)
+	return c.cache.Set(key, user, 0)
 }
 
 func (c *CacheService) DeleteUser(userID uuid.UUID) error {
@@ -83,4 +86,30 @@ func (c *CacheService) InvalidateUser(userID uuid.UUID) error {
 		c.logger.Warnw("Failed to delete user cache", "user_id", userID, "error", err)
 	}
 	return nil
+}
+
+func (c *CacheService) GetUserCache(userID uuid.UUID, fallbackToDB bool) (*models.User, error) {
+	if cachedUser, err := c.GetUser(userID); err == nil && cachedUser != nil {
+		c.logger.Debugw("User cache HIT", "user_id", userID, "fallback_enabled", fallbackToDB)
+		return cachedUser, nil
+	}
+
+	if !fallbackToDB {
+		c.logger.Debugw("User cache MISS (no fallback)", "user_id", userID)
+		return nil, fmt.Errorf("user not found in cache")
+	}
+
+	c.logger.Debugw("User cache MISS, fetching from DB", "user_id", userID)
+	var user models.User
+	if err := c.db.First(&user, "id = ?", userID).Error; err != nil {
+		return nil, err
+	}
+
+	go func(uid uuid.UUID, u *models.User) {
+		if setErr := c.SetUser(uid, u); setErr != nil {
+			c.logger.Warnw("Failed to cache user after DB fetch", "user_id", uid, "error", setErr)
+		}
+	}(userID, &user)
+
+	return &user, nil
 }

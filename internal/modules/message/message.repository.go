@@ -327,6 +327,29 @@ func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMess
 		return fmt.Errorf("failed to update conversation: %w", err)
 	}
 
+	time.Sleep(50 * time.Millisecond)
+
+	verifyQuery := `SELECT conversation_id FROM conversations_by_user WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
+	var verifyConvID gocql.UUID
+	err = r.session.Query(verifyQuery, gocqlUserID, newEntry.LastMessageAt, gocqlConvID).Scan(&verifyConvID)
+	if err != nil {
+		if err == gocql.ErrNotFound {
+			r.logger.Errorw("CRITICAL: Entry not found after INSERT",
+				"user_id", userID,
+				"conversation_id", conversationID,
+				"last_message_at", newEntry.LastMessageAt.Time(),
+			)
+			return fmt.Errorf("entry verification failed: entry not found after insert")
+		}
+		r.logger.Warnw("Entry verification query failed", "error", err)
+	} else {
+		r.logger.Debugw("Entry verified after INSERT",
+			"user_id", userID,
+			"conversation_id", conversationID,
+			"last_message_at", newEntry.LastMessageAt.Time(),
+		)
+	}
+
 	return nil
 }
 
@@ -394,7 +417,13 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 
 	if err != nil {
 		if err == gocql.ErrNotFound {
-			return nil, nil, nil
+			r.logger.Warnw("Lookup pointed to non-existent entry, scanning all entries for this conversation",
+				"user_id", userID,
+				"conversation_id", conversationID,
+				"lookup_last_message_at", oldLastMessageAt.Time(),
+			)
+
+			return r.fallbackScanForConversation(userID, conversationID, gocqlUserID, gocqlConvID)
 		}
 		return nil, nil, err
 	}
@@ -441,6 +470,97 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 	}
 
 	return entry, &oldLastMessageAt, nil
+}
+
+func (r *Repository) fallbackScanForConversation(userID, conversationID uuid.UUID, gocqlUserID, gocqlConvID gocql.UUID) (*ConversationInboxUpdate, *gocql.UUID, error) {
+	query := `SELECT user_id, last_message_at, conversation_id, is_group, other_user_id, other_user_name, other_user_avatar,
+	                 title, avatar, last_message_id, last_message_body, last_message_sender, unread_count, last_read_message_id, last_read_at
+	          FROM conversations_by_user WHERE user_id = ? AND conversation_id = ? ALLOW FILTERING`
+
+	iter := r.session.Query(query, gocqlUserID, gocqlConvID).Iter()
+
+	var latestEntry *ConversationInboxUpdate
+	var latestLastMessageAt gocql.UUID
+	var latestTime time.Time
+
+	var gocqlEntry struct {
+		UserID            gocql.UUID
+		LastMessageAt     gocql.UUID
+		ConversationID    gocql.UUID
+		IsGroup           bool
+		OtherUserID       *gocql.UUID
+		OtherUserName     string
+		OtherUserAvatar   string
+		Title             string
+		Avatar            string
+		LastMessageID     *gocql.UUID
+		LastMessageBody   string
+		LastMessageSender *gocql.UUID
+		UnreadCount       int
+		LastReadMessageID *gocql.UUID
+		LastReadAt        *time.Time
+	}
+
+	for iter.Scan(&gocqlEntry.UserID, &gocqlEntry.LastMessageAt, &gocqlEntry.ConversationID, &gocqlEntry.IsGroup,
+		&gocqlEntry.OtherUserID, &gocqlEntry.OtherUserName, &gocqlEntry.OtherUserAvatar,
+		&gocqlEntry.Title, &gocqlEntry.Avatar, &gocqlEntry.LastMessageID, &gocqlEntry.LastMessageBody,
+		&gocqlEntry.LastMessageSender, &gocqlEntry.UnreadCount, &gocqlEntry.LastReadMessageID, &gocqlEntry.LastReadAt) {
+
+		entryTime := gocqlEntry.LastMessageAt.Time()
+		if latestEntry == nil || entryTime.After(latestTime) {
+			resultUserID, _ := uuid.Parse(gocqlEntry.UserID.String())
+			resultConvID, _ := uuid.Parse(gocqlEntry.ConversationID.String())
+
+			entry := &ConversationInboxUpdate{
+				UserID:            resultUserID,
+				LastMessageAt:     gocqlEntry.LastMessageAt,
+				ConversationID:    resultConvID,
+				IsGroup:           gocqlEntry.IsGroup,
+				OtherUserName:     gocqlEntry.OtherUserName,
+				OtherUserAvatar:   gocqlEntry.OtherUserAvatar,
+				Title:             gocqlEntry.Title,
+				Avatar:            gocqlEntry.Avatar,
+				LastMessageID:     gocqlEntry.LastMessageID,
+				LastMessageBody:   gocqlEntry.LastMessageBody,
+				UnreadCount:       gocqlEntry.UnreadCount,
+				LastReadMessageID: gocqlEntry.LastReadMessageID,
+				LastReadAt:        gocqlEntry.LastReadAt,
+			}
+
+			if gocqlEntry.OtherUserID != nil {
+				otherUserID, _ := uuid.Parse(gocqlEntry.OtherUserID.String())
+				entry.OtherUserID = &otherUserID
+			}
+
+			if gocqlEntry.LastMessageSender != nil {
+				lastMessageSender, _ := uuid.Parse(gocqlEntry.LastMessageSender.String())
+				entry.LastMessageSender = &lastMessageSender
+			}
+
+			latestEntry = entry
+			latestLastMessageAt = gocqlEntry.LastMessageAt
+			latestTime = entryTime
+		}
+	}
+
+	if err := iter.Close(); err != nil {
+		return nil, nil, fmt.Errorf("fallback scan failed: %w", err)
+	}
+
+	if latestEntry != nil {
+		r.logger.Infow("Fallback scan found conversation entry",
+			"user_id", userID,
+			"conversation_id", conversationID,
+			"last_message_at", latestTime,
+		)
+
+		lookupUpdateQuery := `INSERT INTO conversation_user_lookup (user_id, conversation_id, last_message_at) VALUES (?, ?, ?)`
+		if err := r.session.Query(lookupUpdateQuery, gocqlUserID, gocqlConvID, latestLastMessageAt).Exec(); err != nil {
+			r.logger.Warnw("Failed to update lookup table after fallback", "error", err)
+		}
+	}
+
+	return latestEntry, &latestLastMessageAt, nil
 }
 
 func (r *Repository) NewBatch() *gocql.Batch {

@@ -37,6 +37,7 @@ const (
 	CacheKeyRateLimitAPI        = "RATE_LIMIT:%s:API"
 	CacheKeyOTPVerification     = "OTP:%s:VERIFICATION"
 	CacheKeyPasswordResetToken  = "PASSWORD:%s:RESET_TOKEN"
+	CacheKeyConversationPattern = "USER:*:CONVERSATIONS"
 )
 
 const (

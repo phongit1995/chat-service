@@ -6,6 +6,7 @@ import (
 	"chat-server/internal/infra/kafka"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
+	userModule "chat-server/internal/modules/user"
 	"chat-server/internal/utils"
 	"context"
 	"fmt"
@@ -23,17 +24,19 @@ type Service struct {
 	cache         *CacheService
 	convRepo      *conversation.Repository
 	convCache     *conversation.CacheService
+	userCache     *userModule.CacheService
 	db            *gorm.DB
 	kafkaProducer *kafka.Producer
 	logger        *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, db *gorm.DB, kafkaProducer *kafka.Producer, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, userCache *userModule.CacheService, db *gorm.DB, kafkaProducer *kafka.Producer, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repo:          repo,
 		cache:         cache,
 		convRepo:      convRepo,
 		convCache:     convCache,
+		userCache:     userCache,
 		db:            db,
 		kafkaProducer: kafkaProducer,
 		logger:        logger.Named("[message_service]"),
@@ -56,72 +59,27 @@ func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType
 			return nil, fmt.Errorf("failed to create full conversation structure: %w", err)
 		}
 		s.logger.Infow("Created new direct conversation with full structure", "conversation_id", conversationID)
-
-		go func(convID uuid.UUID, sender, recipient uuid.UUID) {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			conv, err := s.getConversationByIDCached(convID)
-			if err != nil {
-				s.logger.Errorw("Failed to get conversation for CREATED event", "conversation_id", convID, "error", err)
-				return
-			}
-
-			var senderUser, recipientUser models.User
-			if err := s.db.First(&senderUser, "id = ?", sender).Error; err != nil {
-				s.logger.Errorw("Failed to get sender user", "user_id", sender, "error", err)
-				return
-			}
-			if err := s.db.First(&recipientUser, "id = ?", recipient).Error; err != nil {
-				s.logger.Errorw("Failed to get recipient user", "user_id", recipient, "error", err)
-				return
-			}
-
-			event := &conversationEvents.CreatedEvent{
-				ConversationID: convID.String(),
-				Data: map[string]interface{}{
-					"id":               conv.ConversationID.String(),
-					"type":             conv.Type,
-					"name":             conv.Name,
-					"avatar":           conv.Avatar,
-					"createdAt":        conv.CreatedAt.Format(time.RFC3339),
-					"updatedAt":        conv.UpdatedAt.Format(time.RFC3339),
-					"participantCount": conv.ParticipantCount,
-					"lastMessageText":  "",
-					"lastMessageAt":    conv.CreatedAt.Format(time.RFC3339),
-					"unreadCount":      0,
-					"participants": []map[string]interface{}{
-						{
-							"userId":   sender.String(),
-							"username": senderUser.Username,
-							"avatar":   senderUser.Avatar,
-						},
-						{
-							"userId":   recipient.String(),
-							"username": recipientUser.Username,
-							"avatar":   recipientUser.Avatar,
-						},
-					},
-				},
-			}
-
-			if err := s.kafkaProducer.PublishConversationCreated(ctx, event); err != nil {
-				s.logger.Errorw("Failed to publish CONVERSATION_CREATED event", "conversation_id", convID, "error", err)
-			} else {
-				s.logger.Infow("Published CONVERSATION_CREATED event", "conversation_id", convID)
-			}
-		}(conversationID, senderID, recipientID)
 	}
 
-	return s.SendMessage(senderID, conversationID, messageType, content, metadata, nil)
+	messageResponse, err := s.SendMessage(senderID, conversationID, messageType, content, metadata, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if isNew {
+		go s.publishConversationCreatedEvent(conversationID, senderID, recipientID, messageResponse)
+	}
+
+	return messageResponse, nil
 }
 
 func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID uuid.UUID) error {
-	var user1, user2 models.User
-	if err := s.db.First(&user1, "id = ?", user1ID).Error; err != nil {
+	user1, err := s.userCache.GetUserCache(user1ID, true)
+	if err != nil {
 		return fmt.Errorf("user1 not found: %w", err)
 	}
-	if err := s.db.First(&user2, "id = ?", user2ID).Error; err != nil {
+	user2, err := s.userCache.GetUserCache(user2ID, true)
+	if err != nil {
 		return fmt.Errorf("user2 not found: %w", err)
 	}
 
@@ -354,12 +312,18 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 					return
 				}
 
-				s.logger.Errorw("No inbox entry found for user and not hidden", "user_id", m.UserID, "conversation_id", conversationID)
-				errMux.Lock()
-				if firstError == nil {
-					firstError = fmt.Errorf("inbox entry missing for user %s", m.UserID)
+				s.logger.Warnw("Inbox entry missing, attempting to recreate", "user_id", m.UserID, "conversation_id", conversationID)
+
+				if recreateErr := s.recreateInboxEntry(m.UserID, conversationID, messageID, shortContent, senderID, m.UserID != senderID); recreateErr != nil {
+					s.logger.Errorw("Failed to recreate inbox entry", "user_id", m.UserID, "conversation_id", conversationID, "error", recreateErr)
+					errMux.Lock()
+					if firstError == nil {
+						firstError = fmt.Errorf("failed to recreate inbox entry for user %s: %w", m.UserID, recreateErr)
+					}
+					errMux.Unlock()
+				} else {
+					s.logger.Infow("Successfully recreated inbox entry", "user_id", m.UserID, "conversation_id", conversationID)
 				}
-				errMux.Unlock()
 				return
 			}
 
@@ -368,16 +332,33 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 				newUnreadCount++
 			}
 
+			otherUserName := inboxEntry.OtherUserName
+			otherUserAvatar := inboxEntry.OtherUserAvatar
+			title := inboxEntry.Title
+			avatar := inboxEntry.Avatar
+
+			if !inboxEntry.IsGroup && inboxEntry.OtherUserID != nil {
+				otherUserID, err := uuid.Parse(inboxEntry.OtherUserID.String())
+				if err == nil {
+					if cachedUser, cacheErr := s.userCache.GetUserCache(otherUserID, false); cacheErr == nil && cachedUser != nil {
+						otherUserName = cachedUser.Username
+						otherUserAvatar = cachedUser.Avatar
+						title = cachedUser.Username
+						avatar = cachedUser.Avatar
+					}
+				}
+			}
+
 			updatedEntry := &ConversationInboxUpdate{
 				UserID:            m.UserID,
 				LastMessageAt:     messageID,
 				ConversationID:    conversationID,
 				IsGroup:           inboxEntry.IsGroup,
 				OtherUserID:       inboxEntry.OtherUserID,
-				OtherUserName:     inboxEntry.OtherUserName,
-				OtherUserAvatar:   inboxEntry.OtherUserAvatar,
-				Title:             inboxEntry.Title,
-				Avatar:            inboxEntry.Avatar,
+				OtherUserName:     otherUserName,
+				OtherUserAvatar:   otherUserAvatar,
+				Title:             title,
+				Avatar:            avatar,
 				LastMessageID:     &messageID,
 				LastMessageBody:   shortContent,
 				LastMessageSender: &senderID,
@@ -395,6 +376,13 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 				errMux.Unlock()
 				return
 			}
+
+			go func(uid uuid.UUID, convID uuid.UUID, keepLastMessageAt gocql.UUID) {
+				time.Sleep(2 * time.Second)
+				if cleanupErr := s.convCache.DeleteUserConversations(uid); cleanupErr != nil {
+					s.logger.Debugw("Cleanup cache after update", "user_id", uid)
+				}
+			}(m.UserID, conversationID, messageID)
 		}(member)
 	}
 
@@ -626,20 +614,6 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 	}
 
 	// Get members for event
-	members, err := s.getMembersCached(conversationID)
-	if err != nil {
-		s.logger.Warnw("Failed to get members for event", "conversation_id", conversationID, "error", err)
-		members = []conversation.ConversationMember{}
-	}
-
-	userIDs := make([]string, 0, len(members))
-	for _, member := range members {
-		if member.IsActive {
-			userIDs = append(userIDs, member.UserID.String())
-		}
-	}
-
-	// Get sender info
 	var sender models.User
 	senderName := ""
 	senderAvatar := ""
@@ -746,19 +720,6 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		return fmt.Errorf("failed to delete message: %w", err)
 	}
 
-	members, err := s.getMembersCached(conversationID)
-	if err != nil {
-		s.logger.Warnw("Failed to get members for event", "conversation_id", conversationID, "error", err)
-		members = []conversation.ConversationMember{}
-	}
-
-	userIDs := make([]string, 0, len(members))
-	for _, member := range members {
-		if member.IsActive {
-			userIDs = append(userIDs, member.UserID.String())
-		}
-	}
-
 	go s.invalidateCachesAfterDelete(conversationID, messageID)
 
 	go func(convID uuid.UUID, msgID string) {
@@ -836,9 +797,10 @@ func (s *Service) getConversationByIDCached(conversationID uuid.UUID) (*conversa
 func (s *Service) updateConversationWithRetry(userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID, entry *ConversationInboxUpdate, maxRetries int) error {
 	var lastErr error
 	backoff := 100 * time.Millisecond
+	currentOldLastMessageAt := oldLastMessageAt
 
 	for i := 0; i < maxRetries; i++ {
-		err := s.repo.UpdateConversationLastMessage(userID, oldLastMessageAt, conversationID, entry)
+		err := s.repo.UpdateConversationLastMessage(userID, currentOldLastMessageAt, conversationID, entry)
 		if err == nil {
 			return nil
 		}
@@ -849,6 +811,36 @@ func (s *Service) updateConversationWithRetry(userID uuid.UUID, oldLastMessageAt
 		if i < maxRetries-1 {
 			time.Sleep(backoff)
 			backoff *= 2
+
+			freshEntry, freshOldLastMessageAt, readErr := s.repo.GetConversationInboxEntry(userID, conversationID)
+			if readErr != nil {
+				s.logger.Errorw("Failed to re-read conversation entry for retry",
+					"user_id", userID,
+					"conversation_id", conversationID,
+					"error", readErr,
+				)
+				continue
+			}
+
+			if freshEntry == nil {
+				s.logger.Warnw("Conversation entry disappeared during retry", "user_id", userID, "conversation_id", conversationID)
+				return fmt.Errorf("conversation entry not found during retry")
+			}
+
+			currentOldLastMessageAt = *freshOldLastMessageAt
+
+			entry.LastReadMessageID = freshEntry.LastReadMessageID
+			entry.LastReadAt = freshEntry.LastReadAt
+			if freshEntry.UnreadCount > entry.UnreadCount {
+				entry.UnreadCount = freshEntry.UnreadCount
+			}
+
+			s.logger.Infow("Re-read conversation entry for retry",
+				"user_id", userID,
+				"conversation_id", conversationID,
+				"old_timestamp", oldLastMessageAt.Time(),
+				"fresh_timestamp", currentOldLastMessageAt.Time(),
+			)
 		}
 	}
 
@@ -885,4 +877,186 @@ func (s *Service) invalidateCachesAfterDelete(conversationID uuid.UUID, messageI
 	}
 
 	s.logger.Debugw("Cache invalidated after delete", "conversation_id", conversationID, "message_id", messageID)
+}
+
+func (s *Service) publishConversationCreatedEvent(convID, senderID, recipientID uuid.UUID, lastMessage *MessageResponse) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conv, err := s.getConversationByIDCached(convID)
+	if err != nil {
+		s.logger.Errorw("Failed to get conversation for CREATED event", "conversation_id", convID, "error", err)
+		return
+	}
+
+	var senderUser, recipientUser models.User
+	if err := s.db.First(&senderUser, "id = ?", senderID).Error; err != nil {
+		s.logger.Errorw("Failed to get sender user", "user_id", senderID, "error", err)
+		return
+	}
+	if err := s.db.First(&recipientUser, "id = ?", recipientID).Error; err != nil {
+		s.logger.Errorw("Failed to get recipient user", "user_id", recipientID, "error", err)
+		return
+	}
+
+	lastMessageText := ""
+	lastMessageAt := conv.CreatedAt.Format(time.RFC3339)
+	if lastMessage != nil {
+		lastMessageText = lastMessage.Content
+		lastMessageAt = lastMessage.CreatedAt
+	}
+
+	participants := []map[string]interface{}{
+		{
+			"userId":   senderID.String(),
+			"username": senderUser.Username,
+			"avatar":   senderUser.Avatar,
+		},
+		{
+			"userId":   recipientID.String(),
+			"username": recipientUser.Username,
+			"avatar":   recipientUser.Avatar,
+		},
+	}
+
+	senderEvent := &conversationEvents.CreatedEvent{
+		ConversationID: convID.String(),
+		Data: map[string]interface{}{
+			"id":               conv.ConversationID.String(),
+			"type":             conv.Type,
+			"name":             recipientUser.Username,
+			"avatar":           recipientUser.Avatar,
+			"createdAt":        conv.CreatedAt.Format(time.RFC3339),
+			"updatedAt":        conv.UpdatedAt.Format(time.RFC3339),
+			"participantCount": conv.ParticipantCount,
+			"lastMessageText":  lastMessageText,
+			"lastMessageAt":    lastMessageAt,
+			"unreadCount":      0,
+			"participants":     participants,
+		},
+	}
+
+	recipientEvent := &conversationEvents.CreatedEvent{
+		ConversationID: convID.String(),
+		Data: map[string]interface{}{
+			"id":               conv.ConversationID.String(),
+			"type":             conv.Type,
+			"name":             senderUser.Username,
+			"avatar":           senderUser.Avatar,
+			"createdAt":        conv.CreatedAt.Format(time.RFC3339),
+			"updatedAt":        conv.UpdatedAt.Format(time.RFC3339),
+			"participantCount": conv.ParticipantCount,
+			"lastMessageText":  lastMessageText,
+			"lastMessageAt":    lastMessageAt,
+			"unreadCount":      1,
+			"participants":     participants,
+		},
+	}
+
+	if err := s.kafkaProducer.PublishConversationCreated(ctx, senderEvent); err != nil {
+		s.logger.Errorw("Failed to publish CONVERSATION_CREATED event for sender", "conversation_id", convID, "error", err)
+	} else {
+		s.logger.Infow("Published CONVERSATION_CREATED event for sender", "conversation_id", convID)
+	}
+
+	if err := s.kafkaProducer.PublishConversationCreated(ctx, recipientEvent); err != nil {
+		s.logger.Errorw("Failed to publish CONVERSATION_CREATED event for recipient", "conversation_id", convID, "error", err)
+	} else {
+		s.logger.Infow("Published CONVERSATION_CREATED event for recipient", "conversation_id", convID)
+	}
+}
+
+func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID gocql.UUID, messageBody string, senderID uuid.UUID, incrementUnread bool) error {
+	conv, err := s.getConversationByIDCached(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get conversation: %w", err)
+	}
+
+	gocqlUserID, err := utils.ToGocqlUUID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to convert userID: %w", err)
+	}
+	gocqlConvID, err := utils.ToGocqlUUID(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to convert conversationID: %w", err)
+	}
+	gocqlSenderID, err := utils.ToGocqlUUID(senderID)
+	if err != nil {
+		return fmt.Errorf("failed to convert senderID: %w", err)
+	}
+
+	unreadCount := 0
+	if incrementUnread {
+		unreadCount = 1
+	}
+
+	if conv.Type == "direct" {
+		members, err := s.getMembersCached(conversationID)
+		if err != nil {
+			return fmt.Errorf("failed to get members: %w", err)
+		}
+
+		var otherUserID uuid.UUID
+		for _, member := range members {
+			if member.UserID != userID && member.IsActive {
+				otherUserID = member.UserID
+				break
+			}
+		}
+
+		if otherUserID == uuid.Nil {
+			return fmt.Errorf("failed to find other user in conversation")
+		}
+
+		otherUser, err := s.userCache.GetUserCache(otherUserID, true)
+		if err != nil {
+			return fmt.Errorf("failed to get other user: %w", err)
+		}
+
+		gocqlOtherUserID, err := utils.ToGocqlUUID(otherUserID)
+		if err != nil {
+			return fmt.Errorf("failed to convert otherUserID: %w", err)
+		}
+
+		inboxEntry := &conversation.ConversationByUser{
+			UserID:            gocqlUserID,
+			LastMessageAt:     messageID,
+			ConversationID:    gocqlConvID,
+			IsGroup:           false,
+			OtherUserID:       &gocqlOtherUserID,
+			OtherUserName:     otherUser.Username,
+			OtherUserAvatar:   otherUser.Avatar,
+			Title:             otherUser.Username,
+			Avatar:            otherUser.Avatar,
+			LastMessageID:     &messageID,
+			LastMessageBody:   messageBody,
+			LastMessageSender: &gocqlSenderID,
+			UnreadCount:       unreadCount,
+		}
+
+		if err := s.convRepo.AddConversationToUserInbox(inboxEntry); err != nil {
+			return fmt.Errorf("failed to add conversation to inbox: %w", err)
+		}
+	} else {
+		inboxEntry := &conversation.ConversationByUser{
+			UserID:            gocqlUserID,
+			LastMessageAt:     messageID,
+			ConversationID:    gocqlConvID,
+			IsGroup:           true,
+			Title:             conv.Name,
+			Avatar:            conv.Avatar,
+			LastMessageID:     &messageID,
+			LastMessageBody:   messageBody,
+			LastMessageSender: &gocqlSenderID,
+			UnreadCount:       unreadCount,
+		}
+
+		if err := s.convRepo.AddConversationToUserInbox(inboxEntry); err != nil {
+			return fmt.Errorf("failed to add conversation to inbox: %w", err)
+		}
+	}
+
+	go s.convCache.DeleteUserConversations(userID)
+
+	return nil
 }
