@@ -1,6 +1,7 @@
 import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { Button, Input, Card } from '../components/ui'
 
 export const Register = () => {
   const [username, setUsername] = useState('')
@@ -8,10 +9,9 @@ export const Register = () => {
   const [password, setPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const { register, isLoading, error, clearError, isAuthenticated } = useAuthStore()
+  const { register, isLoading, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
 
-  // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/chat', { replace: true })
@@ -20,7 +20,6 @@ export const Register = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    clearError()
 
     try {
       await register(username, email, password, firstName, lastName)
@@ -31,117 +30,119 @@ export const Register = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-600 py-12">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Create Account</h1>
-          <p className="text-gray-600">Sign up to get started</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-purple-700 to-pink-700 p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8 animate-fadeIn">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
+            <svg className="w-10 h-10 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-2">Create Account</h1>
+          <p className="text-purple-100">Sign up to get started</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-              Username *
-            </label>
-            <input
-              id="username"
+        <Card shadow="xl" className="animate-fadeIn" style={{ animationDelay: '0.1s' }}>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
               placeholder="Choose a username"
               required
               disabled={isLoading}
+              leftIcon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              }
             />
-          </div>
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email *
-            </label>
-            <input
-              id="email"
+            <Input
+              label="Email Address"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
               placeholder="Enter your email"
               required
               disabled={isLoading}
+              leftIcon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                </svg>
+              }
             />
-          </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Password *
-            </label>
-            <input
-              id="password"
+            <Input
+              label="Password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
               placeholder="Create a password"
               required
               disabled={isLoading}
+              leftIcon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              }
             />
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
-                First Name
-              </label>
-              <input
-                id="firstName"
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="First Name"
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                 placeholder="First name"
                 disabled={isLoading}
               />
-            </div>
 
-            <div>
-              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
-                Last Name
-              </label>
-              <input
-                id="lastName"
+              <Input
+                label="Last Name"
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                 placeholder="Last name"
                 disabled={isLoading}
               />
             </div>
+
+            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+              <p className="flex items-start">
+                <svg className="w-5 h-5 text-gray-400 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>By signing up, you agree to our Terms of Service and Privacy Policy.</span>
+              </p>
+            </div>
+
+            <Button
+              type="submit"
+              variant="secondary"
+              size="lg"
+              fullWidth
+              isLoading={isLoading}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Creating account...' : 'Create Account'}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-gray-600">
+              Already have an account?{' '}
+              <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold transition">
+                Sign in
+              </Link>
+            </p>
           </div>
+        </Card>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-          >
-            {isLoading ? 'Creating account...' : 'Sign Up'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-gray-600">
-            Already have an account?{' '}
-            <Link to="/login" className="text-purple-600 hover:text-purple-700 font-medium">
-              Sign in
-            </Link>
-          </p>
-        </div>
+        <p className="text-center text-purple-100 text-sm mt-6">
+          © 2024 Chat App. All rights reserved.
+        </p>
       </div>
     </div>
   )

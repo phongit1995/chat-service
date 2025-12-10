@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import toast from 'react-hot-toast'
 import type { User } from '../types'
 import { apiService } from '../services/api'
 import { socketService } from '../services/socket'
@@ -41,9 +42,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       })
 
       socketService.connect(token)
+      toast.success(`Welcome back, ${user.username}!`)
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Login failed'
       set({ error: errorMessage, isLoading: false })
+      toast.error(errorMessage)
       throw error
     }
   },
@@ -71,9 +74,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       })
 
       socketService.connect(token)
+      toast.success('Account created successfully!')
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Registration failed'
       set({ error: errorMessage, isLoading: false })
+      toast.error(errorMessage)
       throw error
     }
   },
@@ -87,6 +92,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       accessToken: null,
       isAuthenticated: false
     })
+    toast.success('Logged out successfully')
   },
 
   loadUser: async () => {
