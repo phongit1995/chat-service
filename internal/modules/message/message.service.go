@@ -44,6 +44,10 @@ func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Re
 }
 
 func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType, content, metadata string) (*MessageResponse, error) {
+	if senderID == recipientID {
+		return nil, fmt.Errorf("cannot send direct message to yourself")
+	}
+
 	userA, userB := senderID, recipientID
 	if senderID.String() > recipientID.String() {
 		userA, userB = recipientID, senderID
@@ -656,6 +660,22 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		return nil, fmt.Errorf("content cannot be empty")
 	}
 
+	// Check membership
+	members, err := s.getMembersCached(conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check conversation membership: %w", err)
+	}
+	isMember := false
+	for _, m := range members {
+		if m.UserID == userID {
+			isMember = true
+			break
+		}
+	}
+	if !isMember {
+		return nil, fmt.Errorf("you are not a member of this conversation")
+	}
+
 	// Update message in ScyllaDB
 	if err := s.repo.UpdateMessage(conversationID, messageID, newContent); err != nil {
 		return nil, fmt.Errorf("failed to update message: %w", err)
@@ -669,6 +689,9 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		senderName = sender.Username
 		senderAvatar = sender.Avatar
 	}
+
+	// Update inbox preview if this is the last message
+	go s.updateInboxPreviewIfLastMessage(conversationID, messageID, newContent, members)
 
 	// Build response
 	now := time.Now()
@@ -762,9 +785,28 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		return fmt.Errorf("you can only delete your own messages")
 	}
 
+	// Check membership
+	members, err := s.getMembersCached(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to check conversation membership: %w", err)
+	}
+	isMember := false
+	for _, m := range members {
+		if m.UserID == userID {
+			isMember = true
+			break
+		}
+	}
+	if !isMember {
+		return fmt.Errorf("you are not a member of this conversation")
+	}
+
 	if err := s.repo.DeleteMessage(conversationID, messageID); err != nil {
 		return fmt.Errorf("failed to delete message: %w", err)
 	}
+
+	// Update inbox preview if this is the last message
+	go s.updateInboxPreviewAfterDelete(conversationID, messageID, members)
 
 	go s.invalidateCachesAfterDelete(conversationID, messageID)
 
@@ -1009,6 +1051,54 @@ func (s *Service) publishConversationCreatedEvent(convID, senderID, recipientID 
 		s.logger.Errorw("Failed to publish CONVERSATION_CREATED event for recipient", "conversation_id", convID, "error", err)
 	} else {
 		s.logger.Infow("Published CONVERSATION_CREATED event for recipient", "conversation_id", convID)
+	}
+}
+
+func (s *Service) updateInboxPreviewAfterDelete(conversationID uuid.UUID, deletedMessageID gocql.UUID, members []conversation.ConversationMember) {
+	for _, m := range members {
+		inboxEntry, _, err := s.repo.GetConversationInboxEntry(m.UserID, conversationID)
+		if err != nil || inboxEntry == nil || inboxEntry.LastMessageID == nil {
+			continue
+		}
+
+		if *inboxEntry.LastMessageID == deletedMessageID {
+			deletedPreview := "[Tin nhắn đã bị xóa]"
+			if err := s.repo.UpdateConversationPreview(m.UserID, conversationID, deletedPreview); err != nil {
+				s.logger.Errorw("Failed to update inbox preview after delete",
+					"user_id", m.UserID,
+					"conversation_id", conversationID,
+					"error", err,
+				)
+			} else {
+				s.convCache.DeleteUserConversations(m.UserID)
+			}
+		}
+	}
+}
+
+func (s *Service) updateInboxPreviewIfLastMessage(conversationID uuid.UUID, messageID gocql.UUID, newContent string, members []conversation.ConversationMember) {
+	shortContent := newContent
+	if len(shortContent) > 100 {
+		shortContent = shortContent[:100] + "..."
+	}
+
+	for _, m := range members {
+		inboxEntry, _, err := s.repo.GetConversationInboxEntry(m.UserID, conversationID)
+		if err != nil || inboxEntry == nil || inboxEntry.LastMessageID == nil {
+			continue
+		}
+
+		if *inboxEntry.LastMessageID == messageID {
+			if err := s.repo.UpdateConversationPreview(m.UserID, conversationID, shortContent); err != nil {
+				s.logger.Errorw("Failed to update inbox preview",
+					"user_id", m.UserID,
+					"conversation_id", conversationID,
+					"error", err,
+				)
+			} else {
+				s.convCache.DeleteUserConversations(m.UserID)
+			}
+		}
 	}
 }
 

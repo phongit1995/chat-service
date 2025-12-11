@@ -7,9 +7,19 @@ import (
 )
 
 func main() {
-	log.Println("🚀 Starting Migration Service...")
-
 	cfg := LoadConfig()
+
+	if cfg.MigrationAction == "seed" {
+		log.Println("🌱 Starting Database Seeder...")
+		if err := RunSeed(cfg); err != nil {
+			log.Printf("❌ Seed failed: %v\n", err)
+			os.Exit(1)
+		}
+		log.Println("🎉 Seed completed successfully!")
+		return
+	}
+
+	log.Println("🚀 Starting Migration Service...")
 
 	if cfg.MigrateDB == "" {
 		cfg.MigrateDB = "all"
@@ -72,7 +82,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`
+	fmt.Print(`
 Usage: ./migrations [action] [database]
 
 Actions:
@@ -80,6 +90,7 @@ Actions:
   down    - Rollback migrations (specify MIGRATION_STEPS env var)
   version - Show current migration version
   force   - Force set migration version (requires MIGRATION_STEPS env var)
+  seed    - Seed database with test data
 
 Database:
   postgres - Run PostgreSQL migrations only
@@ -96,5 +107,6 @@ Examples:
   ./migrations down postgres              # Rollback 1 step for PostgreSQL
   MIGRATION_STEPS=2 ./migrations down all # Rollback 2 steps for all databases
   ./migrations version all                # Show current versions
+  ./migrations seed                       # Seed 100 test users
 `)
 }

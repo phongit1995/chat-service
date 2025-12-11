@@ -270,7 +270,7 @@ func (r *Repository) DeleteMessage(conversationID uuid.UUID, messageID gocql.UUI
 }
 
 func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID, newEntry *ConversationInboxUpdate) error {
-	batch := r.session.NewBatch(gocql.UnloggedBatch)
+	batch := r.session.NewBatch(gocql.LoggedBatch)
 
 	gocqlUserID, err := gocql.ParseUUID(userID.String())
 	if err != nil {
@@ -331,6 +331,27 @@ func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMess
 
 	if err := r.session.ExecuteBatch(batch); err != nil {
 		return fmt.Errorf("failed to update conversation: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Repository) UpdateConversationPreview(userID, conversationID uuid.UUID, newPreview string) error {
+	gocqlUserID, err := gocql.ParseUUID(userID.String())
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
+
+	query := `UPDATE conversations_by_user 
+	          SET last_message_preview = ?, updated_at = ? 
+	          WHERE user_id = ? AND conversation_id = ?`
+
+	if err := r.session.Query(query, newPreview, time.Now(), gocqlUserID, gocqlConvID).Exec(); err != nil {
+		return fmt.Errorf("failed to update conversation preview: %w", err)
 	}
 
 	return nil
@@ -483,8 +504,11 @@ func (r *Repository) AddMessageToBatch(batch *gocql.Batch, msg *Message) error {
 }
 
 func (r *Repository) DeleteFromInboxBatch(batch *gocql.Batch, userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID) {
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+
 	deleteIndexQuery := `DELETE FROM conversations_by_user_index WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
-	batch.Query(deleteIndexQuery, userID, oldLastMessageAt, conversationID)
+	batch.Query(deleteIndexQuery, gocqlUserID, oldLastMessageAt, gocqlConvID)
 }
 
 func (r *Repository) AddToInboxBatch(batch *gocql.Batch, entry *ConversationInboxUpdate) error {

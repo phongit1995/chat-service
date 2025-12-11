@@ -57,8 +57,6 @@ func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*Conversa
 		return nil, fmt.Errorf("failed to check existing conversation: %w", err)
 	}
 
-	now := time.Now()
-
 	if existingConvID == nil {
 		return &ConversationResponse{
 			ID:               "",
@@ -70,13 +68,18 @@ func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*Conversa
 		}, nil
 	}
 
+	conv, err := s.repo.GetConversationByID(*existingConvID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load conversation metadata: %w", err)
+	}
+
 	return &ConversationResponse{
 		ID:               existingConvID.String(),
 		Type:             "direct",
 		Name:             otherUser.Username,
 		Avatar:           otherUser.Avatar,
-		CreatedAt:        now.Format(time.RFC3339),
-		UpdatedAt:        now.Format(time.RFC3339),
+		CreatedAt:        conv.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        conv.UpdatedAt.Format(time.RFC3339),
 		ParticipantCount: 2,
 		IsNew:            false,
 	}, nil
@@ -418,32 +421,29 @@ func (s *Service) MarkConversationAsRead(userID, conversationID uuid.UUID) error
 		lastReadMessageID = userConv.LastMessageAt
 	}
 
-	updatedEntry := &ConversationByUser{
-		UserID:             userConv.UserID,
-		ConversationID:     userConv.ConversationID,
-		ConversationType:   userConv.ConversationType,
-		DisplayName:        userConv.DisplayName,
-		DisplayAvatar:      userConv.DisplayAvatar,
-		OtherUserID:        userConv.OtherUserID,
-		OtherUserName:      userConv.OtherUserName,
-		OtherUserAvatar:    userConv.OtherUserAvatar,
-		LastMessageAt:      userConv.LastMessageAt,
-		LastMessageID:      userConv.LastMessageID,
-		LastMessagePreview: userConv.LastMessagePreview,
-		LastMessageSender:  userConv.LastMessageSender,
-		UnreadCount:        0,
-		LastReadMessageID:  &lastReadMessageID,
-		LastReadAt:         &now,
-		UpdatedAt:          &now,
-	}
-
-	if err := s.repo.UpdateConversationInUserInbox(userID, conversationID, userConv.LastMessageAt, updatedEntry); err != nil {
-		return fmt.Errorf("failed to update conversation inbox: %w", err)
+	if err := s.repo.UpdateConversationReadState(userID, conversationID, lastReadMessageID, now); err != nil {
+		s.logger.Errorw("Failed to update conversation read state",
+			"user_id", userID,
+			"conversation_id", conversationID,
+			"error", err,
+		)
+		return fmt.Errorf("failed to update conversation read state: %w", err)
 	}
 
 	if err := s.repo.MarkAsRead(conversationID, userID, lastReadMessageID, now); err != nil {
+		s.logger.Errorw("Failed to mark as read in conversation_read_by_user",
+			"conversation_id", conversationID,
+			"user_id", userID,
+			"error", err,
+		)
 		return fmt.Errorf("failed to mark as read: %w", err)
 	}
+
+	s.logger.Infow("Successfully marked conversation as read",
+		"user_id", userID,
+		"conversation_id", conversationID,
+		"unread_count_before", userConv.UnreadCount,
+	)
 
 	go func() {
 		s.cache.ResetUnreadCount(conversationID, userID)

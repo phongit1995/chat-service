@@ -1,6 +1,7 @@
 .PHONY: dev-up dev-down dev-logs dev-clean dev-status \
-        run run-api run-chat build build-api build-chat build-migrate \
+        run run-api run-chat build build-api build-chat build-migrate build-seed \
         migrate-up migrate-down migrate-version migrate-create migrate-run \
+        seed \
         db-shell redis-cli scylla-cli kafka-cli \
         web-install web-dev web-build web-preview web-clean \
         swagger mod-tidy help
@@ -56,6 +57,10 @@ build-migrate:
 	@echo "🔨 Building Migration Service..."
 	go build -o bin/migrate ./cmd/migrations
 
+build-seed:
+	@echo "🔨 Building Seed Service..."
+	go build -o bin/seed ./cmd/seed
+
 # ==================== Database Migrations ====================
 
 migrate-up:
@@ -84,6 +89,12 @@ migrate-create:
 migrate-run:
 	@echo "🚀 Running migrations via Docker..."
 	@docker compose up migrate
+
+# ==================== Database Seeds ====================
+
+seed:
+	@echo "🌱 Seeding database with test users..."
+	@go run ./cmd/migrations seed
 
 # ==================== Database CLI ====================
 
@@ -163,6 +174,11 @@ help:
 	@echo "  make migrate-version - Show current migration versions"
 	@echo "  make migrate-create  - Create new migration files (interactive)"
 	@echo "  make migrate-run     - Run migrations via Docker"
+	@echo ""
+	@echo "🌱 Database Seeds:"
+	@echo "  make seed            - Seed database with 100 test users"
+	@echo "                         (Email: test1@gmail.com - test100@gmail.com)"
+	@echo "                         (Password: 123456)"
 	@echo ""
 	@echo "🗄️  Database CLI:"
 	@echo "  make db-shell    - PostgreSQL shell"
