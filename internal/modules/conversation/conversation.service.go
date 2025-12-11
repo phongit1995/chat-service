@@ -759,7 +759,7 @@ func (s *Service) SendTypingIndicator(userID, conversationID uuid.UUID, isTyping
 		ConversationID: conversationID.String(),
 		UserID:         userID.String(),
 		Username:       user.Username,
-		IsTyping:       isTyping,
+		Time:           time.Now(),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

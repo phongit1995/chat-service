@@ -1,5 +1,7 @@
 package conversation
 
+import "time"
+
 type CreatedEvent struct {
 	ConversationID string      `json:"conversation_id"`
 	Data           interface{} `json:"data,omitempty"`
@@ -15,8 +17,8 @@ type DeletedEvent struct {
 }
 
 type TypingEvent struct {
-	ConversationID string `json:"conversationId"`
-	UserID         string `json:"userId"`
-	Username       string `json:"username"`
-	IsTyping       bool   `json:"isTyping"`
+	ConversationID string    `json:"conversationId"`
+	UserID         string    `json:"userId"`
+	Username       string    `json:"username"`
+	Time           time.Time `json:"time"`
 }

@@ -267,66 +267,48 @@ export const useChatStore = create<ChatState>((set, get) => {
     const { currentConversation, typingUsers, typingTimeouts } = get()
     const currentUser = useAuthStore.getState().user
     
-    if (data.userId === currentUser?.id) return
+    console.log('🔵 USER_TYPING event received:', {
+      data,
+      currentConvId: currentConversation?.id,
+      currentUserId: currentUser?.id,
+      willUpdate: data.conversationId === currentConversation?.id && data.userId !== currentUser?.id
+    })
     
-    if (data.conversationId === currentConversation?.id) {
-      const newTypingUsers = new Set(typingUsers)
-      const newTypingTimeouts = new Map(typingTimeouts)
-      
-      if (data.isTyping) {
-        newTypingUsers.add(data.userId)
-        
-        // Clear existing timeout for this user
-        if (newTypingTimeouts.has(data.userId)) {
-          clearTimeout(newTypingTimeouts.get(data.userId)!)
-        }
-        
-        // Set new timeout to auto-remove after 3 seconds
-        const timeout = setTimeout(() => {
-          const { typingUsers: currentTypingUsers, typingTimeouts: currentTimeouts } = get()
-          const updatedUsers = new Set(currentTypingUsers)
-          const updatedTimeouts = new Map(currentTimeouts)
-          
-          updatedUsers.delete(data.userId)
-          updatedTimeouts.delete(data.userId)
-          
-          set({ typingUsers: updatedUsers, typingTimeouts: updatedTimeouts })
-        }, 3000)
-        
-        newTypingTimeouts.set(data.userId, timeout)
-      } else {
-        newTypingUsers.delete(data.userId)
-        
-        // Clear timeout when user stops typing
-        if (newTypingTimeouts.has(data.userId)) {
-          clearTimeout(newTypingTimeouts.get(data.userId)!)
-          newTypingTimeouts.delete(data.userId)
-        }
-      }
-      
-      set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
+    if (data.userId === currentUser?.id) {
+      console.log('⏭️  Skipped: typing from self')
+      return
     }
-  })
+    
+    if (data.conversationId !== currentConversation?.id) {
+      console.log('⏭️  Skipped: different conversation')
+      return
+    }
 
-  socketService.on(WebSocketEventType.USER_STOP_TYPING, (data: UserTypingData) => {
-    const { currentConversation, typingUsers, typingTimeouts } = get()
-    const currentUser = useAuthStore.getState().user
+    const newTypingUsers = new Set(typingUsers)
+    const newTypingTimeouts = new Map(typingTimeouts)
     
-    if (data.userId === currentUser?.id) return
+    newTypingUsers.add(data.userId)
     
-    if (data.conversationId === currentConversation?.id) {
-      const newTypingUsers = new Set(typingUsers)
-      const newTypingTimeouts = new Map(typingTimeouts)
-      
-      newTypingUsers.delete(data.userId)
-      
-      if (newTypingTimeouts.has(data.userId)) {
-        clearTimeout(newTypingTimeouts.get(data.userId)!)
-        newTypingTimeouts.delete(data.userId)
-      }
-      
-      set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
+    if (newTypingTimeouts.has(data.userId)) {
+      clearTimeout(newTypingTimeouts.get(data.userId)!)
     }
+    
+    const timeout = setTimeout(() => {
+      const { typingUsers: currentTypingUsers, typingTimeouts: currentTimeouts } = get()
+      const updatedUsers = new Set(currentTypingUsers)
+      const updatedTimeouts = new Map(currentTimeouts)
+      
+      updatedUsers.delete(data.userId)
+      updatedTimeouts.delete(data.userId)
+      
+      set({ typingUsers: updatedUsers, typingTimeouts: updatedTimeouts })
+      console.log('⏱️  Typing timeout for user:', data.userId)
+    }, 3000)
+    
+    newTypingTimeouts.set(data.userId, timeout)
+    
+    set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
+    console.log('✅ Updated typingUsers:', newTypingUsers.size, Array.from(newTypingUsers))
   })
 
   socketService.on(WebSocketEventType.USER_STATUS_CHANGED, (data: { userId: string; status: string }) => {

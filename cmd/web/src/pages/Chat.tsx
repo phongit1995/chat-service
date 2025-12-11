@@ -17,11 +17,12 @@ export const Chat = () => {
     conversations,
     currentConversation,
     messages,
-    typingUsers,
     loadConversations,
     selectConversation,
     sendMessage,
   } = useChatStore()
+  
+  const typingUsers = useChatStore((state) => state.typingUsers)
 
   const [messageInput, setMessageInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -383,9 +384,15 @@ export const Chat = () => {
                     isOwnMessage={message.senderId === user?.id}
                   />
                 ))}
-              {typingUsers.size > 0 && (
-                <TypingIndicator count={typingUsers.size} />
-              )}
+              {(() => {
+                const count = typingUsers.size
+                console.log('🎨 Rendering typing indicator check:', { 
+                  count, 
+                  users: Array.from(typingUsers),
+                  typingUsersObj: typingUsers 
+                })
+                return count > 0 ? <TypingIndicator count={count} /> : null
+              })()}
               <div ref={messagesEndRef} />
             </div>
 

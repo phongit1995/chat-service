@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -220,7 +221,7 @@ func (h *EventHandler) OnTyping(ctx context.Context, message []byte) error {
 		"conversation_id", event.ConversationID,
 		"user_id", event.UserID,
 		"username", event.Username,
-		"is_typing", event.IsTyping,
+		"time", event.Time,
 	)
 
 	if err := h.validateTypingEvent(&event); err != nil {
@@ -267,15 +268,17 @@ func (h *EventHandler) OnTyping(ctx context.Context, message []byte) error {
 		"conversation_id", event.ConversationID,
 		"sender_id", event.UserID,
 		"recipient_count", len(recipients),
-		"is_typing", event.IsTyping,
+		"time", event.Time,
 	)
 
-	eventType := constants.WebSocketEventUserTyping
-	if !event.IsTyping {
-		eventType = constants.WebSocketEventUserStopTyping
+	payload := map[string]interface{}{
+		"conversationId": event.ConversationID,
+		"userId":         event.UserID,
+		"username":       event.Username,
+		"time":           event.Time.Format(time.RFC3339),
 	}
 
-	wrappedData := utils.WrapWebSocketMessage(eventType, event)
+	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventUserTyping, payload)
 	h.wsServer.EmitToUsers(recipients, constants.WebSocketMessageEvent, wrappedData)
 
 	h.logger.Infow("✅ USER_TYPING processed successfully",
