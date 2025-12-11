@@ -270,7 +270,7 @@ func (r *Repository) DeleteMessage(conversationID uuid.UUID, messageID gocql.UUI
 }
 
 func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID, newEntry *ConversationInboxUpdate) error {
-	batch := r.session.NewBatch(gocql.LoggedBatch)
+	batch := r.session.NewBatch(gocql.UnloggedBatch)
 
 	gocqlUserID, err := gocql.ParseUUID(userID.String())
 	if err != nil {
@@ -504,11 +504,8 @@ func (r *Repository) AddMessageToBatch(batch *gocql.Batch, msg *Message) error {
 }
 
 func (r *Repository) DeleteFromInboxBatch(batch *gocql.Batch, userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID) {
-	gocqlUserID, _ := gocql.ParseUUID(userID.String())
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
-
 	deleteIndexQuery := `DELETE FROM conversations_by_user_index WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
-	batch.Query(deleteIndexQuery, gocqlUserID, oldLastMessageAt, gocqlConvID)
+	batch.Query(deleteIndexQuery, userID, oldLastMessageAt, conversationID)
 }
 
 func (r *Repository) AddToInboxBatch(batch *gocql.Batch, entry *ConversationInboxUpdate) error {

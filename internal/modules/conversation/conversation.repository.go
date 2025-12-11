@@ -355,7 +355,7 @@ func (r *Repository) GetDirectConversationID(userA, userB uuid.UUID) (*uuid.UUID
 }
 
 func (r *Repository) UpdateConversationInUserInbox(userID, conversationID uuid.UUID, oldLastMessageAt gocql.UUID, conv *ConversationByUser) error {
-	batch := r.session.NewBatch(gocql.LoggedBatch)
+	batch := r.session.NewBatch(gocql.UnloggedBatch)
 
 	gocqlUserID, _ := gocql.ParseUUID(userID.String())
 	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
@@ -380,23 +380,6 @@ func (r *Repository) UpdateConversationInUserInbox(userID, conversationID uuid.U
 	batch.Query(insertIndexQuery, gocqlUserID, conv.LastMessageAt, gocqlConvID)
 
 	return r.session.ExecuteBatch(batch)
-}
-
-func (r *Repository) UpdateConversationReadState(userID, conversationID uuid.UUID, lastReadMessageID gocql.UUID, lastReadAt time.Time) error {
-	gocqlUserID, _ := gocql.ParseUUID(userID.String())
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
-
-	query := `UPDATE conversations_by_user
-	          SET unread_count = 0,
-	              last_read_message_id = ?,
-	              last_read_at = ?,
-	              updated_at = ?
-	          WHERE user_id = ? AND conversation_id = ?`
-
-	return r.session.Query(query,
-		lastReadMessageID, lastReadAt, time.Now(),
-		gocqlUserID, gocqlConvID,
-	).Exec()
 }
 
 func (r *Repository) MarkAsRead(conversationID, userID uuid.UUID, lastReadMessageID gocql.UUID, lastReadAt time.Time) error {
