@@ -131,28 +131,30 @@ func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID 
 	}
 
 	inbox1 := &conversation.ConversationByUser{
-		UserID:          gocqlUser1ID,
-		LastMessageAt:   lastMessageAt,
-		ConversationID:  gocqlConvID,
-		IsGroup:         false,
-		OtherUserID:     &gocqlUser2ID,
-		OtherUserName:   user2.Username,
-		OtherUserAvatar: user2.Avatar,
-		Title:           user2.Username,
-		Avatar:          user2.Avatar,
-		UnreadCount:     0,
+		UserID:           gocqlUser1ID,
+		ConversationID:   gocqlConvID,
+		ConversationType: "direct",
+		DisplayName:      user2.Username,
+		DisplayAvatar:    user2.Avatar,
+		OtherUserID:      &gocqlUser2ID,
+		OtherUserName:    user2.Username,
+		OtherUserAvatar:  user2.Avatar,
+		LastMessageAt:    lastMessageAt,
+		UnreadCount:      0,
+		UpdatedAt:        &now,
 	}
 	inbox2 := &conversation.ConversationByUser{
-		UserID:          gocqlUser2ID,
-		LastMessageAt:   lastMessageAt,
-		ConversationID:  gocqlConvID,
-		IsGroup:         false,
-		OtherUserID:     &gocqlUser1ID,
-		OtherUserName:   user1.Username,
-		OtherUserAvatar: user1.Avatar,
-		Title:           user1.Username,
-		Avatar:          user1.Avatar,
-		UnreadCount:     0,
+		UserID:           gocqlUser2ID,
+		ConversationID:   gocqlConvID,
+		ConversationType: "direct",
+		DisplayName:      user1.Username,
+		DisplayAvatar:    user1.Avatar,
+		OtherUserID:      &gocqlUser1ID,
+		OtherUserName:    user1.Username,
+		OtherUserAvatar:  user1.Avatar,
+		LastMessageAt:    lastMessageAt,
+		UnreadCount:      0,
+		UpdatedAt:        &now,
 	}
 	s.convRepo.AddConversationToUserInboxBatch(batch, inbox1)
 	s.convRepo.AddConversationToUserInboxBatch(batch, inbox2)
@@ -214,14 +216,20 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	now := time.Now()
 	messageID := gocql.TimeUUID()
 
+	senderInfo, err := s.userCache.GetUserCache(senderID, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sender info: %w", err)
+	}
+
 	msg := &Message{
 		ConversationID: conversationID,
 		MessageID:      messageID,
 		SenderID:       senderID,
+		SenderName:     senderInfo.Username,
+		SenderAvatar:   senderInfo.Avatar,
 		MessageType:    messageType,
 		Content:        content,
 		Metadata:       metadata,
-		Status:         "sent",
 		CreatedAt:      now,
 		UpdatedAt:      now,
 		ReplyToID:      replyToID,
@@ -286,13 +294,50 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 					s.logger.Infow("Auto-unhiding conversation due to new message",
 						"user_id", m.UserID, "conversation_id", conversationID, "message_id", messageID)
 
+					conv, convErr := s.getConversationByIDCached(conversationID)
+					if convErr != nil {
+						s.logger.Errorw("Failed to get conversation for unhide", "conversation_id", conversationID, "error", convErr)
+						errMux.Lock()
+						if firstError == nil {
+							firstError = fmt.Errorf("failed to get conversation for unhide: %w", convErr)
+						}
+						errMux.Unlock()
+						return
+					}
+
+					var conversationType, displayName, displayAvatar string
+					var otherUserID *gocql.UUID
+					var otherUserName, otherUserAvatar string
+
+					if conv.Type == "direct" {
+						conversationType = "direct"
+						for _, member := range members {
+							if member.UserID != m.UserID && member.IsActive {
+								if otherUser, userErr := s.userCache.GetUserCache(member.UserID, true); userErr == nil {
+									displayName = otherUser.Username
+									displayAvatar = otherUser.Avatar
+									otherUserName = otherUser.Username
+									otherUserAvatar = otherUser.Avatar
+									gocqlOtherID, _ := utils.ToGocqlUUID(member.UserID)
+									otherUserID = &gocqlOtherID
+								}
+								break
+							}
+						}
+					} else {
+						conversationType = "group"
+						displayName = conv.Name
+						displayAvatar = conv.Avatar
+					}
+
 					unreadCount := 0
 					if m.UserID != senderID {
 						unreadCount = 1
 					}
 
 					if unhideErr := s.convRepo.UnhideConversation(m.UserID, conversationID, messageID,
-						&messageID, shortContent, &senderID, unreadCount); unhideErr != nil {
+						&messageID, shortContent, &senderID, unreadCount,
+						conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar); unhideErr != nil {
 						s.logger.Errorw("Failed to auto-unhide conversation", "user_id", m.UserID, "error", unhideErr)
 						errMux.Lock()
 						if firstError == nil {
@@ -332,39 +377,41 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 				newUnreadCount++
 			}
 
+			displayName := inboxEntry.DisplayName
+			displayAvatar := inboxEntry.DisplayAvatar
 			otherUserName := inboxEntry.OtherUserName
 			otherUserAvatar := inboxEntry.OtherUserAvatar
-			title := inboxEntry.Title
-			avatar := inboxEntry.Avatar
 
-			if !inboxEntry.IsGroup && inboxEntry.OtherUserID != nil {
+			if inboxEntry.ConversationType == "direct" && inboxEntry.OtherUserID != nil {
 				otherUserID, err := uuid.Parse(inboxEntry.OtherUserID.String())
 				if err == nil {
 					if cachedUser, cacheErr := s.userCache.GetUserCache(otherUserID, false); cacheErr == nil && cachedUser != nil {
+						displayName = cachedUser.Username
+						displayAvatar = cachedUser.Avatar
 						otherUserName = cachedUser.Username
 						otherUserAvatar = cachedUser.Avatar
-						title = cachedUser.Username
-						avatar = cachedUser.Avatar
 					}
 				}
 			}
 
+			nowTime := time.Now()
 			updatedEntry := &ConversationInboxUpdate{
-				UserID:            m.UserID,
-				LastMessageAt:     messageID,
-				ConversationID:    conversationID,
-				IsGroup:           inboxEntry.IsGroup,
-				OtherUserID:       inboxEntry.OtherUserID,
-				OtherUserName:     otherUserName,
-				OtherUserAvatar:   otherUserAvatar,
-				Title:             title,
-				Avatar:            avatar,
-				LastMessageID:     &messageID,
-				LastMessageBody:   shortContent,
-				LastMessageSender: &senderID,
-				UnreadCount:       newUnreadCount,
-				LastReadMessageID: inboxEntry.LastReadMessageID,
-				LastReadAt:        inboxEntry.LastReadAt,
+				UserID:             m.UserID,
+				ConversationID:     conversationID,
+				ConversationType:   inboxEntry.ConversationType,
+				DisplayName:        displayName,
+				DisplayAvatar:      displayAvatar,
+				OtherUserID:        inboxEntry.OtherUserID,
+				OtherUserName:      otherUserName,
+				OtherUserAvatar:    otherUserAvatar,
+				LastMessageAt:      messageID,
+				LastMessageID:      &messageID,
+				LastMessagePreview: shortContent,
+				LastMessageSender:  &senderID,
+				UnreadCount:        newUnreadCount,
+				LastReadMessageID:  inboxEntry.LastReadMessageID,
+				LastReadAt:         inboxEntry.LastReadAt,
+				UpdatedAt:          &nowTime,
 			}
 
 			if err := s.updateConversationWithRetry(m.UserID, *oldLastMessageAt, conversationID, updatedEntry, 3); err != nil {
@@ -396,10 +443,11 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		ID:             messageID.String(),
 		ConversationID: conversationID.String(),
 		SenderID:       senderID.String(),
+		SenderName:     senderInfo.Username,
+		SenderAvatar:   senderInfo.Avatar,
 		Type:           messageType,
 		Content:        content,
 		Metadata:       metadata,
-		Status:         "sent",
 		CreatedAt:      now.Format(time.RFC3339),
 		UpdatedAt:      now.Format(time.RFC3339),
 	}
@@ -450,7 +498,6 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 			Type:           resp.Type,
 			Content:        resp.Content,
 			Metadata:       resp.Metadata,
-			Status:         resp.Status,
 			CreatedAt:      resp.CreatedAt,
 			UpdatedAt:      resp.UpdatedAt,
 			ReplyToID:      resp.ReplyToID,
@@ -550,10 +597,11 @@ func (s *Service) GetMessages(userID, conversationID uuid.UUID, limit int, befor
 			ID:             msg.MessageID.String(),
 			ConversationID: msg.ConversationID.String(),
 			SenderID:       msg.SenderID.String(),
+			SenderName:     msg.SenderName,
+			SenderAvatar:   msg.SenderAvatar,
 			Type:           msg.MessageType,
 			Content:        msg.Content,
 			Metadata:       msg.Metadata,
-			Status:         msg.Status,
 			CreatedAt:      msg.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:      msg.UpdatedAt.Format(time.RFC3339),
 		}
@@ -632,7 +680,6 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		SenderAvatar:   senderAvatar,
 		Type:           msg.MessageType,
 		Content:        newContent,
-		Status:         msg.Status,
 		CreatedAt:      msg.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      now.Format(time.RFC3339),
 	}
@@ -672,7 +719,6 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 			Type:           resp.Type,
 			Content:        resp.Content,
 			Metadata:       resp.Metadata,
-			Status:         resp.Status,
 			CreatedAt:      resp.CreatedAt,
 			UpdatedAt:      resp.UpdatedAt,
 			ReplyToID:      resp.ReplyToID,
@@ -1018,37 +1064,41 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 			return fmt.Errorf("failed to convert otherUserID: %w", err)
 		}
 
+		now := time.Now()
 		inboxEntry := &conversation.ConversationByUser{
-			UserID:            gocqlUserID,
-			LastMessageAt:     messageID,
-			ConversationID:    gocqlConvID,
-			IsGroup:           false,
-			OtherUserID:       &gocqlOtherUserID,
-			OtherUserName:     otherUser.Username,
-			OtherUserAvatar:   otherUser.Avatar,
-			Title:             otherUser.Username,
-			Avatar:            otherUser.Avatar,
-			LastMessageID:     &messageID,
-			LastMessageBody:   messageBody,
-			LastMessageSender: &gocqlSenderID,
-			UnreadCount:       unreadCount,
+			UserID:             gocqlUserID,
+			ConversationID:     gocqlConvID,
+			ConversationType:   "direct",
+			DisplayName:        otherUser.Username,
+			DisplayAvatar:      otherUser.Avatar,
+			OtherUserID:        &gocqlOtherUserID,
+			OtherUserName:      otherUser.Username,
+			OtherUserAvatar:    otherUser.Avatar,
+			LastMessageAt:      messageID,
+			LastMessageID:      &messageID,
+			LastMessagePreview: messageBody,
+			LastMessageSender:  &gocqlSenderID,
+			UnreadCount:        unreadCount,
+			UpdatedAt:          &now,
 		}
 
 		if err := s.convRepo.AddConversationToUserInbox(inboxEntry); err != nil {
 			return fmt.Errorf("failed to add conversation to inbox: %w", err)
 		}
 	} else {
+		now := time.Now()
 		inboxEntry := &conversation.ConversationByUser{
-			UserID:            gocqlUserID,
-			LastMessageAt:     messageID,
-			ConversationID:    gocqlConvID,
-			IsGroup:           true,
-			Title:             conv.Name,
-			Avatar:            conv.Avatar,
-			LastMessageID:     &messageID,
-			LastMessageBody:   messageBody,
-			LastMessageSender: &gocqlSenderID,
-			UnreadCount:       unreadCount,
+			UserID:             gocqlUserID,
+			ConversationID:     gocqlConvID,
+			ConversationType:   "group",
+			DisplayName:        conv.Name,
+			DisplayAvatar:      conv.Avatar,
+			LastMessageAt:      messageID,
+			LastMessageID:      &messageID,
+			LastMessagePreview: messageBody,
+			LastMessageSender:  &gocqlSenderID,
+			UnreadCount:        unreadCount,
+			UpdatedAt:          &now,
 		}
 
 		if err := s.convRepo.AddConversationToUserInbox(inboxEntry); err != nil {

@@ -9,7 +9,6 @@ import (
 	"chat-server/internal/utils"
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -58,6 +57,8 @@ func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*Conversa
 		return nil, fmt.Errorf("failed to check existing conversation: %w", err)
 	}
 
+	now := time.Now()
+
 	if existingConvID == nil {
 		return &ConversationResponse{
 			ID:               "",
@@ -65,11 +66,10 @@ func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*Conversa
 			Name:             otherUser.Username,
 			Avatar:           otherUser.Avatar,
 			ParticipantCount: 0,
-			IsNew:            false,
+			IsNew:            true,
 		}, nil
 	}
 
-	now := time.Now()
 	return &ConversationResponse{
 		ID:               existingConvID.String(),
 		Type:             "direct",
@@ -101,14 +101,17 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		userA, userB = user2ID, user1ID
 	}
 
-	existingConvID, err := s.repo.GetDirectConversationID(userA, userB)
+	now := time.Now()
+	conversationID := uuid.New()
+
+	applied, existingConvID, err := s.repo.TryInsertDirectConversationPair(userA, userB, conversationID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check existing conversation: %w", err)
+		return nil, fmt.Errorf("failed to insert direct conversation pair: %w", err)
 	}
 
-	now := time.Now()
-
-	if existingConvID != nil {
+	if !applied {
+		s.logger.Infow("Direct conversation already exists (race condition prevented)",
+			"user1", user1ID, "user2", user2ID, "existing_conv_id", existingConvID)
 		return &ConversationResponse{
 			ID:               existingConvID.String(),
 			Type:             "direct",
@@ -121,12 +124,9 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		}, nil
 	}
 
-	conversationID := uuid.New()
 	lastMessageAt := gocql.TimeUUID()
 
 	batch := s.repo.NewBatch()
-
-	s.repo.AddDirectConversationPairToBatch(batch, userA, userB, conversationID)
 
 	conv := &Conversation{
 		ConversationID:   conversationID,
@@ -171,28 +171,30 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 	}
 
 	inbox1 := &ConversationByUser{
-		UserID:          gocqlUser1ID,
-		LastMessageAt:   lastMessageAt,
-		ConversationID:  gocqlConvID,
-		IsGroup:         false,
-		OtherUserID:     &gocqlUser2ID,
-		OtherUserName:   otherUser.Username,
-		OtherUserAvatar: otherUser.Avatar,
-		Title:           otherUser.Username,
-		Avatar:          otherUser.Avatar,
-		UnreadCount:     0,
+		UserID:           gocqlUser1ID,
+		ConversationID:   gocqlConvID,
+		ConversationType: "direct",
+		DisplayName:      otherUser.Username,
+		DisplayAvatar:    otherUser.Avatar,
+		OtherUserID:      &gocqlUser2ID,
+		OtherUserName:    otherUser.Username,
+		OtherUserAvatar:  otherUser.Avatar,
+		LastMessageAt:    lastMessageAt,
+		UnreadCount:      0,
+		UpdatedAt:        &now,
 	}
 	inbox2 := &ConversationByUser{
-		UserID:          gocqlUser2ID,
-		LastMessageAt:   lastMessageAt,
-		ConversationID:  gocqlConvID,
-		IsGroup:         false,
-		OtherUserID:     &gocqlUser1ID,
-		OtherUserName:   user1.Username,
-		OtherUserAvatar: user1.Avatar,
-		Title:           user1.Username,
-		Avatar:          user1.Avatar,
-		UnreadCount:     0,
+		UserID:           gocqlUser2ID,
+		ConversationID:   gocqlConvID,
+		ConversationType: "direct",
+		DisplayName:      user1.Username,
+		DisplayAvatar:    user1.Avatar,
+		OtherUserID:      &gocqlUser1ID,
+		OtherUserName:    user1.Username,
+		OtherUserAvatar:  user1.Avatar,
+		LastMessageAt:    lastMessageAt,
+		UnreadCount:      0,
+		UpdatedAt:        &now,
 	}
 	s.repo.AddConversationToUserInboxBatch(batch, inbox1)
 	s.repo.AddConversationToUserInboxBatch(batch, inbox2)
@@ -299,13 +301,14 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 		}
 
 		inbox := &ConversationByUser{
-			UserID:         gocqlParticipantID,
-			LastMessageAt:  lastMessageAt,
-			ConversationID: gocqlConvID,
-			IsGroup:        true,
-			Title:          name,
-			Avatar:         "",
-			UnreadCount:    0,
+			UserID:           gocqlParticipantID,
+			ConversationID:   gocqlConvID,
+			ConversationType: "group",
+			DisplayName:      name,
+			DisplayAvatar:    "",
+			LastMessageAt:    lastMessageAt,
+			UnreadCount:      0,
+			UpdatedAt:        &now,
 		}
 		s.repo.AddConversationToUserInboxBatch(batch, inbox)
 	}
@@ -341,94 +344,30 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 }
 
 func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*ConversationsListResponse, error) {
-	conversations, err := s.repo.GetUserConversations(userID, limit*3)
+	conversations, err := s.repo.GetUserConversations(userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user conversations: %w", err)
 	}
 
-	conversationMap := make(map[string]ConversationByUser)
+	responses := make([]ConversationResponse, 0, len(conversations))
 	for _, conv := range conversations {
-		convIDStr := conv.ConversationID.String()
-
-		if existing, exists := conversationMap[convIDStr]; exists {
-			if conv.LastMessageAt.Time().After(existing.LastMessageAt.Time()) {
-				conversationMap[convIDStr] = conv
-				s.logger.Debugw("Found duplicate conversation entry, keeping newer one",
-					"conversation_id", convIDStr,
-					"old_timestamp", existing.LastMessageAt.Time(),
-					"new_timestamp", conv.LastMessageAt.Time(),
-				)
-			}
-		} else {
-			conversationMap[convIDStr] = conv
-		}
-	}
-
-	deduplicatedConvs := make([]ConversationByUser, 0, len(conversationMap))
-	for _, conv := range conversationMap {
-		deduplicatedConvs = append(deduplicatedConvs, conv)
-	}
-
-	sort.Slice(deduplicatedConvs, func(i, j int) bool {
-		return deduplicatedConvs[i].LastMessageAt.Time().After(deduplicatedConvs[j].LastMessageAt.Time())
-	})
-
-	if len(deduplicatedConvs) < len(conversations) {
-		s.logger.Warnw("Detected and removed duplicate conversation entries",
-			"user_id", userID,
-			"original_count", len(conversations),
-			"deduplicated_count", len(deduplicatedConvs),
-		)
-
-		go func() {
-			for convIDStr, conv := range conversationMap {
-				convUUID, err := uuid.Parse(convIDStr)
-				if err != nil {
-					continue
-				}
-				if cleanupErr := s.CleanupOrphanedConversationEntries(userID, convUUID, conv.LastMessageAt); cleanupErr != nil {
-					s.logger.Errorw("Failed to cleanup orphaned entries",
-						"user_id", userID,
-						"conversation_id", convUUID,
-						"error", cleanupErr,
-					)
-				}
-			}
-		}()
-	}
-
-	responses := make([]ConversationResponse, 0, len(deduplicatedConvs))
-	for _, conv := range deduplicatedConvs {
 		resp := ConversationResponse{
 			ID:              conv.ConversationID.String(),
-			LastMessageText: conv.LastMessageBody,
+			LastMessageText: conv.LastMessagePreview,
 			UnreadCount:     conv.UnreadCount,
 		}
 
-		if conv.IsGroup {
-			resp.Type = "group"
-			resp.Name = conv.Title
-			resp.Avatar = conv.Avatar
-		} else {
-			resp.Type = "direct"
+		resp.Type = conv.ConversationType
+		resp.Name = conv.DisplayName
+		resp.Avatar = conv.DisplayAvatar
 
-			if conv.OtherUserID != nil {
-				otherUserID, err := uuid.Parse(conv.OtherUserID.String())
-				if err == nil {
-					if cachedUser, cacheErr := s.userCache.GetUserCache(otherUserID, false); cacheErr == nil && cachedUser != nil {
-						resp.Name = cachedUser.Username
-						resp.Avatar = cachedUser.Avatar
-					} else {
-						resp.Name = conv.OtherUserName
-						resp.Avatar = conv.OtherUserAvatar
-					}
-				} else {
-					resp.Name = conv.OtherUserName
-					resp.Avatar = conv.OtherUserAvatar
+		if conv.ConversationType == "direct" && conv.OtherUserID != nil {
+			otherUserID, err := uuid.Parse(conv.OtherUserID.String())
+			if err == nil {
+				if cachedUser, cacheErr := s.userCache.GetUserCache(otherUserID, false); cacheErr == nil && cachedUser != nil {
+					resp.Name = cachedUser.Username
+					resp.Avatar = cachedUser.Avatar
 				}
-			} else {
-				resp.Name = conv.Title
-				resp.Avatar = conv.Avatar
 			}
 		}
 
@@ -436,10 +375,6 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 		resp.LastMessageAt = t.Format(time.RFC3339)
 
 		responses = append(responses, resp)
-	}
-
-	if len(responses) > limit {
-		responses = responses[:limit]
 	}
 
 	return &ConversationsListResponse{
@@ -484,24 +419,25 @@ func (s *Service) MarkConversationAsRead(userID, conversationID uuid.UUID) error
 	}
 
 	updatedEntry := &ConversationByUser{
-		UserID:            userConv.UserID,
-		LastMessageAt:     userConv.LastMessageAt,
-		ConversationID:    userConv.ConversationID,
-		IsGroup:           userConv.IsGroup,
-		OtherUserID:       userConv.OtherUserID,
-		OtherUserName:     userConv.OtherUserName,
-		OtherUserAvatar:   userConv.OtherUserAvatar,
-		Title:             userConv.Title,
-		Avatar:            userConv.Avatar,
-		LastMessageID:     userConv.LastMessageID,
-		LastMessageBody:   userConv.LastMessageBody,
-		LastMessageSender: userConv.LastMessageSender,
-		UnreadCount:       0,
-		LastReadMessageID: &lastReadMessageID,
-		LastReadAt:        &now,
+		UserID:             userConv.UserID,
+		ConversationID:     userConv.ConversationID,
+		ConversationType:   userConv.ConversationType,
+		DisplayName:        userConv.DisplayName,
+		DisplayAvatar:      userConv.DisplayAvatar,
+		OtherUserID:        userConv.OtherUserID,
+		OtherUserName:      userConv.OtherUserName,
+		OtherUserAvatar:    userConv.OtherUserAvatar,
+		LastMessageAt:      userConv.LastMessageAt,
+		LastMessageID:      userConv.LastMessageID,
+		LastMessagePreview: userConv.LastMessagePreview,
+		LastMessageSender:  userConv.LastMessageSender,
+		UnreadCount:        0,
+		LastReadMessageID:  &lastReadMessageID,
+		LastReadAt:         &now,
+		UpdatedAt:          &now,
 	}
 
-	if err := s.repo.UpdateConversationInUserInbox(userID, userConv.LastMessageAt, updatedEntry); err != nil {
+	if err := s.repo.UpdateConversationInUserInbox(userID, conversationID, userConv.LastMessageAt, updatedEntry); err != nil {
 		return fmt.Errorf("failed to update conversation inbox: %w", err)
 	}
 
@@ -642,8 +578,42 @@ func (s *Service) UnhideConversation(userID, conversationID uuid.UUID) error {
 		return fmt.Errorf("conversation is not hidden")
 	}
 
+	conv, err := s.repo.GetConversationByID(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get conversation: %w", err)
+	}
+
+	var conversationType, displayName, displayAvatar string
+	var otherUserID *gocql.UUID
+	var otherUserName, otherUserAvatar string
+
+	if conv.Type == "direct" {
+		conversationType = "direct"
+		members, err := s.GetMembersCached(conversationID)
+		if err == nil {
+			for _, member := range members {
+				if member.UserID != userID && member.IsActive {
+					if otherUser, userErr := s.userCache.GetUserCache(member.UserID, true); userErr == nil {
+						displayName = otherUser.Username
+						displayAvatar = otherUser.Avatar
+						otherUserName = otherUser.Username
+						otherUserAvatar = otherUser.Avatar
+						gocqlOtherID, _ := utils.ToGocqlUUID(member.UserID)
+						otherUserID = &gocqlOtherID
+					}
+					break
+				}
+			}
+		}
+	} else {
+		conversationType = "group"
+		displayName = conv.Name
+		displayAvatar = conv.Avatar
+	}
+
 	newLastMessageAt := gocql.TimeUUID()
-	if err := s.repo.UnhideConversation(userID, conversationID, newLastMessageAt, nil, "", nil, 0); err != nil {
+	if err := s.repo.UnhideConversation(userID, conversationID, newLastMessageAt, nil, "", nil, 0,
+		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar); err != nil {
 		return fmt.Errorf("failed to unhide conversation: %w", err)
 	}
 
@@ -696,7 +666,41 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 	s.logger.Infow("Auto-unhiding conversation due to new message",
 		"user_id", userID, "conversation_id", conversationID, "message_id", messageID)
 
-	if err := s.repo.UnhideConversation(userID, conversationID, messageID, &messageID, messageBody, &senderID, 1); err != nil {
+	conv, err := s.repo.GetConversationByID(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get conversation: %w", err)
+	}
+
+	var conversationType, displayName, displayAvatar string
+	var otherUserID *gocql.UUID
+	var otherUserName, otherUserAvatar string
+
+	if conv.Type == "direct" {
+		conversationType = "direct"
+		members, membersErr := s.GetMembersCached(conversationID)
+		if membersErr == nil {
+			for _, member := range members {
+				if member.UserID != userID && member.IsActive {
+					if otherUser, userErr := s.userCache.GetUserCache(member.UserID, true); userErr == nil {
+						displayName = otherUser.Username
+						displayAvatar = otherUser.Avatar
+						otherUserName = otherUser.Username
+						otherUserAvatar = otherUser.Avatar
+						gocqlOtherID, _ := utils.ToGocqlUUID(member.UserID)
+						otherUserID = &gocqlOtherID
+					}
+					break
+				}
+			}
+		}
+	} else {
+		conversationType = "group"
+		displayName = conv.Name
+		displayAvatar = conv.Avatar
+	}
+
+	if err := s.repo.UnhideConversation(userID, conversationID, messageID, &messageID, messageBody, &senderID, 1,
+		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar); err != nil {
 		return fmt.Errorf("failed to auto-unhide conversation: %w", err)
 	}
 
@@ -706,52 +710,6 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 		}
 		s.InvalidateUserConversationsCache([]uuid.UUID{userID})
 	}()
-
-	return nil
-}
-
-func (s *Service) CleanupOrphanedConversationEntries(userID uuid.UUID, conversationID uuid.UUID, keepLastMessageAt gocql.UUID) error {
-	allEntries, err := s.repo.GetUserConversations(userID, 1000)
-	if err != nil {
-		return fmt.Errorf("failed to get user conversations for cleanup: %w", err)
-	}
-
-	var orphanedEntries []ConversationByUser
-	for _, entry := range allEntries {
-		if entry.ConversationID.String() == conversationID.String() &&
-			entry.LastMessageAt.String() != keepLastMessageAt.String() {
-			orphanedEntries = append(orphanedEntries, entry)
-		}
-	}
-
-	if len(orphanedEntries) == 0 {
-		return nil
-	}
-
-	s.logger.Infow("Cleaning up orphaned conversation entries",
-		"user_id", userID,
-		"conversation_id", conversationID,
-		"orphaned_count", len(orphanedEntries),
-	)
-
-	batch := s.repo.NewBatch()
-	for _, entry := range orphanedEntries {
-		gocqlUserID, _ := gocql.ParseUUID(userID.String())
-		deleteQuery := `DELETE FROM conversations_by_user WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
-		batch.Query(deleteQuery, gocqlUserID, entry.LastMessageAt, entry.ConversationID)
-	}
-
-	if err := s.repo.ExecuteBatch(batch); err != nil {
-		return fmt.Errorf("failed to cleanup orphaned entries: %w", err)
-	}
-
-	s.logger.Infow("Successfully cleaned up orphaned entries",
-		"user_id", userID,
-		"conversation_id", conversationID,
-		"cleaned_count", len(orphanedEntries),
-	)
-
-	go s.InvalidateUserConversationsCache([]uuid.UUID{userID})
 
 	return nil
 }
