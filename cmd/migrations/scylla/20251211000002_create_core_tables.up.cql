@@ -67,13 +67,6 @@ CREATE TABLE IF NOT EXISTS chat_keyspace.conversations_by_user (
     PRIMARY KEY (user_id, conversation_id)
 );
 
-CREATE TABLE IF NOT EXISTS chat_keyspace.conversations_by_user_index (
-    user_id         uuid,
-    last_message_at timeuuid,
-    conversation_id uuid,
-    PRIMARY KEY (user_id, last_message_at, conversation_id)
-) WITH CLUSTERING ORDER BY (last_message_at DESC, conversation_id ASC);
-
 CREATE TABLE IF NOT EXISTS chat_keyspace.conversation_read_by_user (
     conversation_id      uuid,
     user_id              uuid,

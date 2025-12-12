@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -80,9 +81,13 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 		WHERE user_id = ? AND conversation_id = ?
 	`)
 
-	r.preparedQueries["get_user_conv_ids_sorted"] = session.Query(`
-		SELECT conversation_id FROM conversations_by_user_index
-		WHERE user_id = ? LIMIT ?
+	r.preparedQueries["get_all_user_conversations"] = session.Query(`
+		SELECT user_id, conversation_id, conversation_type, display_name, display_avatar,
+		       other_user_id, other_user_name, other_user_avatar,
+		       last_message_at, last_message_id, last_message_preview, last_message_sender,
+		       unread_count, last_read_message_id, last_read_at, updated_at
+		FROM conversations_by_user
+		WHERE user_id = ?
 	`)
 
 	return r
@@ -237,25 +242,19 @@ func (r *Repository) GetMembers(conversationID uuid.UUID) ([]ConversationMember,
 }
 
 func (r *Repository) AddConversationToUserInbox(conv *ConversationByUser) error {
-	batch := r.session.NewBatch(gocql.UnloggedBatch)
-
 	query := `INSERT INTO conversations_by_user
 	          (user_id, conversation_id, conversation_type, display_name, display_avatar,
 	           other_user_id, other_user_name, other_user_avatar,
 	           last_message_at, last_message_id, last_message_preview, last_message_sender,
 	           unread_count, last_read_message_id, last_read_at, updated_at)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	batch.Query(query,
+
+	return r.session.Query(query,
 		conv.UserID, conv.ConversationID, conv.ConversationType, conv.DisplayName, conv.DisplayAvatar,
 		conv.OtherUserID, conv.OtherUserName, conv.OtherUserAvatar,
 		conv.LastMessageAt, conv.LastMessageID, conv.LastMessagePreview, conv.LastMessageSender,
 		conv.UnreadCount, conv.LastReadMessageID, conv.LastReadAt, conv.UpdatedAt,
-	)
-
-	indexQuery := `INSERT INTO conversations_by_user_index (user_id, last_message_at, conversation_id) VALUES (?, ?, ?)`
-	batch.Query(indexQuery, conv.UserID, conv.LastMessageAt, conv.ConversationID)
-
-	return r.session.ExecuteBatch(batch)
+	).Exec()
 }
 
 func (r *Repository) GetUserConversations(userID uuid.UUID, limit int) ([]ConversationByUser, error) {
@@ -264,36 +263,31 @@ func (r *Repository) GetUserConversations(userID uuid.UUID, limit int) ([]Conver
 		return nil, fmt.Errorf("failed to convert user ID: %w", err)
 	}
 
-	var convIDs []gocql.UUID
-	iter := r.preparedQueries["get_user_conv_ids_sorted"].Bind(gocqlUserID, limit).Iter()
-	var convID gocql.UUID
-	for iter.Scan(&convID) {
-		convIDs = append(convIDs, convID)
+	var conversations []ConversationByUser
+	iter := r.preparedQueries["get_all_user_conversations"].Bind(gocqlUserID).Iter()
+
+	var conv ConversationByUser
+	for iter.Scan(
+		&conv.UserID, &conv.ConversationID, &conv.ConversationType, &conv.DisplayName, &conv.DisplayAvatar,
+		&conv.OtherUserID, &conv.OtherUserName, &conv.OtherUserAvatar,
+		&conv.LastMessageAt, &conv.LastMessageID, &conv.LastMessagePreview, &conv.LastMessageSender,
+		&conv.UnreadCount, &conv.LastReadMessageID, &conv.LastReadAt, &conv.UpdatedAt,
+	) {
+		conversations = append(conversations, conv)
 	}
+
 	if err := iter.Close(); err != nil {
 		return nil, err
 	}
 
-	var conversations []ConversationByUser
-	query := `SELECT user_id, conversation_id, conversation_type, display_name, display_avatar,
-	                 other_user_id, other_user_name, other_user_avatar,
-	                 last_message_at, last_message_id, last_message_preview, last_message_sender,
-	                 unread_count, last_read_message_id, last_read_at, updated_at
-	          FROM conversations_by_user WHERE user_id = ? AND conversation_id = ?`
+	sort.Slice(conversations, func(i, j int) bool {
+		timeI := conversations[i].LastMessageAt.Time()
+		timeJ := conversations[j].LastMessageAt.Time()
+		return timeI.After(timeJ)
+	})
 
-	for _, cid := range convIDs {
-		var conv ConversationByUser
-		err := r.session.Query(query, gocqlUserID, cid).Scan(
-			&conv.UserID, &conv.ConversationID, &conv.ConversationType, &conv.DisplayName, &conv.DisplayAvatar,
-			&conv.OtherUserID, &conv.OtherUserName, &conv.OtherUserAvatar,
-			&conv.LastMessageAt, &conv.LastMessageID, &conv.LastMessagePreview, &conv.LastMessageSender,
-			&conv.UnreadCount, &conv.LastReadMessageID, &conv.LastReadAt, &conv.UpdatedAt,
-		)
-		if err != nil {
-			r.logger.Warnw("Failed to get conversation detail", "conversation_id", cid, "error", err)
-			continue
-		}
-		conversations = append(conversations, conv)
+	if limit > 0 && len(conversations) > limit {
+		conversations = conversations[:limit]
 	}
 
 	return conversations, nil
@@ -355,31 +349,19 @@ func (r *Repository) GetDirectConversationID(userA, userB uuid.UUID) (*uuid.UUID
 }
 
 func (r *Repository) UpdateConversationInUserInbox(userID, conversationID uuid.UUID, oldLastMessageAt gocql.UUID, conv *ConversationByUser) error {
-	batch := r.session.NewBatch(gocql.UnloggedBatch)
-
-	gocqlUserID, _ := gocql.ParseUUID(userID.String())
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
-
-	deleteIndexQuery := `DELETE FROM conversations_by_user_index WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
-	batch.Query(deleteIndexQuery, gocqlUserID, oldLastMessageAt, gocqlConvID)
-
 	updateQuery := `INSERT INTO conversations_by_user
 	                (user_id, conversation_id, conversation_type, display_name, display_avatar,
 	                 other_user_id, other_user_name, other_user_avatar,
 	                 last_message_at, last_message_id, last_message_preview, last_message_sender,
 	                 unread_count, last_read_message_id, last_read_at, updated_at)
 	                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	batch.Query(updateQuery,
+
+	return r.session.Query(updateQuery,
 		conv.UserID, conv.ConversationID, conv.ConversationType, conv.DisplayName, conv.DisplayAvatar,
 		conv.OtherUserID, conv.OtherUserName, conv.OtherUserAvatar,
 		conv.LastMessageAt, conv.LastMessageID, conv.LastMessagePreview, conv.LastMessageSender,
 		conv.UnreadCount, conv.LastReadMessageID, conv.LastReadAt, conv.UpdatedAt,
-	)
-
-	insertIndexQuery := `INSERT INTO conversations_by_user_index (user_id, last_message_at, conversation_id) VALUES (?, ?, ?)`
-	batch.Query(insertIndexQuery, gocqlUserID, conv.LastMessageAt, gocqlConvID)
-
-	return r.session.ExecuteBatch(batch)
+	).Exec()
 }
 
 func (r *Repository) MarkAsRead(conversationID, userID uuid.UUID, lastReadMessageID gocql.UUID, lastReadAt time.Time) error {
@@ -454,9 +436,6 @@ func (r *Repository) AddConversationToUserInboxBatch(batch *gocql.Batch, conv *C
 		conv.LastMessageAt, conv.LastMessageID, conv.LastMessagePreview, conv.LastMessageSender,
 		conv.UnreadCount, conv.LastReadMessageID, conv.LastReadAt, conv.UpdatedAt,
 	)
-
-	indexQuery := `INSERT INTO conversations_by_user_index (user_id, last_message_at, conversation_id) VALUES (?, ?, ?)`
-	batch.Query(indexQuery, conv.UserID, conv.LastMessageAt, conv.ConversationID)
 }
 
 func (r *Repository) AddDirectConversationPairToBatch(batch *gocql.Batch, userA, userB, conversationID uuid.UUID) {
@@ -574,24 +553,13 @@ func (r *Repository) GetHiddenConversation(userID, conversationID uuid.UUID) (*H
 
 // HideConversation moves a conversation from inbox to hidden
 func (r *Repository) HideConversation(userID, conversationID uuid.UUID) error {
-	userConv, err := r.GetUserConversationByID(userID, conversationID)
-	if err != nil {
-		return fmt.Errorf("failed to get user conversation: %w", err)
-	}
-	if userConv == nil {
-		return fmt.Errorf("conversation not found in user inbox")
-	}
-
-	batch := r.session.NewBatch(gocql.UnloggedBatch)
+	batch := r.session.NewBatch(gocql.LoggedBatch)
 
 	gocqlUserID, _ := gocql.ParseUUID(userID.String())
 	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
 
 	deleteQuery := `DELETE FROM conversations_by_user WHERE user_id = ? AND conversation_id = ?`
 	batch.Query(deleteQuery, gocqlUserID, gocqlConvID)
-
-	deleteIndexQuery := `DELETE FROM conversations_by_user_index WHERE user_id = ? AND last_message_at = ? AND conversation_id = ?`
-	batch.Query(deleteIndexQuery, gocqlUserID, userConv.LastMessageAt, gocqlConvID)
 
 	insertHiddenQuery := `INSERT INTO hidden_conversations 
 	                      (user_id, conversation_id, hidden_at, is_archived, is_muted)
@@ -606,7 +574,7 @@ func (r *Repository) UnhideConversation(userID, conversationID uuid.UUID, newLas
 	lastMessageID *gocql.UUID, lastMessagePreview string, lastMessageSender *uuid.UUID, unreadCount int,
 	conversationType, displayName, displayAvatar string, otherUserID *gocql.UUID, otherUserName, otherUserAvatar string) error {
 
-	batch := r.session.NewBatch(gocql.UnloggedBatch)
+	batch := r.session.NewBatch(gocql.LoggedBatch)
 
 	gocqlUserID, _ := gocql.ParseUUID(userID.String())
 	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
@@ -633,9 +601,6 @@ func (r *Repository) UnhideConversation(userID, conversationID uuid.UUID, newLas
 		newLastMessageAt, lastMessageID, lastMessagePreview, gocqlLastMessageSender,
 		unreadCount, nil, nil, now,
 	)
-
-	insertIndexQuery := `INSERT INTO conversations_by_user_index (user_id, last_message_at, conversation_id) VALUES (?, ?, ?)`
-	batch.Query(insertIndexQuery, gocqlUserID, newLastMessageAt, gocqlConvID)
 
 	return r.session.ExecuteBatch(batch)
 }

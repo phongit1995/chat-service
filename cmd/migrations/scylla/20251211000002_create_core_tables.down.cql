@@ -1,7 +1,6 @@
 DROP TABLE IF EXISTS chat_keyspace.archived_conversations;
 DROP TABLE IF EXISTS chat_keyspace.hidden_conversations;
 DROP TABLE IF EXISTS chat_keyspace.conversation_read_by_user;
-DROP TABLE IF EXISTS chat_keyspace.conversations_by_user_index;
 DROP TABLE IF EXISTS chat_keyspace.conversations_by_user;
 DROP TABLE IF EXISTS chat_keyspace.messages_by_conversation;
 DROP TABLE IF EXISTS chat_keyspace.direct_conversations_by_user_pair;
