@@ -57,11 +57,16 @@ func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*Conversa
 		return nil, fmt.Errorf("failed to check existing conversation: %w", err)
 	}
 
+	displayName := otherUser.FullName
+	if displayName == "" {
+		displayName = otherUser.Username
+	}
+
 	if existingConvID == nil {
 		return &ConversationResponse{
 			ID:               "",
 			Type:             "direct",
-			Name:             otherUser.Username,
+			Name:             displayName,
 			Avatar:           otherUser.Avatar,
 			ParticipantCount: 0,
 			IsNew:            true,
@@ -76,7 +81,7 @@ func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*Conversa
 	return &ConversationResponse{
 		ID:               existingConvID.String(),
 		Type:             "direct",
-		Name:             otherUser.Username,
+		Name:             displayName,
 		Avatar:           otherUser.Avatar,
 		CreatedAt:        conv.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:        conv.UpdatedAt.Format(time.RFC3339),
@@ -115,10 +120,14 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 	if !applied {
 		s.logger.Infow("Direct conversation already exists (race condition prevented)",
 			"user1", user1ID, "user2", user2ID, "existing_conv_id", existingConvID)
+		otherUserDisplayName := otherUser.FullName
+		if otherUserDisplayName == "" {
+			otherUserDisplayName = otherUser.Username
+		}
 		return &ConversationResponse{
 			ID:               existingConvID.String(),
 			Type:             "direct",
-			Name:             otherUser.Username,
+			Name:             otherUserDisplayName,
 			Avatar:           otherUser.Avatar,
 			CreatedAt:        now.Format(time.RFC3339),
 			UpdatedAt:        now.Format(time.RFC3339),
@@ -173,14 +182,23 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		return nil, fmt.Errorf("failed to convert conversationID: %w", err)
 	}
 
+	otherUserDisplayName := otherUser.FullName
+	if otherUserDisplayName == "" {
+		otherUserDisplayName = otherUser.Username
+	}
+	user1DisplayName := user1.FullName
+	if user1DisplayName == "" {
+		user1DisplayName = user1.Username
+	}
+
 	inbox1 := &ConversationByUser{
 		UserID:           gocqlUser1ID,
 		ConversationID:   gocqlConvID,
 		ConversationType: "direct",
-		DisplayName:      otherUser.Username,
+		DisplayName:      otherUserDisplayName,
 		DisplayAvatar:    otherUser.Avatar,
 		OtherUserID:      &gocqlUser2ID,
-		OtherUserName:    otherUser.Username,
+		OtherUserName:    otherUserDisplayName,
 		OtherUserAvatar:  otherUser.Avatar,
 		LastMessageAt:    lastMessageAt,
 		UnreadCount:      0,
@@ -190,10 +208,10 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		UserID:           gocqlUser2ID,
 		ConversationID:   gocqlConvID,
 		ConversationType: "direct",
-		DisplayName:      user1.Username,
+		DisplayName:      user1DisplayName,
 		DisplayAvatar:    user1.Avatar,
 		OtherUserID:      &gocqlUser1ID,
-		OtherUserName:    user1.Username,
+		OtherUserName:    user1DisplayName,
 		OtherUserAvatar:  user1.Avatar,
 		LastMessageAt:    lastMessageAt,
 		UnreadCount:      0,
@@ -223,10 +241,15 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		}
 	}()
 
+	otherUserResponseName := otherUser.FullName
+	if otherUserResponseName == "" {
+		otherUserResponseName = otherUser.Username
+	}
+
 	return &ConversationResponse{
 		ID:               conversationID.String(),
 		Type:             "direct",
-		Name:             otherUser.Username,
+		Name:             otherUserResponseName,
 		Avatar:           otherUser.Avatar,
 		CreatedAt:        now.Format(time.RFC3339),
 		UpdatedAt:        now.Format(time.RFC3339),
@@ -368,7 +391,10 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 			otherUserID, err := uuid.Parse(conv.OtherUserID.String())
 			if err == nil {
 				if cachedUser, cacheErr := s.userCache.GetUserCache(otherUserID, false); cacheErr == nil && cachedUser != nil {
-					resp.Name = cachedUser.Username
+					resp.Name = cachedUser.FullName
+					if resp.Name == "" {
+						resp.Name = cachedUser.Username
+					}
 					resp.Avatar = cachedUser.Avatar
 				}
 			}
@@ -597,9 +623,12 @@ func (s *Service) UnhideConversation(userID, conversationID uuid.UUID) error {
 			for _, member := range members {
 				if member.UserID != userID && member.IsActive {
 					if otherUser, userErr := s.userCache.GetUserCache(member.UserID, true); userErr == nil {
-						displayName = otherUser.Username
+						displayName = otherUser.FullName
+						if displayName == "" {
+							displayName = otherUser.Username
+						}
 						displayAvatar = otherUser.Avatar
-						otherUserName = otherUser.Username
+						otherUserName = displayName
 						otherUserAvatar = otherUser.Avatar
 						gocqlOtherID, _ := utils.ToGocqlUUID(member.UserID)
 						otherUserID = &gocqlOtherID
@@ -685,9 +714,12 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 			for _, member := range members {
 				if member.UserID != userID && member.IsActive {
 					if otherUser, userErr := s.userCache.GetUserCache(member.UserID, true); userErr == nil {
-						displayName = otherUser.Username
+						displayName = otherUser.FullName
+						if displayName == "" {
+							displayName = otherUser.Username
+						}
 						displayAvatar = otherUser.Avatar
-						otherUserName = otherUser.Username
+						otherUserName = displayName
 						otherUserAvatar = otherUser.Avatar
 						gocqlOtherID, _ := utils.ToGocqlUUID(member.UserID)
 						otherUserID = &gocqlOtherID

@@ -37,30 +37,37 @@ export const ConversationItem = ({ conversation, isActive, onClick }: Conversati
     <button
       onClick={onClick}
       className={`
-        w-full p-3 rounded-xl mb-1 text-left transition-all duration-200
+        w-full p-3 rounded-xl mb-1.5 text-left transition-all duration-200 group
         ${isActive
-          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 shadow-sm'
-          : 'hover:bg-gray-50 active:bg-gray-100'
+          ? 'bg-gradient-to-r from-blue-50 via-blue-50 to-indigo-50 border-l-4 border-blue-600 shadow-md scale-[1.02]'
+          : 'hover:bg-gray-50 hover:shadow-sm active:bg-gray-100 hover:scale-[1.01]'
         }
       `}
     >
       <div className="flex items-center gap-3">
-        <Avatar
-          src={conversation.avatar}
-          name={getDisplayName()}
-          size="lg"
-          status="online"
-        />
+        <div className="relative">
+          <Avatar
+            src={conversation.avatar}
+            name={getDisplayName()}
+            size="lg"
+            status="online"
+          />
+          {hasUnread && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full border-2 border-white animate-pulse" />
+          )}
+        </div>
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
-            <h4 className={`font-semibold truncate ${
-              isActive ? 'text-blue-900' : 'text-gray-900'
+            <h4 className={`font-semibold truncate transition-colors ${
+              isActive ? 'text-blue-900' : 'text-gray-900 group-hover:text-gray-950'
             }`}>
               {getDisplayName()}
             </h4>
             {conversation.lastMessageAt && (
-              <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+              <span className={`text-xs ml-2 flex-shrink-0 font-medium ${
+                isActive ? 'text-blue-600' : 'text-gray-500'
+              }`}>
                 {formatTime(conversation.lastMessageAt)}
               </span>
             )}
@@ -80,7 +87,7 @@ export const ConversationItem = ({ conversation, isActive, onClick }: Conversati
             )}
             
             {hasUnread && (
-              <span className="bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 flex-shrink-0 shadow-sm">
+              <span className="bg-gradient-to-br from-blue-600 to-blue-700 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-2 flex-shrink-0 shadow-md animate-scaleIn">
                 {conversation.unreadCount! > 99 ? '99+' : conversation.unreadCount}
               </span>
             )}

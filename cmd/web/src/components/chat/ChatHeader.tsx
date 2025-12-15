@@ -24,12 +24,12 @@ export const ChatHeader = ({ conversation, onBack }: ChatHeaderProps) => {
   }
 
   return (
-    <div className="bg-white border-b border-gray-200 p-4 shadow-sm">
+    <div className="bg-white border-b border-gray-200 p-4 shadow-sm backdrop-blur-sm bg-white/95">
       <div className="flex items-center gap-3">
         {onBack && (
           <button
             onClick={onBack}
-            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition"
+            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -37,30 +37,34 @@ export const ChatHeader = ({ conversation, onBack }: ChatHeaderProps) => {
           </button>
         )}
         
-        <Avatar
-          src={conversation.avatar}
-          name={getDisplayName()}
-          size="md"
-          status="online"
-        />
+        <div className="relative">
+          <Avatar
+            src={conversation.avatar}
+            name={getDisplayName()}
+            size="md"
+            status="online"
+          />
+          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
+        </div>
         
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-900 truncate">
+          <h2 className="text-lg font-bold text-gray-900 truncate">
             {getDisplayName()}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-green-600 font-medium flex items-center gap-1">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             {conversation.type === 'direct' ? 'Active now' : `${conversation.participantCount || 0} members`}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition" title="Call">
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-center gap-1">
+          <button className="p-2.5 hover:bg-blue-50 rounded-xl transition-all duration-200 hover:scale-110 active:scale-95 group" title="Call">
+            <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
             </svg>
           </button>
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition" title="More">
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button className="p-2.5 hover:bg-blue-50 rounded-xl transition-all duration-200 hover:scale-110 active:scale-95 group" title="More">
+            <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
             </svg>
           </button>

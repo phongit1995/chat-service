@@ -134,14 +134,23 @@ func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID 
 		return fmt.Errorf("failed to convert conversationID: %w", err)
 	}
 
+	user1DisplayName := user1.FullName
+	if user1DisplayName == "" {
+		user1DisplayName = user1.Username
+	}
+	user2DisplayName := user2.FullName
+	if user2DisplayName == "" {
+		user2DisplayName = user2.Username
+	}
+
 	inbox1 := &conversation.ConversationByUser{
 		UserID:           gocqlUser1ID,
 		ConversationID:   gocqlConvID,
 		ConversationType: "direct",
-		DisplayName:      user2.Username,
+		DisplayName:      user2DisplayName,
 		DisplayAvatar:    user2.Avatar,
 		OtherUserID:      &gocqlUser2ID,
-		OtherUserName:    user2.Username,
+		OtherUserName:    user2DisplayName,
 		OtherUserAvatar:  user2.Avatar,
 		LastMessageAt:    lastMessageAt,
 		UnreadCount:      0,
@@ -151,10 +160,10 @@ func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID 
 		UserID:           gocqlUser2ID,
 		ConversationID:   gocqlConvID,
 		ConversationType: "direct",
-		DisplayName:      user1.Username,
+		DisplayName:      user1DisplayName,
 		DisplayAvatar:    user1.Avatar,
 		OtherUserID:      &gocqlUser1ID,
-		OtherUserName:    user1.Username,
+		OtherUserName:    user1DisplayName,
 		OtherUserAvatar:  user1.Avatar,
 		LastMessageAt:    lastMessageAt,
 		UnreadCount:      0,
@@ -1154,15 +1163,20 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 			return fmt.Errorf("failed to convert otherUserID: %w", err)
 		}
 
+		otherUserDisplayName := otherUser.FullName
+		if otherUserDisplayName == "" {
+			otherUserDisplayName = otherUser.Username
+		}
+
 		now := time.Now()
 		inboxEntry := &conversation.ConversationByUser{
 			UserID:             gocqlUserID,
 			ConversationID:     gocqlConvID,
 			ConversationType:   "direct",
-			DisplayName:        otherUser.Username,
+			DisplayName:        otherUserDisplayName,
 			DisplayAvatar:      otherUser.Avatar,
 			OtherUserID:        &gocqlOtherUserID,
-			OtherUserName:      otherUser.Username,
+			OtherUserName:      otherUserDisplayName,
 			OtherUserAvatar:    otherUser.Avatar,
 			LastMessageAt:      messageID,
 			LastMessageID:      &messageID,
