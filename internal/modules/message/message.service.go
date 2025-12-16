@@ -59,7 +59,7 @@ func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType
 	}
 
 	if isNew {
-		if err := s.createFullDirectConversation(senderID, recipientID, conversationID); err != nil {
+		if err := s.createFullDirectConversation(conversationID, senderID, recipientID); err != nil {
 			return nil, fmt.Errorf("failed to create full conversation structure: %w", err)
 		}
 		s.logger.Infow("Created new direct conversation with full structure", "conversation_id", conversationID)
@@ -77,14 +77,14 @@ func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType
 	return messageResponse, nil
 }
 
-func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID uuid.UUID) error {
-	user1, err := s.userCache.GetUserCache(user1ID, true)
+func (s *Service) createFullDirectConversation(conversationID, senderID, recipientID uuid.UUID) error {
+	sender, err := s.userCache.GetUserCache(senderID, true)
 	if err != nil {
-		return fmt.Errorf("user1 not found: %w", err)
+		return fmt.Errorf("sender not found: %w", err)
 	}
-	user2, err := s.userCache.GetUserCache(user2ID, true)
+	recipient, err := s.userCache.GetUserCache(recipientID, true)
 	if err != nil {
-		return fmt.Errorf("user2 not found: %w", err)
+		return fmt.Errorf("recipient not found: %w", err)
 	}
 
 	now := time.Now()
@@ -97,92 +97,92 @@ func (s *Service) createFullDirectConversation(user1ID, user2ID, conversationID 
 		Type:             "direct",
 		Name:             "",
 		Avatar:           "",
-		CreatedBy:        user1ID,
+		CreatedBy:        senderID,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 		ParticipantCount: 2,
 	}
 	s.convRepo.AddConversationToBatch(batch, conv)
 
-	member1 := &conversation.ConversationMember{
+	senderMember := &conversation.ConversationMember{
 		ConversationID: conversationID,
-		UserID:         user1ID,
+		UserID:         senderID,
 		JoinedAt:       now,
 		IsActive:       true,
 		Role:           "member",
 	}
-	member2 := &conversation.ConversationMember{
+	recipientMember := &conversation.ConversationMember{
 		ConversationID: conversationID,
-		UserID:         user2ID,
+		UserID:         recipientID,
 		JoinedAt:       now,
 		IsActive:       true,
 		Role:           "member",
 	}
-	s.convRepo.AddMemberToBatch(batch, member1)
-	s.convRepo.AddMemberToBatch(batch, member2)
+	s.convRepo.AddMemberToBatch(batch, senderMember)
+	s.convRepo.AddMemberToBatch(batch, recipientMember)
 
-	gocqlUser1ID, err := utils.ToGocqlUUID(user1ID)
+	gocqlSenderID, err := utils.ToGocqlUUID(senderID)
 	if err != nil {
-		return fmt.Errorf("failed to convert user1ID: %w", err)
+		return fmt.Errorf("failed to convert senderID: %w", err)
 	}
-	gocqlUser2ID, err := utils.ToGocqlUUID(user2ID)
+	gocqlRecipientID, err := utils.ToGocqlUUID(recipientID)
 	if err != nil {
-		return fmt.Errorf("failed to convert user2ID: %w", err)
+		return fmt.Errorf("failed to convert recipientID: %w", err)
 	}
 	gocqlConvID, err := utils.ToGocqlUUID(conversationID)
 	if err != nil {
 		return fmt.Errorf("failed to convert conversationID: %w", err)
 	}
 
-	user1DisplayName := user1.FullName
-	if user1DisplayName == "" {
-		user1DisplayName = user1.Username
+	senderDisplayName := sender.FullName
+	if senderDisplayName == "" {
+		senderDisplayName = sender.Username
 	}
-	user2DisplayName := user2.FullName
-	if user2DisplayName == "" {
-		user2DisplayName = user2.Username
+	recipientDisplayName := recipient.FullName
+	if recipientDisplayName == "" {
+		recipientDisplayName = recipient.Username
 	}
 
-	inbox1 := &conversation.ConversationByUser{
-		UserID:           gocqlUser1ID,
+	senderInbox := &conversation.ConversationByUser{
+		UserID:           gocqlSenderID,
 		ConversationID:   gocqlConvID,
 		ConversationType: "direct",
-		DisplayName:      user2DisplayName,
-		DisplayAvatar:    user2.Avatar,
-		OtherUserID:      &gocqlUser2ID,
-		OtherUserName:    user2DisplayName,
-		OtherUserAvatar:  user2.Avatar,
+		DisplayName:      recipientDisplayName,
+		DisplayAvatar:    recipient.Avatar,
+		OtherUserID:      &gocqlRecipientID,
+		OtherUserName:    recipientDisplayName,
+		OtherUserAvatar:  recipient.Avatar,
 		LastMessageAt:    lastMessageAt,
 		UnreadCount:      0,
 		UpdatedAt:        &now,
 	}
-	inbox2 := &conversation.ConversationByUser{
-		UserID:           gocqlUser2ID,
+	recipientInbox := &conversation.ConversationByUser{
+		UserID:           gocqlRecipientID,
 		ConversationID:   gocqlConvID,
 		ConversationType: "direct",
-		DisplayName:      user1DisplayName,
-		DisplayAvatar:    user1.Avatar,
-		OtherUserID:      &gocqlUser1ID,
-		OtherUserName:    user1DisplayName,
-		OtherUserAvatar:  user1.Avatar,
+		DisplayName:      senderDisplayName,
+		DisplayAvatar:    sender.Avatar,
+		OtherUserID:      &gocqlSenderID,
+		OtherUserName:    senderDisplayName,
+		OtherUserAvatar:  sender.Avatar,
 		LastMessageAt:    lastMessageAt,
 		UnreadCount:      0,
 		UpdatedAt:        &now,
 	}
-	s.convRepo.AddConversationToUserInboxBatch(batch, inbox1)
-	s.convRepo.AddConversationToUserInboxBatch(batch, inbox2)
+	s.convRepo.AddConversationToUserInboxBatch(batch, senderInbox)
+	s.convRepo.AddConversationToUserInboxBatch(batch, recipientInbox)
 
 	if err := s.convRepo.ExecuteBatch(batch); err != nil {
 		return fmt.Errorf("failed to execute batch: %w", err)
 	}
 
-	members := []conversation.ConversationMember{*member1, *member2}
+	members := []conversation.ConversationMember{*senderMember, *recipientMember}
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		s.convCache.InvalidateUserConversations([]uuid.UUID{user1ID, user2ID})
+		s.convCache.InvalidateUserConversations([]uuid.UUID{senderID, recipientID})
 	}()
 	go func() {
 		defer wg.Done()

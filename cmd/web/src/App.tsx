@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { Login } from './pages/Login'
-import { Register } from './pages/Register'
-import { Chat } from './pages/Chat'
+import { Login } from './pages/login'
+import { Register } from './pages/register'
+import { Chat } from './pages/chat'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import env from './config/env'
 

@@ -1,0 +1,65 @@
+import { FormEvent } from 'react'
+import { Avatar, Button } from '../../components/ui'
+import { ChatHeader } from '../../components/chat'
+import type { TempChatUser } from '../../types'
+
+interface NewChatViewProps {
+  tempChatUser: TempChatUser
+  messageInput: string
+  isCreatingConversation: boolean
+  onMessageChange: (value: string) => void
+  onSendMessage: (e: FormEvent) => void
+}
+
+export const NewChatView = ({
+  tempChatUser,
+  messageInput,
+  isCreatingConversation,
+  onMessageChange,
+  onSendMessage,
+}: NewChatViewProps) => {
+  return (
+    <>
+      <ChatHeader conversation={undefined} />
+      
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center px-4 animate-fadeIn">
+          <Avatar
+            name={tempChatUser.username || tempChatUser.fullName || ''}
+            size="xl"
+            className="mx-auto mb-4"
+          />
+          <h3 className="text-2xl font-semibold text-gray-900 mb-2">
+            {tempChatUser.fullName || tempChatUser.username}
+          </h3>
+          <p className="text-gray-600 mb-6">
+            Send a message to start chatting
+          </p>
+        </div>
+      </div>
+
+      <div className="border-t backdrop-blur-sm bg-white/95 p-4 shadow-lg">
+        <form onSubmit={onSendMessage} className="flex items-center gap-3">
+          <input
+            type="text"
+            value={messageInput}
+            onChange={(e) => onMessageChange(e.target.value)}
+            placeholder="Type your first message..."
+            className="flex-1 px-5 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+            disabled={isCreatingConversation}
+          />
+          <Button
+            type="submit"
+            disabled={!messageInput.trim() || isCreatingConversation}
+            isLoading={isCreatingConversation}
+            className="rounded-xl px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </Button>
+        </form>
+      </div>
+    </>
+  )
+}

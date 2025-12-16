@@ -1,7 +1,7 @@
 import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../store/authStore'
-import { Button, Input, Card } from '../components/ui'
+import { useAuthStore } from '../../store/authStore'
+import { Button, Input, Card } from '../../components/ui'
 
 export const Login = () => {
   const [email, setEmail] = useState('')

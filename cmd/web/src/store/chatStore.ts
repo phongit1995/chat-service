@@ -23,7 +23,7 @@ interface ChatState {
   error: string | null
 
   loadConversations: () => Promise<void>
-  selectConversation: (conversationId: string) => Promise<void>
+  selectConversation: (conversationId: string | null) => Promise<void>
   loadMessages: (conversationId: string) => Promise<void>
   sendMessage: (conversationId: string, content: string) => Promise<void>
   createConversation: (type: string, memberIds: string[], name?: string) => Promise<void>
@@ -335,11 +335,21 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
     },
 
-    selectConversation: async (conversationId: string) => {
+    selectConversation: async (conversationId: string | null) => {
       const { currentConversation } = get()
 
       if (currentConversation) {
         socketService.leaveConversation(currentConversation.id)
+      }
+
+      if (!conversationId) {
+        set({
+          currentConversation: null,
+          messages: [],
+          typingUsers: new Set(),
+          typingTimeouts: new Map(),
+        })
+        return
       }
 
       set({ isLoading: true, error: null })
