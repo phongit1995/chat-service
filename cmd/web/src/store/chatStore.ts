@@ -221,34 +221,19 @@ export const useChatStore = create<ChatState>((set, get) => {
 
   socketService.on(WebSocketEventType.CONVERSATION_CREATED, (data: ConversationCreatedData) => {
     const { conversations } = get()
-    const currentUser = useAuthStore.getState().user
     
     // ✅ Fix: Use correct field name from backend
     const convId = (data as any).id || (data as any).ID
     
     const existingConv = conversations.find(c => c.id === convId)
     if (!existingConv) {
-      // ✅ Get other participant info for direct conversations
-      const participants = (data as any).participants || data.participants || []
-      const otherParticipant = participants.find((p: any) =>
-        (p.userId || p.UserId) !== currentUser?.id
-      )
-      
-      // ✅ For direct conversations, use other user's name and avatar
-      const isDirectConversation = ((data as any).type || data.type) === 'direct'
-      const displayName = isDirectConversation && otherParticipant
-        ? (otherParticipant.username || otherParticipant.Username)
-        : ((data as any).name || data.name || '')
-      const displayAvatar = isDirectConversation && otherParticipant
-        ? (otherParticipant.avatar || otherParticipant.Avatar)
-        : ((data as any).avatar || data.avatar || '')
-      
-      // ✅ Normalize conversation object with complete data
+      // ✅ Backend sends personalized name/avatar for each user in the event
+      // Use them directly without any transformation
       const normalizedConv: Conversation = {
         id: convId,
         type: (data as any).type || data.type,
-        name: displayName,
-        avatar: displayAvatar,
+        name: (data as any).name || data.name || '',
+        avatar: (data as any).avatar || data.avatar || '',
         participantCount: (data as any).participantCount || data.participantCount || 2,
         lastMessageText: (data as any).lastMessageText || data.lastMessageText || '',
         lastMessageAt: (data as any).lastMessageAt || data.lastMessageAt || new Date().toISOString(),

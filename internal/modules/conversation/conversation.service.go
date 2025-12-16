@@ -391,10 +391,11 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 			otherUserID, err := uuid.Parse(conv.OtherUserID.String())
 			if err == nil {
 				if cachedUser, cacheErr := s.userCache.GetUserCache(otherUserID, false); cacheErr == nil && cachedUser != nil {
-					resp.Name = cachedUser.FullName
-					if resp.Name == "" {
-						resp.Name = cachedUser.Username
+					displayName := cachedUser.FullName
+					if displayName == "" {
+						displayName = cachedUser.Username
 					}
+					resp.Name = displayName
 					resp.Avatar = cachedUser.Avatar
 				}
 			}
