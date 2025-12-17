@@ -44,7 +44,6 @@ export const ChatHeader = ({ conversation, onBack }: ChatHeaderProps) => {
             size="md"
             status="online"
           />
-          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
         </div>
         
         <div className="flex-1 min-w-0">
