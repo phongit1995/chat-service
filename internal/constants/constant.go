@@ -29,7 +29,7 @@ const (
 	CacheKeyMessageList         = "CONVERSATION:%s:MESSAGES"
 	CacheKeyRelationship        = "RELATIONSHIP:%s:DETAIL"
 	CacheKeyRelationshipList    = "USER:%s:RELATIONSHIPS"
-	CacheKeyUnreadCount         = "USER:%s:UNREAD:%s"
+	CacheKeyUnreadCount         = "CONVERSATION:%s:USER:%s:UNREAD"
 	CacheKeyTypingUsers         = "CONVERSATION:%s:TYPING"
 	CacheKeyTypingRateLimit     = "TYPING:%s:%s:RATE_LIMIT"
 	CacheKeyRateLimitLogin      = "RATE_LIMIT:%s:LOGIN"

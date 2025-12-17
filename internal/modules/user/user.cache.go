@@ -37,7 +37,7 @@ func (c *CacheService) GetUser(userID uuid.UUID) (*models.User, error) {
 
 func (c *CacheService) SetUser(userID uuid.UUID, user *models.User) error {
 	key := fmt.Sprintf(constants.CacheKeyUserProfile, userID.String())
-	return c.cache.Set(key, user, 0)
+	return c.cache.Set(key, user, constants.CacheTTLUserProfile*time.Second)
 }
 
 func (c *CacheService) DeleteUser(userID uuid.UUID) error {
