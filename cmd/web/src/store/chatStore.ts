@@ -6,18 +6,25 @@ import type {
   MessageUpdatedEventData,
   MessageDeletedEventData,
   UserTypingData,
-  ConversationCreatedData
+  ConversationCreatedData,
+  ConversationUpdatedData,
+  ConversationDeletedData
 } from '../types'
 import { WebSocketEventType } from '../types'
 import { apiService } from '../services/api'
 import { socketService } from '../services/socket'
 import { useAuthStore } from './authStore'
 
+interface TypingUserInfo {
+  userId: string
+  username: string
+}
+
 interface ChatState {
   conversations: Conversation[]
   currentConversation: Conversation | null
   messages: Message[]
-  typingUsers: Set<string>
+  typingUsers: Map<string, TypingUserInfo>  // Changed from Set to Map to store username
   typingTimeouts: Map<string, ReturnType<typeof setTimeout>>
   isLoading: boolean
   error: string | null
@@ -35,64 +42,7 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set, get) => {
-  socketService.on(WebSocketEventType.MESSAGE_CREATED, (eventData: MessageCreatedEventData) => {
-    const { currentConversation, messages } = get()
-    const { conversation, message } = eventData
-    const currentUser = useAuthStore.getState().user
-
-    // ✅ Fix: Use correct field name from backend (ConversationID with capital C)
-    const messageConvId = (message as any).ConversationID || message.conversationId
-    const messageSenderId = (message as any).SenderID || message.senderId
-    
-    // ✅ IMPORTANT: Only add message to UI if NOT sent by current user
-    // (Current user already has message from API response - optimistic update)
-    if (messageConvId === currentConversation?.id && messageSenderId !== currentUser?.id) {
-      const messageExists = messages.some(m => m.id === message.id || m.id === (message as any).ID)
-      if (!messageExists) {
-        // ✅ Normalize message object before adding
-        const normalizedMessage: Message = {
-          id: (message as any).ID || message.id,
-          conversationId: messageConvId,
-          senderId: messageSenderId,
-          senderName: (message as any).SenderName || message.senderName,
-          senderAvatar: (message as any).SenderAvatar || message.senderAvatar,
-          type: (message as any).Type || message.type,
-          content: (message as any).Content || message.content,
-          metadata: (message as any).Metadata || message.metadata,
-          status: (message as any).Status || message.status,
-          createdAt: (message as any).CreatedAt || message.createdAt,
-          updatedAt: (message as any).UpdatedAt || message.updatedAt,
-          replyToId: (message as any).ReplyToID || message.replyToId,
-        }
-        set({ messages: [...messages, normalizedMessage] })
-      }
-    }
-
-    // ✅ Update conversation and move to top of list
-    set(state => {
-      const updatedConversations = state.conversations.map(conv =>
-        conv.id === messageConvId
-          ? {
-              ...conv,
-              lastMessageText: message.content || (message as any).Content,
-              lastMessageAt: message.createdAt || (message as any).CreatedAt,
-              participantCount: conversation.participantCount || (conversation as any).ParticipantCount
-            }
-          : conv
-      )
-      
-      // Move updated conversation to top
-      const targetIndex = updatedConversations.findIndex(c => c.id === messageConvId)
-      if (targetIndex > 0) {
-        const [targetConv] = updatedConversations.splice(targetIndex, 1)
-        updatedConversations.unshift(targetConv)
-      }
-      
-      return { conversations: updatedConversations }
-    })
-  })
-
-  // ✅ Handle NEW_MESSAGE event (same as MESSAGE_CREATED)
+  // ✅ Handle NEW_MESSAGE event from backend
   socketService.on(WebSocketEventType.NEW_MESSAGE, (eventData: MessageCreatedEventData) => {
     const { currentConversation, messages } = get()
     const { conversation, message } = eventData
@@ -128,16 +78,22 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     // ✅ Update conversation and move to top of list
     set(state => {
-      const updatedConversations = state.conversations.map(conv =>
-        conv.id === messageConvId
-          ? {
-              ...conv,
-              lastMessageText: message.content || (message as any).Content,
-              lastMessageAt: message.createdAt || (message as any).CreatedAt,
-              participantCount: conversation.participantCount || (conversation as any).ParticipantCount
-            }
-          : conv
-      )
+      const updatedConversations = state.conversations.map(conv => {
+        if (conv.id === messageConvId) {
+          // If message is from another user and conversation is not currently open, increment unread count
+          const isCurrentConv = state.currentConversation?.id === messageConvId
+          const currentUnread = conv.unreadCount || 0
+          
+          return {
+            ...conv,
+            lastMessageText: message.content || (message as any).Content,
+            lastMessageAt: message.createdAt || (message as any).CreatedAt,
+            participantCount: conversation.participantCount || (conversation as any).ParticipantCount,
+            unreadCount: !isCurrentConv && messageSenderId !== currentUser?.id ? currentUnread + 1 : currentUnread
+          }
+        }
+        return conv
+      })
       
       // Move updated conversation to top
       const targetIndex = updatedConversations.findIndex(c => c.id === messageConvId)
@@ -269,10 +225,14 @@ export const useChatStore = create<ChatState>((set, get) => {
       return
     }
 
-    const newTypingUsers = new Set(typingUsers)
+    const newTypingUsers = new Map(typingUsers)
     const newTypingTimeouts = new Map(typingTimeouts)
     
-    newTypingUsers.add(data.userId)
+    // Store both userId and username
+    newTypingUsers.set(data.userId, {
+      userId: data.userId,
+      username: data.username
+    })
     
     if (newTypingTimeouts.has(data.userId)) {
       clearTimeout(newTypingTimeouts.get(data.userId)!)
@@ -280,7 +240,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     
     const timeout = setTimeout(() => {
       const { typingUsers: currentTypingUsers, typingTimeouts: currentTimeouts } = get()
-      const updatedUsers = new Set(currentTypingUsers)
+      const updatedUsers = new Map(currentTypingUsers)
       const updatedTimeouts = new Map(currentTimeouts)
       
       updatedUsers.delete(data.userId)
@@ -293,18 +253,91 @@ export const useChatStore = create<ChatState>((set, get) => {
     newTypingTimeouts.set(data.userId, timeout)
     
     set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
-    console.log('✅ Updated typingUsers:', newTypingUsers.size, Array.from(newTypingUsers))
+    console.log('✅ Updated typingUsers:', newTypingUsers.size, Array.from(newTypingUsers.keys()))
   })
 
-  socketService.on(WebSocketEventType.USER_STATUS_CHANGED, (data: { userId: string; status: string }) => {
-    console.log('User status changed:', data)
+  // Handle USER_ONLINE event
+  socketService.on(WebSocketEventType.USER_ONLINE, (data: { userId: string; status: string }) => {
+    console.log('User online:', data)
+    // TODO: Update user status in UI
+  })
+
+  // Handle USER_OFFLINE event
+  socketService.on(WebSocketEventType.USER_OFFLINE, (data: { userId: string; status: string }) => {
+    console.log('User offline:', data)
+    // TODO: Update user status in UI
+  })
+
+  // Handle USER_STOP_TYPING event
+  socketService.on(WebSocketEventType.USER_STOP_TYPING, (data: UserTypingData) => {
+    const { typingUsers, typingTimeouts } = get()
+    const currentUser = useAuthStore.getState().user
+    
+    if (data.userId === currentUser?.id) {
+      return
+    }
+    
+    const newTypingUsers = new Map(typingUsers)
+    const newTypingTimeouts = new Map(typingTimeouts)
+    
+    newTypingUsers.delete(data.userId)
+    
+    if (newTypingTimeouts.has(data.userId)) {
+      clearTimeout(newTypingTimeouts.get(data.userId)!)
+      newTypingTimeouts.delete(data.userId)
+    }
+    
+    set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
+    console.log('✅ User stopped typing:', data.userId)
+  })
+
+  // Handle CONVERSATION_UPDATED event
+  socketService.on(WebSocketEventType.CONVERSATION_UPDATED, (data: ConversationUpdatedData) => {
+    const { conversations } = get()
+    const convId = (data as any).id || (data as any).ID
+    
+    set(state => ({
+      conversations: state.conversations.map(conv =>
+        conv.id === convId
+          ? {
+              ...conv,
+              name: (data as any).name || data.name || conv.name,
+              avatar: (data as any).avatar || data.avatar || conv.avatar,
+              participantCount: (data as any).participantCount || data.participantCount || conv.participantCount
+            }
+          : conv
+      )
+    }))
+    
+    console.log('✅ Conversation updated:', convId)
+  })
+
+  // Handle CONVERSATION_DELETED event
+  socketService.on(WebSocketEventType.CONVERSATION_DELETED, (data: ConversationDeletedData) => {
+    const { currentConversation } = get()
+    
+    set(state => ({
+      conversations: state.conversations.filter(conv => conv.id !== data.conversationId)
+    }))
+    
+    // If current conversation is deleted, clear it
+    if (currentConversation?.id === data.conversationId) {
+      set({
+        currentConversation: null,
+        messages: [],
+        typingUsers: new Map(),
+        typingTimeouts: new Map()
+      })
+    }
+    
+    console.log('✅ Conversation deleted:', data.conversationId)
   })
 
   return {
     conversations: [],
     currentConversation: null,
     messages: [],
-    typingUsers: new Set(),
+    typingUsers: new Map(),
     typingTimeouts: new Map(),
     isLoading: false,
     error: null,
@@ -331,7 +364,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         set({
           currentConversation: null,
           messages: [],
-          typingUsers: new Set(),
+          typingUsers: new Map(),
           typingTimeouts: new Map(),
         })
         return
@@ -344,16 +377,21 @@ export const useChatStore = create<ChatState>((set, get) => {
 
         const conv = get().conversations.find(c => c.id === conversationId)
         
-        set({
+        // Clear unread count immediately when opening conversation
+        set(state => ({
           currentConversation: conv || null,
           messages,
-          typingUsers: new Set(),
+          typingUsers: new Map(),
           typingTimeouts: new Map(),
-          isLoading: false
-        })
+          isLoading: false,
+          conversations: state.conversations.map(c => 
+            c.id === conversationId ? { ...c, unreadCount: 0 } : c
+          )
+        }))
 
         socketService.joinConversation(conversationId)
 
+        // Call API to mark as read on backend
         if (conv && conv.unreadCount && conv.unreadCount > 0) {
           get().markAsRead(conversationId)
         }
@@ -437,11 +475,11 @@ export const useChatStore = create<ChatState>((set, get) => {
       set(state => ({ messages: [...state.messages, message] }))
     },
 
-    setTyping: (userId: string, isTyping: boolean) => {
+    setTyping: (userId: string, isTyping: boolean, username?: string) => {
       const { typingUsers } = get()
-      const newTypingUsers = new Set(typingUsers)
-      if (isTyping) {
-        newTypingUsers.add(userId)
+      const newTypingUsers = new Map(typingUsers)
+      if (isTyping && username) {
+        newTypingUsers.set(userId, { userId, username })
       } else {
         newTypingUsers.delete(userId)
       }
@@ -479,7 +517,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         conversations: [],
         currentConversation: null,
         messages: [],
-        typingUsers: new Set(),
+        typingUsers: new Map(),
         typingTimeouts: new Map(),
         isLoading: false,
         error: null,

@@ -6,7 +6,9 @@ import type {
   MessageDeletedEventData,
   UserTypingData,
   UserStatusData,
-  ConversationCreatedData
+  ConversationCreatedData,
+  ConversationUpdatedData,
+  ConversationDeletedData
 } from '../types'
 import { WebSocketEventType } from '../types'
 import env from '../config/env'
@@ -41,9 +43,9 @@ class SocketService {
       console.log('WebSocket event received:', wrapper.type, wrapper.data)
       
       switch (wrapper.type) {
-        case WebSocketEventType.MESSAGE_CREATED:
+        // Message events
         case WebSocketEventType.NEW_MESSAGE:
-          this.emit(WebSocketEventType.MESSAGE_CREATED, wrapper.data as MessageCreatedEventData)
+          this.emit(WebSocketEventType.NEW_MESSAGE, wrapper.data as MessageCreatedEventData)
           break
           
         case WebSocketEventType.MESSAGE_UPDATED:
@@ -54,16 +56,34 @@ class SocketService {
           this.emit(WebSocketEventType.MESSAGE_DELETED, wrapper.data as MessageDeletedEventData)
           break
           
+        // Conversation events
         case WebSocketEventType.CONVERSATION_CREATED:
           this.emit(WebSocketEventType.CONVERSATION_CREATED, wrapper.data as ConversationCreatedData)
           break
           
-        case WebSocketEventType.USER_STATUS_CHANGED:
-          this.emit(WebSocketEventType.USER_STATUS_CHANGED, wrapper.data as UserStatusData)
+        case WebSocketEventType.CONVERSATION_UPDATED:
+          this.emit(WebSocketEventType.CONVERSATION_UPDATED, wrapper.data as ConversationUpdatedData)
+          break
+          
+        case WebSocketEventType.CONVERSATION_DELETED:
+          this.emit(WebSocketEventType.CONVERSATION_DELETED, wrapper.data as ConversationDeletedData)
+          break
+          
+        // User events
+        case WebSocketEventType.USER_ONLINE:
+          this.emit(WebSocketEventType.USER_ONLINE, wrapper.data as UserStatusData)
+          break
+          
+        case WebSocketEventType.USER_OFFLINE:
+          this.emit(WebSocketEventType.USER_OFFLINE, wrapper.data as UserStatusData)
           break
           
         case WebSocketEventType.USER_TYPING:
           this.emit(WebSocketEventType.USER_TYPING, wrapper.data as UserTypingData)
+          break
+          
+        case WebSocketEventType.USER_STOP_TYPING:
+          this.emit(WebSocketEventType.USER_STOP_TYPING, wrapper.data as UserTypingData)
           break
           
         default:

@@ -13,6 +13,11 @@ import { NewChatView } from './NewChatView'
 import { EmptyState } from './EmptyState'
 import type { UserSearchResult, TempChatUser } from '../../types'
 
+interface TypingUserInfo {
+  userId: string
+  username: string
+}
+
 export const Chat = () => {
   const navigate = useNavigate()
   const { user, logout, loadUser } = useAuthStore()

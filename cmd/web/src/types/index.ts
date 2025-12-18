@@ -198,14 +198,30 @@ export interface ConversationCreatedData extends Conversation {
   participants?: ConversationParticipant[]
 }
 
+export interface ConversationUpdatedData extends Conversation {
+  participants?: ConversationParticipant[]
+}
+
+export interface ConversationDeletedData {
+  conversationId: string
+}
+
 export const WebSocketEventType = {
-  MESSAGE_CREATED: 'MESSAGE_CREATED',
-  NEW_MESSAGE: 'NEW_MESSAGE',
+  // Message events
+  NEW_MESSAGE: 'NEW_MESSAGE',  // Backend uses NEW_MESSAGE for created messages
   MESSAGE_UPDATED: 'MESSAGE_UPDATED',
   MESSAGE_DELETED: 'MESSAGE_DELETED',
+  
+  // Conversation events
   CONVERSATION_CREATED: 'CONVERSATION_CREATED',
-  USER_STATUS_CHANGED: 'USER_STATUS_CHANGED',
+  CONVERSATION_UPDATED: 'CONVERSATION_UPDATED',
+  CONVERSATION_DELETED: 'CONVERSATION_DELETED',
+  
+  // User events
+  USER_ONLINE: 'USER_ONLINE',
+  USER_OFFLINE: 'USER_OFFLINE',
   USER_TYPING: 'USER_TYPING',
+  USER_STOP_TYPING: 'USER_STOP_TYPING',
 } as const
 
 export type WebSocketEventTypeKeys = keyof typeof WebSocketEventType

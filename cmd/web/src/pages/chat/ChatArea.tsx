@@ -3,11 +3,16 @@ import { Button } from '../../components/ui'
 import { ChatHeader, MessageBubble, TypingIndicator } from '../../components/chat'
 import type { Conversation, Message, User } from '../../types'
 
+interface TypingUserInfo {
+  userId: string
+  username: string
+}
+
 interface ChatAreaProps {
   conversation: Conversation
   messages: Message[]
   messageInput: string
-  typingUsers: Set<string>
+  typingUsers: Map<string, TypingUserInfo>
   user: User | null
   onMessageChange: (e: ChangeEvent<HTMLInputElement>) => void
   onSendMessage: (e: FormEvent) => void
@@ -43,7 +48,7 @@ export const ChatArea = ({
               isOwnMessage={message.senderId === user?.id}
             />
           ))}
-        {typingUsers.size > 0 && <TypingIndicator count={typingUsers.size} />}
+        {typingUsers.size > 0 && <TypingIndicator typingUsers={typingUsers} />}
         <div ref={messagesEndRef} />
       </div>
 
