@@ -24,7 +24,7 @@ interface ChatState {
   conversations: Conversation[]
   currentConversation: Conversation | null
   messages: Message[]
-  typingUsers: Map<string, TypingUserInfo>  // Changed from Set to Map to store username
+  typingUsers: Map<string, TypingUserInfo>
   typingTimeouts: Map<string, ReturnType<typeof setTimeout>>
   isLoading: boolean
   error: string | null
@@ -35,247 +35,192 @@ interface ChatState {
   sendMessage: (conversationId: string, content: string) => Promise<void>
   createConversation: (type: string, memberIds: string[], name?: string) => Promise<void>
   addMessage: (message: Message) => void
-  setTyping: (userId: string, isTyping: boolean) => void
+  setTyping: (userId: string, isTyping: boolean, username?: string) => void
   markAsRead: (conversationId: string) => Promise<void>
   clearError: () => void
   reset: () => void
 }
 
+
+
+const moveConversationToTop = (conversations: Conversation[], conversationId: string): Conversation[] => {
+  const targetIndex = conversations.findIndex(c => c.id === conversationId)
+  if (targetIndex > 0) {
+    const [targetConv] = conversations.splice(targetIndex, 1)
+    return [targetConv, ...conversations]
+  }
+  return conversations
+}
+
+const updateConversationInList = (
+  conversations: Conversation[],
+  conversationId: string,
+  updates: Partial<Conversation>
+): Conversation[] => {
+  return conversations.map(conv => 
+    conv.id === conversationId ? { ...conv, ...updates } : conv
+  )
+}
+
 export const useChatStore = create<ChatState>((set, get) => {
-  // ✅ Handle NEW_MESSAGE event from backend
+  
+
+  
+
   socketService.on(WebSocketEventType.NEW_MESSAGE, (eventData: MessageCreatedEventData) => {
-    const { currentConversation, messages } = get()
+    const { currentConversation, messages, conversations } = get()
     const { conversation, message } = eventData
     const currentUser = useAuthStore.getState().user
-
-    // ✅ Fix: Use correct field name from backend (ConversationID with capital C)
-    const messageConvId = (message as any).ConversationID || message.conversationId
-    const messageSenderId = (message as any).SenderID || message.senderId
     
-    // ✅ IMPORTANT: Only add message to UI if NOT sent by current user
-    // (Current user already has message from API response - optimistic update)
-    if (messageConvId === currentConversation?.id && messageSenderId !== currentUser?.id) {
-      const messageExists = messages.some(m => m.id === message.id || m.id === (message as any).ID)
+
+    if (message.conversationId === currentConversation?.id && message.senderId !== currentUser?.id) {
+      const messageExists = messages.some(m => m.id === message.id)
       if (!messageExists) {
-        // ✅ Normalize message object before adding
-        const normalizedMessage: Message = {
-          id: (message as any).ID || message.id,
-          conversationId: messageConvId,
-          senderId: messageSenderId,
-          senderName: (message as any).SenderName || message.senderName,
-          senderAvatar: (message as any).SenderAvatar || message.senderAvatar,
-          type: (message as any).Type || message.type,
-          content: (message as any).Content || message.content,
-          metadata: (message as any).Metadata || message.metadata,
-          status: (message as any).Status || message.status,
-          createdAt: (message as any).CreatedAt || message.createdAt,
-          updatedAt: (message as any).UpdatedAt || message.updatedAt,
-          replyToId: (message as any).ReplyToID || message.replyToId,
-        }
-        set({ messages: [...messages, normalizedMessage] })
+        set({ messages: [...messages, message] })
       }
     }
+    
 
-    // ✅ Update conversation and move to top of list
-    set(state => {
-      const updatedConversations = state.conversations.map(conv => {
-        if (conv.id === messageConvId) {
-          // If message is from another user and conversation is not currently open, increment unread count
-          const isCurrentConv = state.currentConversation?.id === messageConvId
-          const currentUnread = conv.unreadCount || 0
-          
-          return {
-            ...conv,
-            lastMessageText: message.content || (message as any).Content,
-            lastMessageAt: message.createdAt || (message as any).CreatedAt,
-            participantCount: conversation.participantCount || (conversation as any).ParticipantCount,
-            unreadCount: !isCurrentConv && messageSenderId !== currentUser?.id ? currentUnread + 1 : currentUnread
-          }
-        }
-        return conv
-      })
-      
-      // Move updated conversation to top
-      const targetIndex = updatedConversations.findIndex(c => c.id === messageConvId)
-      if (targetIndex > 0) {
-        const [targetConv] = updatedConversations.splice(targetIndex, 1)
-        updatedConversations.unshift(targetConv)
-      }
-      
-      return { conversations: updatedConversations }
+    const isCurrentConv = currentConversation?.id === message.conversationId
+    const updates: Partial<Conversation> = {
+      lastMessageText: message.content,
+      lastMessageAt: message.createdAt,
+      participantCount: conversation.participantCount,
+    }
+    
+
+    if (!isCurrentConv && message.senderId !== currentUser?.id) {
+      const conv = conversations.find(c => c.id === message.conversationId)
+      updates.unreadCount = (conv?.unreadCount || 0) + 1
+    }
+    
+    set({
+      conversations: moveConversationToTop(
+        updateConversationInList(conversations, message.conversationId, updates),
+        message.conversationId
+      )
     })
   })
 
-  socketService.on(WebSocketEventType.MESSAGE_UPDATED, (eventData: MessageUpdatedEventData) => {
-    const { currentConversation, messages } = get()
-    const { conversation, message } = eventData
 
-    // ✅ Fix: Use correct field name from backend
-    const messageConvId = (message as any).ConversationID || message.conversationId
+  socketService.on(WebSocketEventType.MESSAGE_UPDATED, (eventData: MessageUpdatedEventData) => {
+    const { currentConversation, messages, conversations } = get()
+    const { conversation, message } = eventData
     
-    if (messageConvId === currentConversation?.id) {
-      // ✅ Normalize message object
-      const normalizedMessage: Message = {
-        id: message.id,
-        conversationId: messageConvId,
-        senderId: (message as any).SenderID || message.senderId,
-        senderName: (message as any).SenderName || message.senderName,
-        senderAvatar: (message as any).SenderAvatar || message.senderAvatar,
-        type: (message as any).Type || message.type,
-        content: (message as any).Content || message.content,
-        metadata: (message as any).Metadata || message.metadata,
-        status: (message as any).Status || message.status,
-        createdAt: (message as any).CreatedAt || message.createdAt,
-        updatedAt: (message as any).UpdatedAt || message.updatedAt,
-        replyToId: (message as any).ReplyToID || message.replyToId,
-      }
-      
+
+    if (message.conversationId === currentConversation?.id) {
       set({
         messages: messages.map(msg =>
-          msg.id === message.id ? normalizedMessage : msg
+          msg.id === message.id ? message : msg
         )
       })
     }
+    
 
-    // ✅ Update conversation and move to top of list
-    set(state => {
-      const updatedConversations = state.conversations.map(conv =>
-        conv.id === messageConvId
-          ? {
-              ...conv,
-              lastMessageText: (message as any).Content || message.content,
-              lastMessageAt: (message as any).UpdatedAt || message.updatedAt,
-              participantCount: (conversation as any).ParticipantCount || conversation.participantCount
-            }
-          : conv
+    set({
+      conversations: moveConversationToTop(
+        updateConversationInList(conversations, message.conversationId, {
+          lastMessageText: message.content,
+          lastMessageAt: message.updatedAt,
+          participantCount: conversation.participantCount,
+        }),
+        message.conversationId
       )
-      
-      // Move updated conversation to top
-      const targetIndex = updatedConversations.findIndex(c => c.id === messageConvId)
-      if (targetIndex > 0) {
-        const [targetConv] = updatedConversations.splice(targetIndex, 1)
-        updatedConversations.unshift(targetConv)
-      }
-      
-      return { conversations: updatedConversations }
     })
   })
 
+
   socketService.on(WebSocketEventType.MESSAGE_DELETED, (eventData: MessageDeletedEventData) => {
     const { currentConversation, messages } = get()
-    const { conversation, messageId } = eventData
-
-    // ✅ Fix: Use correct field name from backend
-    const convId = (conversation as any).ID || conversation.id
     
-    if (convId === currentConversation?.id) {
-      set({
-        messages: messages.filter(msg => msg.id !== messageId)
-      })
+    if (eventData.conversation.id === currentConversation?.id) {
+      set({ messages: messages.filter(msg => msg.id !== eventData.messageId) })
     }
   })
+
 
   socketService.on(WebSocketEventType.CONVERSATION_CREATED, (data: ConversationCreatedData) => {
     const { conversations } = get()
     
-    // ✅ Fix: Use correct field name from backend
-    const convId = (data as any).id || (data as any).ID
-    
-    const existingConv = conversations.find(c => c.id === convId)
-    if (!existingConv) {
-      // ✅ Backend sends personalized name/avatar for each user in the event
-      // Use them directly without any transformation
-      const normalizedConv: Conversation = {
-        id: convId,
-        type: (data as any).type || data.type,
-        name: (data as any).name || data.name || '',
-        avatar: (data as any).avatar || data.avatar || '',
-        participantCount: (data as any).participantCount || data.participantCount || 2,
-        lastMessageText: (data as any).lastMessageText || data.lastMessageText || '',
-        lastMessageAt: (data as any).lastMessageAt || data.lastMessageAt || new Date().toISOString(),
-        unreadCount: (data as any).unreadCount || data.unreadCount || 0,
-      }
-      
-      set({
-        conversations: [normalizedConv, ...conversations]
-      })
-      
-      console.log('✅ New conversation created:', normalizedConv)
+    if (!conversations.find(c => c.id === data.id)) {
+      set({ conversations: [data, ...conversations] })
+      console.log('✅ New conversation created:', data.id)
     }
   })
+  
+
+  socketService.on(WebSocketEventType.CONVERSATION_UPDATED, (data: ConversationUpdatedData) => {
+    const { conversations } = get()
+    
+    set({
+      conversations: updateConversationInList(conversations, data.id, {
+        name: data.name,
+        avatar: data.avatar,
+        participantCount: data.participantCount,
+      })
+    })
+    
+    console.log('✅ Conversation updated:', data.id)
+  })
+  
+
+  socketService.on(WebSocketEventType.CONVERSATION_DELETED, (data: ConversationDeletedData) => {
+    const { currentConversation, conversations } = get()
+    
+    set({ conversations: conversations.filter(conv => conv.id !== data.conversationId) })
+    
+    if (currentConversation?.id === data.conversationId) {
+      set({
+        currentConversation: null,
+        messages: [],
+        typingUsers: new Map(),
+        typingTimeouts: new Map()
+      })
+    }
+    
+    console.log('✅ Conversation deleted:', data.conversationId)
+  })
+
 
   socketService.on(WebSocketEventType.USER_TYPING, (data: UserTypingData) => {
     const { currentConversation, typingUsers, typingTimeouts } = get()
     const currentUser = useAuthStore.getState().user
     
-    console.log('🔵 USER_TYPING event received:', {
-      data,
-      currentConvId: currentConversation?.id,
-      currentUserId: currentUser?.id,
-      willUpdate: data.conversationId === currentConversation?.id && data.userId !== currentUser?.id
-    })
-    
-    if (data.userId === currentUser?.id) {
-      console.log('⏭️  Skipped: typing from self')
+    if (data.userId === currentUser?.id || data.conversationId !== currentConversation?.id) {
       return
     }
     
-    if (data.conversationId !== currentConversation?.id) {
-      console.log('⏭️  Skipped: different conversation')
-      return
-    }
-
     const newTypingUsers = new Map(typingUsers)
     const newTypingTimeouts = new Map(typingTimeouts)
     
-    // Store both userId and username
-    newTypingUsers.set(data.userId, {
-      userId: data.userId,
-      username: data.username
-    })
-    
+
     if (newTypingTimeouts.has(data.userId)) {
       clearTimeout(newTypingTimeouts.get(data.userId)!)
     }
     
+
+    newTypingUsers.set(data.userId, { userId: data.userId, username: data.username })
+    
+
     const timeout = setTimeout(() => {
-      const { typingUsers: currentTypingUsers, typingTimeouts: currentTimeouts } = get()
-      const updatedUsers = new Map(currentTypingUsers)
-      const updatedTimeouts = new Map(currentTimeouts)
-      
-      updatedUsers.delete(data.userId)
+      const { typingUsers: current, typingTimeouts: timeouts } = get()
+      const updated = new Map(current)
+      const updatedTimeouts = new Map(timeouts)
+      updated.delete(data.userId)
       updatedTimeouts.delete(data.userId)
-      
-      set({ typingUsers: updatedUsers, typingTimeouts: updatedTimeouts })
-      console.log('⏱️  Typing timeout for user:', data.userId)
+      set({ typingUsers: updated, typingTimeouts: updatedTimeouts })
     }, 3000)
     
     newTypingTimeouts.set(data.userId, timeout)
-    
     set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
-    console.log('✅ Updated typingUsers:', newTypingUsers.size, Array.from(newTypingUsers.keys()))
   })
+  
 
-  // Handle USER_ONLINE event
-  socketService.on(WebSocketEventType.USER_ONLINE, (data: { userId: string; status: string }) => {
-    console.log('User online:', data)
-    // TODO: Update user status in UI
-  })
-
-  // Handle USER_OFFLINE event
-  socketService.on(WebSocketEventType.USER_OFFLINE, (data: { userId: string; status: string }) => {
-    console.log('User offline:', data)
-    // TODO: Update user status in UI
-  })
-
-  // Handle USER_STOP_TYPING event
   socketService.on(WebSocketEventType.USER_STOP_TYPING, (data: UserTypingData) => {
     const { typingUsers, typingTimeouts } = get()
     const currentUser = useAuthStore.getState().user
     
-    if (data.userId === currentUser?.id) {
-      return
-    }
+    if (data.userId === currentUser?.id) return
     
     const newTypingUsers = new Map(typingUsers)
     const newTypingTimeouts = new Map(typingTimeouts)
@@ -288,49 +233,17 @@ export const useChatStore = create<ChatState>((set, get) => {
     }
     
     set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
-    console.log('✅ User stopped typing:', data.userId)
   })
+  
 
-  // Handle CONVERSATION_UPDATED event
-  socketService.on(WebSocketEventType.CONVERSATION_UPDATED, (data: ConversationUpdatedData) => {
-    const { conversations } = get()
-    const convId = (data as any).id || (data as any).ID
-    
-    set(state => ({
-      conversations: state.conversations.map(conv =>
-        conv.id === convId
-          ? {
-              ...conv,
-              name: (data as any).name || data.name || conv.name,
-              avatar: (data as any).avatar || data.avatar || conv.avatar,
-              participantCount: (data as any).participantCount || data.participantCount || conv.participantCount
-            }
-          : conv
-      )
-    }))
-    
-    console.log('✅ Conversation updated:', convId)
+  socketService.on(WebSocketEventType.USER_ONLINE, (data: { userId: string; status: string }) => {
+    console.log('User online:', data.userId)
+
   })
+  
+  socketService.on(WebSocketEventType.USER_OFFLINE, (data: { userId: string; status: string }) => {
+    console.log('User offline:', data.userId)
 
-  // Handle CONVERSATION_DELETED event
-  socketService.on(WebSocketEventType.CONVERSATION_DELETED, (data: ConversationDeletedData) => {
-    const { currentConversation } = get()
-    
-    set(state => ({
-      conversations: state.conversations.filter(conv => conv.id !== data.conversationId)
-    }))
-    
-    // If current conversation is deleted, clear it
-    if (currentConversation?.id === data.conversationId) {
-      set({
-        currentConversation: null,
-        messages: [],
-        typingUsers: new Map(),
-        typingTimeouts: new Map()
-      })
-    }
-    
-    console.log('✅ Conversation deleted:', data.conversationId)
   })
 
   return {
@@ -346,19 +259,23 @@ export const useChatStore = create<ChatState>((set, get) => {
       set({ isLoading: true, error: null })
       try {
         const response = await apiService.getConversations()
-        const conversations = response.data?.conversations || []
-        set({ conversations, isLoading: false })
+        set({ conversations: response.data?.conversations || [], isLoading: false })
       } catch (error: any) {
-        set({ error: error.response?.data?.error || 'Failed to load conversations', isLoading: false })
+        set({ 
+          error: error.response?.data?.error || 'Failed to load conversations', 
+          isLoading: false 
+        })
       }
     },
 
     selectConversation: async (conversationId: string | null) => {
-      const { currentConversation } = get()
+      const { currentConversation, conversations } = get()
+
 
       if (currentConversation) {
         socketService.leaveConversation(currentConversation.id)
       }
+
 
       if (!conversationId) {
         set({
@@ -373,30 +290,29 @@ export const useChatStore = create<ChatState>((set, get) => {
       set({ isLoading: true, error: null })
       try {
         const messagesResponse = await apiService.getMessages(conversationId)
-        const messages = messagesResponse.data?.messages || []
-
-        const conv = get().conversations.find(c => c.id === conversationId)
+        const conv = conversations.find(c => c.id === conversationId)
         
-        // Clear unread count immediately when opening conversation
-        set(state => ({
+
+        set({
           currentConversation: conv || null,
-          messages,
+          messages: messagesResponse.data?.messages || [],
           typingUsers: new Map(),
           typingTimeouts: new Map(),
           isLoading: false,
-          conversations: state.conversations.map(c => 
-            c.id === conversationId ? { ...c, unreadCount: 0 } : c
-          )
-        }))
+          conversations: updateConversationInList(conversations, conversationId, { unreadCount: 0 })
+        })
 
         socketService.joinConversation(conversationId)
 
-        // Call API to mark as read on backend
-        if (conv && conv.unreadCount && conv.unreadCount > 0) {
+
+        if (conv?.unreadCount && conv.unreadCount > 0) {
           get().markAsRead(conversationId)
         }
       } catch (error: any) {
-        set({ error: error.response?.data?.error || 'Failed to load conversation', isLoading: false })
+        set({ 
+          error: error.response?.data?.error || 'Failed to load conversation', 
+          isLoading: false 
+        })
       }
     },
 
@@ -406,7 +322,10 @@ export const useChatStore = create<ChatState>((set, get) => {
         const response = await apiService.getMessages(conversationId)
         set({ messages: response.data?.messages || [], isLoading: false })
       } catch (error: any) {
-        set({ error: error.response?.data?.error || 'Failed to load messages', isLoading: false })
+        set({ 
+          error: error.response?.data?.error || 'Failed to load messages', 
+          isLoading: false 
+        })
       }
     },
 
@@ -418,35 +337,25 @@ export const useChatStore = create<ChatState>((set, get) => {
           messageType: 'TEXT'
         })
         
-        // ✅ OPTIMISTIC UPDATE: Add message to UI immediately
-        if (response.data) {
-          const { currentConversation, messages } = get()
-          if (response.data.conversationId === currentConversation?.id) {
-            set({ messages: [...messages, response.data] })
-          }
-          
-          // ✅ UPDATE CONVERSATION LIST: Update last message preview and move to top
-          set(state => {
-            const updatedConversations = state.conversations.map(conv =>
-              conv.id === response.data!.conversationId
-                ? {
-                    ...conv,
-                    lastMessageText: response.data!.content,
-                    lastMessageAt: response.data!.createdAt
-                  }
-                : conv
-            )
-            
-            // Move updated conversation to top
-            const targetIndex = updatedConversations.findIndex(c => c.id === response.data!.conversationId)
-            if (targetIndex > 0) {
-              const [targetConv] = updatedConversations.splice(targetIndex, 1)
-              updatedConversations.unshift(targetConv)
-            }
-            
-            return { conversations: updatedConversations }
-          })
+        if (!response.data) return
+        
+        const { currentConversation, messages, conversations } = get()
+        
+
+        if (response.data.conversationId === currentConversation?.id) {
+          set({ messages: [...messages, response.data] })
         }
+        
+    
+        set({
+          conversations: moveConversationToTop(
+            updateConversationInList(conversations, response.data.conversationId, {
+              lastMessageText: response.data.content,
+              lastMessageAt: response.data.createdAt
+            }),
+            response.data.conversationId
+          )
+        })
       } catch (error: any) {
         set({ error: error.response?.data?.error || 'Failed to send message' })
         throw error
@@ -466,7 +375,10 @@ export const useChatStore = create<ChatState>((set, get) => {
 
         get().selectConversation(newConversation.id)
       } catch (error: any) {
-        set({ error: error.response?.data?.error || 'Failed to create conversation', isLoading: false })
+        set({ 
+          error: error.response?.data?.error || 'Failed to create conversation', 
+          isLoading: false 
+        })
         throw error
       }
     },
@@ -478,11 +390,13 @@ export const useChatStore = create<ChatState>((set, get) => {
     setTyping: (userId: string, isTyping: boolean, username?: string) => {
       const { typingUsers } = get()
       const newTypingUsers = new Map(typingUsers)
+      
       if (isTyping && username) {
         newTypingUsers.set(userId, { userId, username })
       } else {
         newTypingUsers.delete(userId)
       }
+      
       set({ typingUsers: newTypingUsers })
     },
 
@@ -490,12 +404,10 @@ export const useChatStore = create<ChatState>((set, get) => {
       try {
         await apiService.markConversationAsRead(conversationId)
         
-        set((state) => ({
-          conversations: state.conversations.map(conv =>
-            conv.id === conversationId
-              ? { ...conv, unreadCount: 0 }
-              : conv
-          ),
+        set(state => ({
+          conversations: updateConversationInList(state.conversations, conversationId, { 
+            unreadCount: 0 
+          })
         }))
       } catch (error: any) {
         console.error('Failed to mark as read:', error)
@@ -506,11 +418,11 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     reset: () => {
       const { currentConversation, typingTimeouts } = get()
+      
       if (currentConversation) {
         socketService.leaveConversation(currentConversation.id)
       }
       
-      // Clear all typing timeouts
       typingTimeouts.forEach(timeout => clearTimeout(timeout))
       
       set({
