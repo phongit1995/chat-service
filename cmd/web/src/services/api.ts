@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
-import type { AuthResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, ConversationsListResponse, MessagesListResponse, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail, SearchUsersResponse, UpdateProfileDTO, UploadImageResponse } from '../types'
+import type { AuthResponse, RegisterResponse, ApiResponse, LoginDTO, RegisterDTO, User, Conversation, ConversationsListResponse, MessagesListResponse, Message, CreateMessageDTO, CreateConversationDTO, ConversationDetail, SearchUsersResponse, UpdateProfileDTO, UploadImageResponse } from '../types'
 import env from '../config/env'
 
 class ApiService {
@@ -41,8 +41,8 @@ class ApiService {
     return response.data
   }
 
-  async register(data: RegisterDTO): Promise<AuthResponse> {
-    const response = await this.api.post<AuthResponse>('/auth/register', data)
+  async register(data: RegisterDTO): Promise<RegisterResponse> {
+    const response = await this.api.post<RegisterResponse>('/auth/register', data)
     return response.data
   }
 

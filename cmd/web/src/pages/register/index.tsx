@@ -23,7 +23,7 @@ export const Register = () => {
 
     try {
       await register(username, email, password, firstName, lastName)
-      navigate('/chat', { replace: true })
+      navigate('/login', { replace: true })
     } catch (error) {
       console.error('Registration failed:', error)
     }

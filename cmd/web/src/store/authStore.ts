@@ -62,20 +62,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         firstName,
         lastName
       })
-      const { token, user } = response.data
 
-      localStorage.setItem('accessToken', token)
-      localStorage.setItem('user', JSON.stringify(user))
-
-      set({
-        user,
-        accessToken: token,
-        isAuthenticated: true,
-        isLoading: false
-      })
-
-      socketService.connect(token)
-      toast.success('Account created successfully!')
+      set({ isLoading: false })
+      toast.success(response.data.message || 'Account created successfully! Please login to continue.')
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Registration failed'
       set({ error: errorMessage, isLoading: false })

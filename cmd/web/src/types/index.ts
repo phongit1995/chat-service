@@ -34,6 +34,18 @@ export interface UploadImageResponse {
   height: number
 }
 
+export interface RegisterResponse {
+  success: boolean
+  status: number
+  traceId: string
+  timestamp: string
+  path: string
+  data: {
+    user: User
+    message: string
+  }
+}
+
 export interface AuthResponse {
   success: boolean
   status: number

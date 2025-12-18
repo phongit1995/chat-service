@@ -13,6 +13,11 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required" example:"password123"`
 }
 
+type RegisterResponse struct {
+	User    UserResponse `json:"user"`
+	Message string       `json:"message" example:"Registration successful. Please login to continue."`
+}
+
 type AuthResponse struct {
 	Token        string       `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 	RefreshToken string       `json:"refreshToken" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
@@ -31,4 +36,5 @@ type UserResponse struct {
 	CustomInfo  map[string]interface{} `json:"customInfo,omitempty" swaggertype:"object" example:"{\"theme\":\"dark\",\"language\":\"en\"}"`
 }
 
+type RegisterSuccessResponse = utils.BaseResponse[RegisterResponse]
 type AuthSuccessResponse = utils.BaseResponse[AuthResponse]

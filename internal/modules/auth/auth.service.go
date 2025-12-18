@@ -27,7 +27,7 @@ func NewService(repo *Repository, jwtService *services.JWTService, userCache *us
 	}
 }
 
-func (s *Service) Register(req *RegisterRequest) (*AuthResponse, error) {
+func (s *Service) Register(req *RegisterRequest) (*RegisterResponse, error) {
 	s.logger.Debugw("Checking email availability",
 		"email", req.Email,
 	)
@@ -87,31 +87,18 @@ func (s *Service) Register(req *RegisterRequest) (*AuthResponse, error) {
 		)
 	}
 
-	s.logger.Debugw("Generating JWT token",
-		"user_id", user.ID,
-	)
-
-	token, err := s.jwtService.GenerateToken(user.ID)
-	if err != nil {
-		s.logger.Errorw("Failed to generate token",
-			"user_id", user.ID,
-			"error", err.Error(),
-		)
-		return nil, err
-	}
-
 	s.logger.Infow("User registered successfully",
 		"user_id", user.ID,
 		"email", user.Email,
 	)
 
-	return &AuthResponse{
-		Token: token,
+	return &RegisterResponse{
 		User: UserResponse{
 			ID:       user.ID.String(),
 			Username: user.Username,
 			Email:    user.Email,
 		},
+		Message: "Registration successful. Please login to continue.",
 	}, nil
 }
 

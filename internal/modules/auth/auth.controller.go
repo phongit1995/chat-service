@@ -27,7 +27,7 @@ func NewController(service *Service, logger *zap.SugaredLogger) *Controller {
 // @Accept       json
 // @Produce      json
 // @Param        request body RegisterRequest true "Register Request"
-// @Success      201  {object}  AuthSuccessResponse
+// @Success      201  {object}  RegisterSuccessResponse
 // @Failure      400  {object}  utils.APIError
 // @Failure      409  {object}  utils.APIError
 // @Router       /auth/register [post]
