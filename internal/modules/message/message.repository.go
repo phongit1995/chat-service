@@ -269,7 +269,7 @@ func (r *Repository) DeleteMessage(conversationID uuid.UUID, messageID gocql.UUI
 	return r.preparedQueries["delete_message"].Bind(now, now, gocqlConvID, messageID).Exec()
 }
 
-func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMessageAt gocql.UUID, conversationID uuid.UUID, newEntry *ConversationInboxUpdate) error {
+func (r *Repository) UpdateConversationLastMessage(userID, conversationID uuid.UUID, newEntry *ConversationInboxUpdate) error {
 	gocqlUserID, err := gocql.ParseUUID(userID.String())
 	if err != nil {
 		return fmt.Errorf("invalid user ID: %w", err)
@@ -297,14 +297,14 @@ func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMess
 		gocqlLastMessageSender = &gocqlSender
 	}
 
-	updateQuery := `INSERT INTO conversations_by_user
-	                (user_id, conversation_id, conversation_type, display_name, display_avatar,
-	                 other_user_id, other_user_name, other_user_avatar,
-	                 last_message_at, last_message_id, last_message_preview, last_message_sender,
-	                 unread_count, last_read_message_id, last_read_at, updated_at)
-	                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO conversations_by_user
+	          (user_id, conversation_id, conversation_type, display_name, display_avatar,
+	           other_user_id, other_user_name, other_user_avatar,
+	           last_message_at, last_message_id, last_message_preview, last_message_sender,
+	           unread_count, last_read_message_id, last_read_at, updated_at)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	return r.session.Query(updateQuery,
+	return r.session.Query(query,
 		gocqlUserID, gocqlConvID, newEntry.ConversationType,
 		newEntry.DisplayName, newEntry.DisplayAvatar,
 		gocqlOtherUserID, newEntry.OtherUserName, newEntry.OtherUserAvatar,
@@ -312,6 +312,49 @@ func (r *Repository) UpdateConversationLastMessage(userID uuid.UUID, oldLastMess
 		gocqlLastMessageSender, newEntry.UnreadCount,
 		newEntry.LastReadMessageID, newEntry.LastReadAt, newEntry.UpdatedAt,
 	).Exec()
+}
+
+func (r *Repository) BatchUpdateInbox(entries []*ConversationInboxUpdate) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	batch := r.session.NewBatch(gocql.UnloggedBatch)
+
+	for _, entry := range entries {
+		gocqlUserID, _ := gocql.ParseUUID(entry.UserID.String())
+		gocqlConvID, _ := gocql.ParseUUID(entry.ConversationID.String())
+
+		var gocqlOtherUserID *gocql.UUID
+		if entry.OtherUserID != nil {
+			id, _ := gocql.ParseUUID(entry.OtherUserID.String())
+			gocqlOtherUserID = &id
+		}
+
+		var gocqlLastMessageSender *gocql.UUID
+		if entry.LastMessageSender != nil {
+			id, _ := gocql.ParseUUID(entry.LastMessageSender.String())
+			gocqlLastMessageSender = &id
+		}
+
+		query := `INSERT INTO conversations_by_user
+		          (user_id, conversation_id, conversation_type, display_name, display_avatar,
+		           other_user_id, other_user_name, other_user_avatar,
+		           last_message_at, last_message_id, last_message_preview, last_message_sender,
+		           unread_count, last_read_message_id, last_read_at, updated_at)
+		          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+		batch.Query(query,
+			gocqlUserID, gocqlConvID, entry.ConversationType,
+			entry.DisplayName, entry.DisplayAvatar,
+			gocqlOtherUserID, entry.OtherUserName, entry.OtherUserAvatar,
+			entry.LastMessageAt, entry.LastMessageID, entry.LastMessagePreview,
+			gocqlLastMessageSender, entry.UnreadCount,
+			entry.LastReadMessageID, entry.LastReadAt, entry.UpdatedAt,
+		)
+	}
+
+	return r.session.ExecuteBatch(batch)
 }
 
 func (r *Repository) UpdateConversationPreview(userID, conversationID uuid.UUID, newPreview string) error {
