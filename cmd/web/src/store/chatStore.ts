@@ -14,10 +14,19 @@ import { WebSocketEventType } from '../types'
 import { apiService } from '../services/api'
 import { socketService } from '../services/socket'
 import { useAuthStore } from './authStore'
+import toast from 'react-hot-toast'
 
 interface TypingUserInfo {
   userId: string
   username: string
+}
+
+interface TempChatUser {
+  id: string
+  username: string
+  fullName?: string
+  avatar?: string
+  conversationId?: string
 }
 
 interface ChatState {
@@ -28,6 +37,12 @@ interface ChatState {
   typingTimeouts: Map<string, ReturnType<typeof setTimeout>>
   isLoading: boolean
   error: string | null
+  messageInput: string
+  isTyping: boolean
+  showSearch: boolean
+  tempChatUser: TempChatUser | null
+  isCreatingConversation: boolean
+  showProfileEdit: boolean
 
   loadConversations: () => Promise<void>
   selectConversation: (conversationId: string | null) => Promise<void>
@@ -37,6 +52,19 @@ interface ChatState {
   addMessage: (message: Message) => void
   setTyping: (userId: string, isTyping: boolean, username?: string) => void
   markAsRead: (conversationId: string) => Promise<void>
+  setMessageInput: (input: string) => void
+  setIsTyping: (typing: boolean) => void
+  setShowSearch: (show: boolean) => void
+  setTempChatUser: (user: TempChatUser | null) => void
+  setIsCreatingConversation: (creating: boolean) => void
+  setShowProfileEdit: (show: boolean) => void
+  handleConversationClick: (conversationId: string) => void
+  handleSendMessage: () => Promise<void>
+  handleInputChange: (value: string) => void
+  handleSelectUser: (result: any) => Promise<void>
+  handleSendMessageToNewUser: () => Promise<void>
+  handleTyping: (typing: boolean) => Promise<void>
+  initialize: () => Promise<void>
   clearError: () => void
   reset: () => void
 }
@@ -61,6 +89,8 @@ const updateConversationInList = (
     conv.id === conversationId ? { ...conv, ...updates } : conv
   )
 }
+
+let typingTimeoutRef: ReturnType<typeof setTimeout> | null = null
 
 export const useChatStore = create<ChatState>((set, get) => {
   
@@ -254,6 +284,12 @@ export const useChatStore = create<ChatState>((set, get) => {
     typingTimeouts: new Map(),
     isLoading: false,
     error: null,
+    messageInput: '',
+    isTyping: false,
+    showSearch: false,
+    tempChatUser: null,
+    isCreatingConversation: false,
+    showProfileEdit: false,
 
     loadConversations: async () => {
       set({ isLoading: true, error: null })
@@ -414,6 +450,157 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
     },
 
+    setMessageInput: (input: string) => set({ messageInput: input }),
+
+    setIsTyping: (typing: boolean) => set({ isTyping: typing }),
+
+    setShowSearch: (show: boolean) => set({ showSearch: show }),
+
+    setTempChatUser: (user: TempChatUser | null) => set({ tempChatUser: user }),
+
+    setIsCreatingConversation: (creating: boolean) => set({ isCreatingConversation: creating }),
+
+    setShowProfileEdit: (show: boolean) => set({ showProfileEdit: show }),
+
+    handleConversationClick: (conversationId: string) => {
+      set({ tempChatUser: null })
+      get().selectConversation(conversationId)
+    },
+
+    handleSendMessage: async () => {
+      const { tempChatUser, currentConversation, messageInput } = get()
+      
+      if (tempChatUser && !currentConversation) {
+        await get().handleSendMessageToNewUser()
+        return
+      }
+      
+      if (!messageInput.trim() || !currentConversation) return
+
+      try {
+        await get().sendMessage(currentConversation.id, messageInput.trim())
+        set({ messageInput: '' })
+        await get().handleTyping(false)
+      } catch (error) {
+        console.error('Failed to send message:', error)
+        toast.error('Failed to send message')
+      }
+    },
+
+    handleInputChange: (value: string) => {
+      set({ messageInput: value })
+      get().handleTyping(true)
+    },
+
+    handleSelectUser: async (result: any) => {
+      const { conversations } = get()
+      
+      try {
+        set({ tempChatUser: null })
+        get().selectConversation(null)
+        
+        const response = await apiService.checkDirectConversation(result.id)
+        const convData = response.data
+
+        if (convData && convData.id) {
+          const existingConv = conversations.find(c => c.id === convData.id)
+          
+          if (existingConv) {
+            get().selectConversation(convData.id)
+          } else {
+            await get().loadConversations()
+            get().selectConversation(convData.id)
+          }
+        } else {
+          set({
+            tempChatUser: {
+              id: result.id,
+              username: result.username,
+              fullName: result.fullName,
+              avatar: result.avatar,
+              conversationId: undefined
+            }
+          })
+        }
+        
+        set({ showSearch: false })
+      } catch (error) {
+        console.error('Failed to check conversation:', error)
+        get().selectConversation(null)
+        set({
+          tempChatUser: {
+            id: result.id,
+            username: result.username,
+            fullName: result.fullName,
+            avatar: result.avatar,
+            conversationId: undefined
+          },
+          showSearch: false
+        })
+      }
+    },
+
+    handleSendMessageToNewUser: async () => {
+      const { messageInput, tempChatUser, isCreatingConversation } = get()
+      
+      if (!messageInput.trim() || !tempChatUser || isCreatingConversation) return
+
+      try {
+        set({ isCreatingConversation: true })
+        
+        await apiService.sendDirectMessage(tempChatUser.id, messageInput.trim())
+        await get().loadConversations()
+        
+        const convResponse = await apiService.checkDirectConversation(tempChatUser.id)
+        if (convResponse.data && convResponse.data.id) {
+          get().selectConversation(convResponse.data.id)
+        }
+        
+        set({ tempChatUser: null, messageInput: '' })
+        toast.success('Message sent!')
+      } catch (error) {
+        console.error('Failed to send direct message:', error)
+        toast.error('Failed to send message')
+      } finally {
+        set({ isCreatingConversation: false })
+      }
+    },
+
+    handleTyping: async (typing: boolean) => {
+      const { currentConversation, isTyping } = get()
+      
+      if (!currentConversation) return
+
+      if (typingTimeoutRef) {
+        clearTimeout(typingTimeoutRef)
+      }
+
+      if (typing && !isTyping) {
+        set({ isTyping: true })
+        try {
+          await apiService.sendTypingIndicator(currentConversation.id)
+        } catch (error) {
+          console.error('Failed to send typing indicator:', error)
+        }
+      }
+
+      if (typing) {
+        typingTimeoutRef = setTimeout(() => {
+          set({ isTyping: false })
+        }, 3000)
+      } else {
+        set({ isTyping: false })
+      }
+    },
+
+    initialize: async () => {
+      const loadUser = useAuthStore.getState().loadUser
+      await Promise.all([
+        get().loadConversations(),
+        loadUser()
+      ])
+    },
+
     clearError: () => set({ error: null }),
 
     reset: () => {
@@ -433,6 +620,12 @@ export const useChatStore = create<ChatState>((set, get) => {
         typingTimeouts: new Map(),
         isLoading: false,
         error: null,
+        messageInput: '',
+        isTyping: false,
+        showSearch: false,
+        tempChatUser: null,
+        isCreatingConversation: false,
+        showProfileEdit: false,
       })
     },
   }
