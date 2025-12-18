@@ -467,7 +467,7 @@ func (s *Service) MarkConversationAsRead(userID, conversationID uuid.UUID) error
 		UpdatedAt:          &now,
 	}
 
-	if err := s.repo.UpdateConversationInUserInbox(userID, conversationID, userConv.LastMessageAt, updatedEntry); err != nil {
+	if err := s.repo.UpdateConversationInUserInbox(userID, conversationID, updatedEntry); err != nil {
 		return fmt.Errorf("failed to update conversation inbox: %w", err)
 	}
 

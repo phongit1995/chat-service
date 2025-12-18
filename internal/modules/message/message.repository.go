@@ -383,7 +383,14 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 		UpdatedAt          *time.Time
 	}
 
-	err = r.preparedQueries["get_inbox_entry"].Bind(gocqlUserID, gocqlConvID).Scan(
+	query := `SELECT user_id, conversation_id, conversation_type, display_name, display_avatar,
+	       other_user_id, other_user_name, other_user_avatar,
+	       last_message_at, last_message_id, last_message_preview, last_message_sender,
+	       unread_count, last_read_message_id, last_read_at, updated_at
+	FROM conversations_by_user
+	WHERE user_id = ? AND conversation_id = ?`
+
+	err = r.session.Query(query, gocqlUserID, gocqlConvID).Scan(
 		&gocqlEntry.UserID, &gocqlEntry.ConversationID, &gocqlEntry.ConversationType,
 		&gocqlEntry.DisplayName, &gocqlEntry.DisplayAvatar,
 		&gocqlEntry.OtherUserID, &gocqlEntry.OtherUserName, &gocqlEntry.OtherUserAvatar,

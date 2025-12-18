@@ -249,11 +249,31 @@ func (r *Repository) AddConversationToUserInbox(conv *ConversationByUser) error 
 	           unread_count, last_read_message_id, last_read_at, updated_at)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
+	var otherUserID interface{}
+	if conv.OtherUserID != nil {
+		otherUserID = *conv.OtherUserID
+	}
+
+	var lastMessageID interface{}
+	if conv.LastMessageID != nil {
+		lastMessageID = *conv.LastMessageID
+	}
+
+	var lastMessageSender interface{}
+	if conv.LastMessageSender != nil {
+		lastMessageSender = *conv.LastMessageSender
+	}
+
+	var lastReadMessageID interface{}
+	if conv.LastReadMessageID != nil {
+		lastReadMessageID = *conv.LastReadMessageID
+	}
+
 	return r.session.Query(query,
 		conv.UserID, conv.ConversationID, conv.ConversationType, conv.DisplayName, conv.DisplayAvatar,
-		conv.OtherUserID, conv.OtherUserName, conv.OtherUserAvatar,
-		conv.LastMessageAt, conv.LastMessageID, conv.LastMessagePreview, conv.LastMessageSender,
-		conv.UnreadCount, conv.LastReadMessageID, conv.LastReadAt, conv.UpdatedAt,
+		otherUserID, conv.OtherUserName, conv.OtherUserAvatar,
+		conv.LastMessageAt, lastMessageID, conv.LastMessagePreview, lastMessageSender,
+		conv.UnreadCount, lastReadMessageID, conv.LastReadAt, conv.UpdatedAt,
 	).Exec()
 }
 
@@ -348,15 +368,15 @@ func (r *Repository) GetDirectConversationID(userA, userB uuid.UUID) (*uuid.UUID
 	return &resultUUID, nil
 }
 
-func (r *Repository) UpdateConversationInUserInbox(userID, conversationID uuid.UUID, oldLastMessageAt gocql.UUID, conv *ConversationByUser) error {
-	updateQuery := `INSERT INTO conversations_by_user
-	                (user_id, conversation_id, conversation_type, display_name, display_avatar,
-	                 other_user_id, other_user_name, other_user_avatar,
-	                 last_message_at, last_message_id, last_message_preview, last_message_sender,
-	                 unread_count, last_read_message_id, last_read_at, updated_at)
-	                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+func (r *Repository) UpdateConversationInUserInbox(userID, conversationID uuid.UUID, conv *ConversationByUser) error {
+	query := `INSERT INTO conversations_by_user
+	          (user_id, conversation_id, conversation_type, display_name, display_avatar,
+	           other_user_id, other_user_name, other_user_avatar,
+	           last_message_at, last_message_id, last_message_preview, last_message_sender,
+	           unread_count, last_read_message_id, last_read_at, updated_at)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	return r.session.Query(updateQuery,
+	return r.session.Query(query,
 		conv.UserID, conv.ConversationID, conv.ConversationType, conv.DisplayName, conv.DisplayAvatar,
 		conv.OtherUserID, conv.OtherUserName, conv.OtherUserAvatar,
 		conv.LastMessageAt, conv.LastMessageID, conv.LastMessagePreview, conv.LastMessageSender,
@@ -431,21 +451,41 @@ func (r *Repository) AddConversationToUserInboxBatch(batch *gocql.Batch, conv *C
 	           unread_count, last_read_message_id, last_read_at, updated_at)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
+	var otherUserID interface{}
+	if conv.OtherUserID != nil {
+		otherUserID = *conv.OtherUserID
+	}
+
+	var lastMessageID interface{}
+	if conv.LastMessageID != nil {
+		lastMessageID = *conv.LastMessageID
+	}
+
+	var lastMessageSender interface{}
+	if conv.LastMessageSender != nil {
+		lastMessageSender = *conv.LastMessageSender
+	}
+
+	var lastReadMessageID interface{}
+	if conv.LastReadMessageID != nil {
+		lastReadMessageID = *conv.LastReadMessageID
+	}
+
 	values := []interface{}{
 		conv.UserID,
 		conv.ConversationID,
 		conv.ConversationType,
 		conv.DisplayName,
 		conv.DisplayAvatar,
-		conv.OtherUserID,
+		otherUserID,
 		conv.OtherUserName,
 		conv.OtherUserAvatar,
 		conv.LastMessageAt,
-		conv.LastMessageID,
+		lastMessageID,
 		conv.LastMessagePreview,
-		conv.LastMessageSender,
+		lastMessageSender,
 		conv.UnreadCount,
-		conv.LastReadMessageID,
+		lastReadMessageID,
 		conv.LastReadAt,
 		conv.UpdatedAt,
 	}

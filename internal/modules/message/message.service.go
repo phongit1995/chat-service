@@ -156,6 +156,7 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 		UnreadCount:      0,
 		UpdatedAt:        &now,
 	}
+
 	userBInbox := &conversation.ConversationByUser{
 		UserID:           gocqlUserBID,
 		ConversationID:   gocqlConvID,
@@ -169,11 +170,17 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 		UnreadCount:      0,
 		UpdatedAt:        &now,
 	}
-	s.convRepo.AddConversationToUserInboxBatch(batch, userAInbox)
-	s.convRepo.AddConversationToUserInboxBatch(batch, userBInbox)
 
 	if err := s.convRepo.ExecuteBatch(batch); err != nil {
 		return fmt.Errorf("failed to execute batch: %w", err)
+	}
+
+	if err := s.convRepo.AddConversationToUserInbox(userAInbox); err != nil {
+		return fmt.Errorf("failed to add userA inbox: %w", err)
+	}
+
+	if err := s.convRepo.AddConversationToUserInbox(userBInbox); err != nil {
+		return fmt.Errorf("failed to add userB inbox: %w", err)
 	}
 
 	members := []conversation.ConversationMember{*userAMember, *userBMember}
