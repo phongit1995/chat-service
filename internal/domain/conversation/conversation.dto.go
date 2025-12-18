@@ -3,17 +3,17 @@ package conversation
 import "time"
 
 type CreatedEvent struct {
-	ConversationID string      `json:"conversation_id"`
+	ConversationID string      `json:"conversationId"`
 	Data           interface{} `json:"data,omitempty"`
 }
 
 type UpdatedEvent struct {
-	ConversationID string      `json:"conversation_id"`
+	ConversationID string      `json:"conversationId"`
 	Data           interface{} `json:"data,omitempty"`
 }
 
 type DeletedEvent struct {
-	ConversationID string `json:"conversation_id"`
+	ConversationID string `json:"conversationId"`
 }
 
 type TypingEvent struct {

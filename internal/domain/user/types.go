@@ -1,17 +1,17 @@
 package user
 
 type OnlineEvent struct {
-	UserID    string `json:"user_id"`
+	UserID    string `json:"userId"`
 	Timestamp string `json:"timestamp"`
 }
 
 type OfflineEvent struct {
-	UserID    string `json:"user_id"`
+	UserID    string `json:"userId"`
 	Timestamp string `json:"timestamp"`
 }
 
 type TypingEvent struct {
-	UserID         string `json:"user_id"`
-	ConversationID string `json:"conversation_id"`
-	IsTyping       bool   `json:"is_typing"`
+	UserID         string `json:"userId"`
+	ConversationID string `json:"conversationId"`
+	IsTyping       bool   `json:"isTyping"`
 }
