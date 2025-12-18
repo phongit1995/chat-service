@@ -430,12 +430,27 @@ func (r *Repository) AddConversationToUserInboxBatch(batch *gocql.Batch, conv *C
 	           last_message_at, last_message_id, last_message_preview, last_message_sender,
 	           unread_count, last_read_message_id, last_read_at, updated_at)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	batch.Query(query,
-		conv.UserID, conv.ConversationID, conv.ConversationType, conv.DisplayName, conv.DisplayAvatar,
-		conv.OtherUserID, conv.OtherUserName, conv.OtherUserAvatar,
-		conv.LastMessageAt, conv.LastMessageID, conv.LastMessagePreview, conv.LastMessageSender,
-		conv.UnreadCount, conv.LastReadMessageID, conv.LastReadAt, conv.UpdatedAt,
-	)
+
+	values := []interface{}{
+		conv.UserID,
+		conv.ConversationID,
+		conv.ConversationType,
+		conv.DisplayName,
+		conv.DisplayAvatar,
+		conv.OtherUserID,
+		conv.OtherUserName,
+		conv.OtherUserAvatar,
+		conv.LastMessageAt,
+		conv.LastMessageID,
+		conv.LastMessagePreview,
+		conv.LastMessageSender,
+		conv.UnreadCount,
+		conv.LastReadMessageID,
+		conv.LastReadAt,
+		conv.UpdatedAt,
+	}
+
+	batch.Query(query, values...)
 }
 
 func (r *Repository) AddDirectConversationPairToBatch(batch *gocql.Batch, userA, userB, conversationID uuid.UUID) {

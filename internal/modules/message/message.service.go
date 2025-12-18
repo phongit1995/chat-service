@@ -78,11 +78,11 @@ func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType
 }
 
 func (s *Service) createFullDirectConversation(conversationID, userA, userB, createdBy uuid.UUID) error {
-	userAInfo, err := s.userCache.GetUserCache(userA, true)
+	user1Info, err := s.userCache.GetUserCache(userA, true)
 	if err != nil {
 		return fmt.Errorf("userA not found: %w", err)
 	}
-	userBInfo, err := s.userCache.GetUserCache(userB, true)
+	user2Info, err := s.userCache.GetUserCache(userB, true)
 	if err != nil {
 		return fmt.Errorf("userB not found: %w", err)
 	}
@@ -134,24 +134,24 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 		return fmt.Errorf("failed to convert conversationID: %w", err)
 	}
 
-	userADisplayName := userAInfo.FullName
-	if userADisplayName == "" {
-		userADisplayName = userAInfo.Username
+	user1DisplayName := user1Info.FullName
+	if user1DisplayName == "" {
+		user1DisplayName = user1Info.Username
 	}
-	userBDisplayName := userBInfo.FullName
-	if userBDisplayName == "" {
-		userBDisplayName = userBInfo.Username
+	user2DisplayName := user2Info.FullName
+	if user2DisplayName == "" {
+		user2DisplayName = user2Info.Username
 	}
 
 	userAInbox := &conversation.ConversationByUser{
 		UserID:           gocqlUserAID,
 		ConversationID:   gocqlConvID,
 		ConversationType: "direct",
-		DisplayName:      userBDisplayName,
-		DisplayAvatar:    userBInfo.Avatar,
+		DisplayName:      user2DisplayName,
+		DisplayAvatar:    user2Info.Avatar,
 		OtherUserID:      &gocqlUserBID,
-		OtherUserName:    userBDisplayName,
-		OtherUserAvatar:  userBInfo.Avatar,
+		OtherUserName:    user2DisplayName,
+		OtherUserAvatar:  user2Info.Avatar,
 		LastMessageAt:    lastMessageAt,
 		UnreadCount:      0,
 		UpdatedAt:        &now,
@@ -160,11 +160,11 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 		UserID:           gocqlUserBID,
 		ConversationID:   gocqlConvID,
 		ConversationType: "direct",
-		DisplayName:      userADisplayName,
-		DisplayAvatar:    userAInfo.Avatar,
+		DisplayName:      user1DisplayName,
+		DisplayAvatar:    user1Info.Avatar,
 		OtherUserID:      &gocqlUserAID,
-		OtherUserName:    userADisplayName,
-		OtherUserAvatar:  userAInfo.Avatar,
+		OtherUserName:    user1DisplayName,
+		OtherUserAvatar:  user1Info.Avatar,
 		LastMessageAt:    lastMessageAt,
 		UnreadCount:      0,
 		UpdatedAt:        &now,
