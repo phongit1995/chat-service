@@ -66,6 +66,8 @@ func (s *Service) Register(req *RegisterRequest) (*RegisterResponse, error) {
 		Username: req.Username,
 		Email:    req.Email,
 		Password: string(hashedPassword),
+		FullName: req.FullName,
+		Avatar:   req.Avatar,
 	}
 
 	s.logger.Debugw("Creating user in database",
