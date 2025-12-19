@@ -31,11 +31,13 @@ run: run-api run-chat
 
 run-api:
 	@echo "🚀 Starting API Service on :8080..."
-	go run ./cmd/api
+	@mkdir -p logs
+	go run ./cmd/api 2>&1 | tee logs/api.log
 
 run-chat:
 	@echo "🚀 Starting Chat Service..."
-	go run ./cmd/chat
+	@mkdir -p logs
+	go run ./cmd/chat 2>&1 | tee logs/chat.log
 
 run-all:
 	@echo "🚀 Starting all services..."

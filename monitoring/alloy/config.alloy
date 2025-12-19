@@ -1,0 +1,73 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+// Docker container logs
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  filter {
+    name   = "name"
+    values = ["chat-server-api", "chat-server-chat"]
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.containers.targets
+  forward_to = [loki.process.parse_logs.receiver]
+}
+
+// Local file logs for development
+local.file_match "app_logs" {
+  path_targets = [{
+    __address__ = "localhost",
+    __path__    = "/app/logs/*.log",
+    job         = "chat-server",
+  }]
+}
+
+loki.source.file "app_logs" {
+  targets    = local.file_match.app_logs.targets
+  forward_to = [loki.process.parse_logs.receiver]
+}
+
+loki.process "parse_logs" {
+  forward_to = [loki.write.loki.receiver]
+
+  stage.json {
+    expressions = {
+      level   = "level",
+      service = "service",
+      message = "msg",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level   = "",
+      service = "",
+    }
+  }
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// Metrics collection disabled for now
+// prometheus.exporter.self "alloy" {}
+//
+// prometheus.scrape "alloy" {
+//   targets    = prometheus.exporter.self.alloy.targets
+//   forward_to = [prometheus.remote_write.metrics.receiver]
+// }
+
+// Metrics collection disabled - can be enabled with Prometheus/Mimir later
+// prometheus.remote_write "metrics" {
+//   endpoint {
+//     url = "http://prometheus:9090/api/v1/write"
+//   }
+// }

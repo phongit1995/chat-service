@@ -1,0 +1,80 @@
+logging {
+  level  = "warn"
+  format = "json"
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  filter {
+    name   = "name"
+    values = ["chat-server-api", "chat-server-chat"]
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.containers.targets
+  forward_to = [loki.process.parse_logs.receiver]
+  relabel_rules = rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+}
+
+loki.process "parse_logs" {
+  forward_to = [loki.write.loki.receiver]
+
+  stage.json {
+    expressions = {
+      level     = "level",
+      service   = "service",
+      message   = "msg",
+      trace_id  = "trace_id",
+      timestamp = "timestamp",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level   = "",
+      service = "",
+    }
+  }
+
+  stage.drop {
+    expression = ".*healthcheck.*"
+  }
+
+  stage.drop {
+    source     = "level"
+    expression = "debug"
+  }
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+    
+    queue_config {
+      capacity         = 10000
+      max_shards       = 10
+      max_samples_per_send = 5000
+    }
+  }
+}
+
+// Prometheus metrics collection disabled - Loki is for logs only
+// To enable metrics, set up a separate Prometheus or Mimir instance
+// prometheus.exporter.self "alloy" {}
+//
+// prometheus.scrape "alloy" {
+//   targets    = prometheus.exporter.self.alloy.targets
+//   forward_to = [prometheus.remote_write.metrics.receiver]
+//   scrape_interval = "30s"
+// }
+//
+// prometheus.remote_write "metrics" {
+//   endpoint {
+//     url = "http://prometheus:9090/api/v1/write"
+//   }
+// }
