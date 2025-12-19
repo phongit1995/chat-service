@@ -61,11 +61,17 @@ jobs:
 
       - name: Copy deployment files
         run: |
+          # Create monitoring directories on server
+          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "mkdir -p ${{ secrets.SERVER_DEPLOY_PATH }}/monitoring/loki ${{ secrets.SERVER_DEPLOY_PATH }}/monitoring/alloy ${{ secrets.SERVER_DEPLOY_PATH }}/monitoring/grafana/provisioning"
+          
+          # Copy main files
           sshpass -f ~/.ssh/server_password scp -P ${{ secrets.SERVER_PORT || 22 }} \
             docker-compose.yml \
             env.production \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_DEPLOY_PATH }}/
           
+          # Copy monitoring configs
           sshpass -f ~/.ssh/server_password scp -P ${{ secrets.SERVER_PORT || 22 }} -r \
             monitoring/ \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_DEPLOY_PATH }}/
