@@ -63,7 +63,7 @@ jobs:
         run: |
           sshpass -f ~/.ssh/server_password scp -P ${{ secrets.SERVER_PORT || 22 }} \
             docker-compose.yml \
-            .env.production \
+            env.production \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_DEPLOY_PATH }}/
           
           sshpass -f ~/.ssh/server_password scp -P ${{ secrets.SERVER_PORT || 22 }} -r \
@@ -80,7 +80,7 @@ jobs:
             echo "🚀 Starting deployment..."
             
             echo "📝 Setting up environment file..."
-            mv .env.production .env
+            mv env.production .env
             
             # Update versions from workflow input
             sed -i "s/^API_VERSION=.*/API_VERSION=${{ inputs.version || 'latest' }}/" .env
