@@ -2,11 +2,11 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-COPY cmd/web/package.json cmd/web/yarn.lock ./
+COPY clients/web/package.json clients/web/yarn.lock ./
 
 RUN yarn install --frozen-lockfile
 
-COPY cmd/web/ .
+COPY clients/web/ .
 
 ARG VITE_API_BASE_URL
 
@@ -18,7 +18,7 @@ FROM nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-COPY cmd/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY clients/web/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

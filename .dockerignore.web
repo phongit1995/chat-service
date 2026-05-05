@@ -1,6 +1,6 @@
-cmd/web/node_modules
-cmd/web/dist
-cmd/web/.vite
+clients/web/node_modules
+clients/web/dist
+clients/web/.vite
 .git
 .gitignore
 README.md
@@ -8,6 +8,6 @@ README.md
 .env
 .env.local
 .env.*.local
-cmd/web/coverage
+clients/web/coverage
 .DS_Store
 *.log

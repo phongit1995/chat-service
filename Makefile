@@ -124,27 +124,27 @@ mod-tidy:
 
 web-install:
 	@echo "📦 Installing web dependencies..."
-	cd cmd/web && yarn install
+	cd clients/web && yarn install
 
 web-dev:
 	@echo "🌐 Starting web UI development server on :3000..."
-	cd cmd/web && yarn dev
+	cd clients/web && yarn dev
 
 web-build:
 	@echo "🔨 Building web UI for production..."
-	cd cmd/web && yarn build
+	cd clients/web && yarn build
 
 web-preview:
 	@echo "👀 Previewing web UI production build..."
-	cd cmd/web && yarn preview
+	cd clients/web && yarn preview
 
 web-clean:
 	@echo "🧹 Cleaning web UI..."
-	cd cmd/web && rm -rf node_modules dist .vite
+	cd clients/web && rm -rf node_modules dist .vite
 
 web-lint:
 	@echo "🔍 Linting web UI..."
-	cd cmd/web && yarn lint
+	cd clients/web && yarn lint
 
 run-web: web-dev
 
