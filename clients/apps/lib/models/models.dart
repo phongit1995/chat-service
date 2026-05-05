@@ -79,6 +79,7 @@ class Message {
   final String type;
   final String status;
   final String createdAt;
+  final String? clientMsgId;
 
   Message({
     required this.id,
@@ -90,7 +91,21 @@ class Message {
     this.type = 'text',
     this.status = 'sent',
     required this.createdAt,
+    this.clientMsgId,
   });
+
+  Message copyWith({String? status, String? id}) => Message(
+        id: id ?? this.id,
+        conversationId: conversationId,
+        senderId: senderId,
+        senderName: senderName,
+        senderAvatar: senderAvatar,
+        content: content,
+        type: type,
+        status: status ?? this.status,
+        createdAt: createdAt,
+        clientMsgId: clientMsgId,
+      );
 
   factory Message.fromJson(Map<String, dynamic> json) => Message(
         id: json['id'] as String,
@@ -102,6 +117,7 @@ class Message {
         type: (json['type'] as String?) ?? 'text',
         status: (json['status'] as String?) ?? 'sent',
         createdAt: (json['createdAt'] as String?) ?? '',
+        clientMsgId: json['clientMsgId'] as String?,
       );
 }
 

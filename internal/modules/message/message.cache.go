@@ -100,3 +100,19 @@ func (c *CacheService) CacheMessageBatch(messages []Message) error {
 	}
 	return nil
 }
+
+func clientMsgIDKey(senderID uuid.UUID, clientMsgID string) string {
+	return fmt.Sprintf("dedup:%s:%s", senderID.String(), clientMsgID)
+}
+
+func (c *CacheService) GetMessageByClientMsgID(senderID uuid.UUID, clientMsgID string) (*MessageResponse, error) {
+	var resp MessageResponse
+	if err := c.cache.Get(clientMsgIDKey(senderID, clientMsgID), &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *CacheService) SetMessageByClientMsgID(senderID uuid.UUID, clientMsgID string, resp *MessageResponse) error {
+	return c.cache.Set(clientMsgIDKey(senderID, clientMsgID), resp, constants.CacheTTLClientMsgIDDedup*time.Second)
+}

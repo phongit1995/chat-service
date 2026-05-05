@@ -14,6 +14,7 @@ type MessageData struct {
 	CreatedAt      string `json:"createdAt"`
 	UpdatedAt      string `json:"updatedAt"`
 	ReplyToID      string `json:"replyToId,omitempty"`
+	ClientMsgID    string `json:"clientMsgId,omitempty"`
 }
 
 // ConversationData contains conversation information for events

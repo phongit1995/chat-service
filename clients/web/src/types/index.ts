@@ -94,6 +94,7 @@ export interface Message {
   updatedAt: string
   replyToId?: string
   metadata?: string
+  clientMsgId?: string
 }
 
 export interface MessagesListResponse {
@@ -125,6 +126,7 @@ export interface CreateMessageDTO {
   conversationId: string
   content: string
   messageType?: string
+  clientMsgId?: string
 }
 
 export interface CreateGroupConversationDTO {

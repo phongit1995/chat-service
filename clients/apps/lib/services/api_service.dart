@@ -73,11 +73,12 @@ class ApiService {
     return list.map((e) => Message.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  Future<Message> sendMessage(String conversationId, String content) async {
+  Future<Message> sendMessage(String conversationId, String content, {String? clientMsgId}) async {
     final res = await _dio.post('/messages', data: {
       'conversationId': conversationId,
       'content': content,
       'type': 'text',
+      if (clientMsgId != null) 'clientMsgId': clientMsgId,
     });
     return Message.fromJson(res.data['data'] as Map<String, dynamic>);
   }

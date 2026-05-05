@@ -44,7 +44,7 @@ func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Re
 	}
 }
 
-func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType, content, metadata string) (*MessageResponse, error) {
+func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType, content, metadata, clientMsgID string) (*MessageResponse, error) {
 	if senderID == recipientID {
 		return nil, fmt.Errorf("cannot send direct message to yourself")
 	}
@@ -66,7 +66,7 @@ func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType
 		s.logger.Infow("Created new direct conversation with full structure", "conversation_id", conversationID)
 	}
 
-	messageResponse, err := s.SendMessage(senderID, conversationID, messageType, content, metadata, nil)
+	messageResponse, err := s.SendMessage(senderID, conversationID, messageType, content, metadata, nil, clientMsgID)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,15 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 	return nil
 }
 
-func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, content, metadata string, replyToID *uuid.UUID) (*MessageResponse, error) {
+func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, content, metadata string, replyToID *uuid.UUID, clientMsgID string) (*MessageResponse, error) {
+	if clientMsgID != "" {
+		if existing, err := s.cache.GetMessageByClientMsgID(senderID, clientMsgID); err == nil && existing != nil {
+			s.logger.Infow("Idempotent send: returning existing message",
+				"client_msg_id", clientMsgID, "message_id", existing.ID)
+			return existing, nil
+		}
+	}
+
 	if _, err := s.getConversationByIDCached(conversationID); err != nil {
 		return nil, fmt.Errorf("conversation not found: %w", err)
 	}
@@ -282,10 +290,17 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		Metadata:       metadata,
 		CreatedAt:      now.Format(time.RFC3339),
 		UpdatedAt:      now.Format(time.RFC3339),
+		ClientMsgID:    clientMsgID,
 	}
 
 	if replyToID != nil {
 		response.ReplyToID = replyToID.String()
+	}
+
+	if clientMsgID != "" {
+		if err := s.cache.SetMessageByClientMsgID(senderID, clientMsgID, response); err != nil {
+			s.logger.Warnw("Failed to set client_msg_id dedup cache", "client_msg_id", clientMsgID, "error", err)
+		}
 	}
 
 	go s.postSendMessageTasks(conversationID, memberIDs, members, msg, response, shortContent, senderID, messageID, now)
@@ -452,6 +467,7 @@ func (s *Service) postSendMessageTasks(conversationID uuid.UUID, memberIDs []uui
 			CreatedAt:      response.CreatedAt,
 			UpdatedAt:      response.UpdatedAt,
 			ReplyToID:      response.ReplyToID,
+			ClientMsgID:    response.ClientMsgID,
 		},
 	}
 

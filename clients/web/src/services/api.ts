@@ -71,17 +71,19 @@ class ApiService {
     const requestData = {
       conversationId: data.conversationId,
       content: data.content,
-      type: data.messageType || 'text'
+      type: data.messageType || 'text',
+      ...(data.clientMsgId ? { clientMsgId: data.clientMsgId } : {})
     }
     const response = await this.api.post<ApiResponse<Message>>('/messages', requestData)
     return response.data
   }
 
-  async sendDirectMessage(recipientId: string, content: string, type = 'text'): Promise<ApiResponse<Message>> {
+  async sendDirectMessage(recipientId: string, content: string, type = 'text', clientMsgId?: string): Promise<ApiResponse<Message>> {
     const response = await this.api.post<ApiResponse<Message>>('/messages/direct', {
       recipientId,
       content,
-      type
+      type,
+      ...(clientMsgId ? { clientMsgId } : {})
     })
     return response.data
   }

@@ -103,8 +103,14 @@ export const useChatStore = create<ChatState>((set, get) => {
     const currentUser = useAuthStore.getState().user
 
     if (message.conversationId === currentConversation?.id) {
-      const exists = messages.some(m => m.id === message.id)
-      if (!exists) {
+      const idx = messages.findIndex(m =>
+        m.id === message.id || (message.clientMsgId && m.clientMsgId === message.clientMsgId)
+      )
+      if (idx >= 0) {
+        const updated = [...messages]
+        updated[idx] = { ...message, status: 'sent' }
+        set({ messages: updated })
+      } else {
         set({ messages: [...messages, message] })
       }
     }
@@ -361,14 +367,55 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     sendMessage: async (conversationId: string, content: string) => {
+      const clientMsgId = crypto.randomUUID()
+      const currentUser = useAuthStore.getState().user
+      const now = new Date().toISOString()
+      const optimistic: Message = {
+        id: clientMsgId,
+        conversationId,
+        senderId: currentUser?.id || '',
+        senderName: currentUser?.fullName || currentUser?.username,
+        senderAvatar: currentUser?.avatarURL || currentUser?.avatar,
+        content,
+        type: 'text',
+        status: 'sending',
+        createdAt: now,
+        updatedAt: now,
+        clientMsgId,
+      }
+      const { currentConversation, messages } = get()
+      if (currentConversation?.id === conversationId) {
+        set({ messages: [...messages, optimistic] })
+      }
+
       try {
-        await apiService.sendMessage({
+        const res = await apiService.sendMessage({
           conversationId,
           content,
-          messageType: 'text'
+          messageType: 'text',
+          clientMsgId,
         })
-        // Message will arrive via WS NEW_MESSAGE event — no optimistic add to avoid duplicates
+        const serverMsg = res.data
+        if (serverMsg) {
+          const { messages: latest, currentConversation: cc } = get()
+          if (cc?.id === conversationId) {
+            const replaced = latest.map(m =>
+              (m.clientMsgId && m.clientMsgId === clientMsgId)
+                ? { ...serverMsg, status: 'sent' }
+                : m
+            )
+            set({ messages: replaced })
+          }
+        }
       } catch (error: any) {
+        const { messages: latest, currentConversation: cc } = get()
+        if (cc?.id === conversationId) {
+          set({
+            messages: latest.map(m =>
+              m.clientMsgId === clientMsgId ? { ...m, status: 'failed' } : m
+            )
+          })
+        }
         set({ error: error.response?.data?.error || 'Failed to send message' })
         throw error
       }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
 import '../services/socket_service.dart';
@@ -32,9 +33,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _sub = ref.read(socketProvider).onNewMessage.listen((event) {
       final m = event.message;
       if (m.conversationId != widget.conversationId) return;
-      if (_messages.any((e) => e.id == m.id)) return;
-      setState(() => _messages = [..._messages, m]);
-      _scrollToBottom();
+      final idx = _messages.indexWhere((e) =>
+          e.id == m.id ||
+          (m.clientMsgId != null && e.clientMsgId == m.clientMsgId));
+      if (idx >= 0) {
+        final updated = [..._messages];
+        updated[idx] = m;
+        setState(() => _messages = updated);
+      } else {
+        setState(() => _messages = [..._messages, m]);
+        _scrollToBottom();
+      }
     });
     ref.read(apiProvider).markAsRead(widget.conversationId).catchError((_) {});
     Future.microtask(() {
@@ -84,10 +93,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
     _input.clear();
+
+    final clientMsgId = const Uuid().v4();
+    final me = ref.read(authProvider).user;
+    final optimistic = Message(
+      id: clientMsgId,
+      conversationId: widget.conversationId,
+      senderId: me?.id ?? '',
+      senderName: me?.displayName,
+      senderAvatar: me?.avatar ?? me?.avatarURL,
+      content: text,
+      type: 'text',
+      status: 'sending',
+      createdAt: DateTime.now().toIso8601String(),
+      clientMsgId: clientMsgId,
+    );
+    setState(() => _messages = [..._messages, optimistic]);
+    _scrollToBottom();
+
     try {
-      await ref.read(apiProvider).sendMessage(widget.conversationId, text);
+      await ref.read(apiProvider).sendMessage(widget.conversationId, text, clientMsgId: clientMsgId);
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _messages = _messages
+              .map((m) => m.clientMsgId == clientMsgId ? m.copyWith(status: 'failed') : m)
+              .toList();
+        });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Send failed: $e')));
       }
     } finally {

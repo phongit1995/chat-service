@@ -79,6 +79,7 @@ const (
 	CacheTTLRateLimit           = 60
 	CacheTTLOTP                 = 300
 	CacheTTLPasswordResetToken  = 1800
+	CacheTTLClientMsgIDDedup    = 300
 )
 
 const (

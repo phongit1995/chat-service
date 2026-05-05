@@ -36,7 +36,7 @@ async function main() {
   const totalExpected = USER_COUNT * MSG_PER_USER
   ok(`all ${totalExpected} messages sent`, successCount === totalExpected)
 
-  await sleep(300)
+  await sleep(1500)
 
   // History contains all messages
   const hr = await req('GET', `/messages/${groupId}?limit=200`, undefined, creator.token)

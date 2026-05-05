@@ -62,7 +62,7 @@ func (ctrl *Controller) SendMessage(c *gin.Context) (interface{}, error) {
 		replyToID = &parsed
 	}
 
-	message, err := ctrl.service.SendMessage(userID, conversationID, req.Type, req.Content, req.Metadata, replyToID)
+	message, err := ctrl.service.SendMessage(userID, conversationID, req.Type, req.Content, req.Metadata, replyToID, req.ClientMsgID)
 	if err != nil {
 		ctrl.logger.Errorw("Failed to send message", "error", err)
 		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to send message")
@@ -104,7 +104,7 @@ func (ctrl *Controller) SendDirectMessage(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusBadRequest, "cannot send message to yourself")
 	}
 
-	message, err := ctrl.service.SendDirectMessage(userID, recipientID, req.Type, req.Content, req.Metadata)
+	message, err := ctrl.service.SendDirectMessage(userID, recipientID, req.Type, req.Content, req.Metadata, req.ClientMsgID)
 	if err != nil {
 		ctrl.logger.Errorw("Failed to send direct message", "error", err)
 		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to send message")
