@@ -5,19 +5,15 @@ interface EnvConfig {
   isProduction: boolean
 }
 
-const getEnvVar = (key: string, defaultValue?: string): string => {
-  const value = import.meta.env[key] || defaultValue
-  if (!value) {
-    throw new Error(`Environment variable ${key} is not defined`)
-  }
-  return value
+const getEnvVar = (key: string, defaultValue: string = ''): string => {
+  return import.meta.env[key] || defaultValue
 }
 
-const apiBaseUrl = getEnvVar('VITE_API_BASE_URL', 'http://localhost:8080')
+const apiBaseUrl = getEnvVar('VITE_API_BASE_URL', '')
 
 export const env: EnvConfig = {
   apiBaseUrl,
-  wsUrl: apiBaseUrl, // Use same URL for WebSocket
+  wsUrl: apiBaseUrl,
   isDevelopment: import.meta.env.DEV,
   isProduction: import.meta.env.PROD,
 }
