@@ -169,7 +169,7 @@ services:
     user: "0:0"
     command: -config.file=/etc/loki/loki-config.yml
     volumes:
-      - ../monitoring/loki/loki-config.prod.yml:/etc/loki/loki-config.yml
+      - ./infra/monitoring/loki/loki-config.prod.yml:/etc/loki/loki-config.yml
       - loki_data:/loki
     networks:
       - chat-network
@@ -191,8 +191,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin123}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
-      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./infra/monitoring/grafana/dashboards:/var/lib/grafana/dashboards
       - grafana_data:/var/lib/grafana
     networks:
       - chat-network
@@ -210,7 +210,7 @@ services:
       - --server.http.listen-addr=0.0.0.0:12345
       - --storage.path=/var/lib/alloy/data
     volumes:
-      - ../monitoring/alloy/config.prod.alloy:/etc/alloy/config.alloy
+      - ./infra/monitoring/alloy/config.prod.alloy:/etc/alloy/config.alloy
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - alloy_data:/var/lib/alloy
     networks:

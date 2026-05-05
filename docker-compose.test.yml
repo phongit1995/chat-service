@@ -75,7 +75,7 @@ services:
 
   migrate:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/docker/migrate.Dockerfile
     container_name: test-migrate
     environment:
@@ -102,7 +102,7 @@ services:
 
   api:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/docker/api.Dockerfile
     container_name: test-api
     restart: unless-stopped
@@ -150,7 +150,7 @@ services:
 
   chat:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/docker/chat.Dockerfile
     container_name: test-chat
     restart: unless-stopped
@@ -178,7 +178,7 @@ services:
 
   web:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/docker/web.Dockerfile
     container_name: test-web
     restart: unless-stopped
@@ -194,7 +194,7 @@ services:
     ports:
       - "8888:80"
     volumes:
-      - ../nginx/test.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/nginx/test.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - api
       - chat
