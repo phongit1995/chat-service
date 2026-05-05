@@ -17,11 +17,7 @@ export const ChatHeader = ({ conversation, onBack }: ChatHeaderProps) => {
     )
   }
 
-  const getDisplayName = () => {
-    if (conversation.name) return conversation.name
-    if (conversation.type === 'direct') return 'Direct Message'
-    return 'Group Chat'
-  }
+  const getDisplayName = () => conversation.name || (conversation.type === 'group' ? 'Group Chat' : 'Unknown')
 
   return (
     <div className="bg-white border-b border-gray-200 p-4 shadow-sm backdrop-blur-sm bg-white/95">

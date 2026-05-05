@@ -7,8 +7,7 @@ export const Register = () => {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
+  const [fullName, setFullName] = useState('')
   const { register, isLoading, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
 
@@ -22,7 +21,7 @@ export const Register = () => {
     e.preventDefault()
 
     try {
-      await register(username, email, password, firstName, lastName)
+      await register(username, email, password, fullName)
       navigate('/login', { replace: true })
     } catch (error) {
       console.error('Registration failed:', error)
@@ -89,25 +88,14 @@ export const Register = () => {
               }
             />
 
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="First Name"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="First name"
-                disabled={isLoading}
-              />
-
-              <Input
-                label="Last Name"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Last name"
-                disabled={isLoading}
-              />
-            </div>
+            <Input
+              label="Full Name"
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Your full name"
+              disabled={isLoading}
+            />
 
             <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
               <p className="flex items-start">

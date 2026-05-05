@@ -78,8 +78,7 @@ export interface RegisterDTO {
   username: string
   email: string
   password: string
-  firstName?: string
-  lastName?: string
+  full_name?: string
 }
 
 export interface Message {
@@ -128,10 +127,9 @@ export interface CreateMessageDTO {
   messageType?: string
 }
 
-export interface CreateConversationDTO {
-  type: string
-  name?: string
-  memberIds: string[]
+export interface CreateGroupConversationDTO {
+  name: string
+  participantIds: string[]
 }
 
 export interface UserSearchResult {

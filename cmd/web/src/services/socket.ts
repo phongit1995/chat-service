@@ -100,6 +100,14 @@ class SocketService {
     }
   }
 
+  joinConversation(_conversationId: string) {
+    // server routes via user:{userId} rooms — no client join needed
+  }
+
+  leaveConversation(_conversationId: string) {
+    // server routes via user:{userId} rooms — no client leave needed
+  }
+
   sendTyping(conversationId: string, isTyping: boolean) {
     const event = isTyping ? 'typing' : 'stop_typing'
     this.socket?.emit(event, { conversation_id: conversationId })

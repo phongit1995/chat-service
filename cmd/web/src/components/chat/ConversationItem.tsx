@@ -27,11 +27,7 @@ export const ConversationItem = ({ conversation, isActive, onClick }: Conversati
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  const getDisplayName = () => {
-    if (conversation.name) return conversation.name
-    if (conversation.type === 'direct') return 'Direct Message'
-    return 'Group Chat'
-  }
+  const getDisplayName = () => conversation.name || (conversation.type === 'group' ? 'Group Chat' : 'Unknown')
 
   return (
     <button

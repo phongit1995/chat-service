@@ -48,7 +48,7 @@ interface ChatState {
   selectConversation: (conversationId: string | null) => Promise<void>
   loadMessages: (conversationId: string) => Promise<void>
   sendMessage: (conversationId: string, content: string) => Promise<void>
-  createConversation: (type: string, memberIds: string[], name?: string) => Promise<void>
+  createGroupConversation: (name: string, participantIds: string[]) => Promise<void>
   addMessage: (message: Message) => void
   setTyping: (userId: string, isTyping: boolean, username?: string) => void
   markAsRead: (conversationId: string) => Promise<void>
@@ -114,14 +114,14 @@ export const useChatStore = create<ChatState>((set, get) => {
       existingConv = conversation
     }
 
-    // Add message to current conversation if viewing it
-    if (message.conversationId === currentConversation?.id && message.senderId !== currentUser?.id) {
+    // Add message to current conversation (dedup by id)
+    if (message.conversationId === currentConversation?.id) {
       const messageExists = messages.some(m => m.id === message.id)
       if (!messageExists) {
         set({ messages: [...messages, message] })
       }
     }
-    
+
     // Update conversation info
     const isCurrentConv = currentConversation?.id === message.conversationId
     const updates: Partial<Conversation> = {
@@ -129,8 +129,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       lastMessageAt: message.createdAt,
       participantCount: conversation.participantCount,
     }
-    
-    // Increment unread count if not current conversation and not own message
+
+    // Increment unread only for others' messages in non-active conversations
     if (!isCurrentConv && message.senderId !== currentUser?.id) {
       updates.unreadCount = (existingConv.unreadCount || 0) + 1
     }
@@ -378,41 +378,22 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     sendMessage: async (conversationId: string, content: string) => {
       try {
-        const response = await apiService.sendMessage({
+        await apiService.sendMessage({
           conversationId,
           content,
-          messageType: 'TEXT'
+          messageType: 'text'
         })
-        
-        if (!response.data) return
-        
-        const { currentConversation, messages, conversations } = get()
-        
-
-        if (response.data.conversationId === currentConversation?.id) {
-          set({ messages: [...messages, response.data] })
-        }
-        
-    
-        set({
-          conversations: moveConversationToTop(
-            updateConversationInList(conversations, response.data.conversationId, {
-              lastMessageText: response.data.content,
-              lastMessageAt: response.data.createdAt
-            }),
-            response.data.conversationId
-          )
-        })
+        // Message will arrive via WS NEW_MESSAGE event — no optimistic add to avoid duplicates
       } catch (error: any) {
         set({ error: error.response?.data?.error || 'Failed to send message' })
         throw error
       }
     },
 
-    createConversation: async (type: string, memberIds: string[], name?: string) => {
+    createGroupConversation: async (name: string, participantIds: string[]) => {
       set({ isLoading: true, error: null })
       try {
-        const response = await apiService.createConversation({ type, memberIds, name })
+        const response = await apiService.createGroupConversation({ name, participantIds })
         const newConversation = response.data!
 
         set(state => ({
@@ -422,9 +403,9 @@ export const useChatStore = create<ChatState>((set, get) => {
 
         get().selectConversation(newConversation.id)
       } catch (error: any) {
-        set({ 
-          error: error.response?.data?.error || 'Failed to create conversation', 
-          isLoading: false 
+        set({
+          error: error.response?.data?.error || 'Failed to create conversation',
+          isLoading: false
         })
         throw error
       }
