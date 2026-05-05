@@ -3,6 +3,7 @@ package main
 import (
 	"chat-server/internal/config"
 	"chat-server/internal/db"
+	domConversation "chat-server/internal/domain/conversation"
 	"chat-server/internal/transport/kafka"
 	"chat-server/internal/transport/websocket"
 	"chat-server/internal/logger"
@@ -44,6 +45,7 @@ func NewContainer() (*dig.Container, error) {
 
 	modules := []func(*dig.Container) error{
 		kafka.ProvideProducer,
+		domConversation.Provider,
 		websocket.Provider,
 		auth.Provider,
 		health.Provider,

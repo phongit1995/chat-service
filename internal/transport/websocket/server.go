@@ -32,6 +32,7 @@ func NewServer(
 	jwtService *services.JWTService,
 	redisAdapter *RedisAdapter,
 	presenceService *PresenceService,
+	convMembers ConversationMembersGetter,
 	logger *zap.SugaredLogger,
 ) (*Server, error) {
 	rdb := redisAdapter.GetClient()
@@ -95,7 +96,7 @@ func NewServer(
 		next(nil)
 	})
 
-	eventHandler := NewEventHandler(server, presenceService)
+	eventHandler := NewEventHandler(server, presenceService, convMembers)
 	eventHandler.RegisterEvents()
 
 	logger.Info("✅ WebSocket server initialized with Socket.IO v3 + Redis Adapter + Presence Tracking")

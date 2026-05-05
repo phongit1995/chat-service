@@ -212,8 +212,7 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 }
 
 func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, content, metadata string, replyToID *uuid.UUID) (*MessageResponse, error) {
-	conv, err := s.getConversationByIDCached(conversationID)
-	if err != nil {
+	if _, err := s.getConversationByIDCached(conversationID); err != nil {
 		return nil, fmt.Errorf("conversation not found: %w", err)
 	}
 
@@ -266,6 +265,38 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	}
 
 	memberIDs := make([]uuid.UUID, 0, len(members))
+	for _, m := range members {
+		if m.IsActive {
+			memberIDs = append(memberIDs, m.UserID)
+		}
+	}
+
+	response := &MessageResponse{
+		ID:             messageID.String(),
+		ConversationID: conversationID.String(),
+		SenderID:       senderID.String(),
+		SenderName:     senderInfo.Username,
+		SenderAvatar:   senderInfo.Avatar,
+		Type:           messageType,
+		Content:        content,
+		Metadata:       metadata,
+		CreatedAt:      now.Format(time.RFC3339),
+		UpdatedAt:      now.Format(time.RFC3339),
+	}
+
+	if replyToID != nil {
+		response.ReplyToID = replyToID.String()
+	}
+
+	go s.postSendMessageTasks(conversationID, memberIDs, members, msg, response, shortContent, senderID, messageID, now)
+
+	return response, nil
+}
+
+func (s *Service) applyInboxFanout(conversationID uuid.UUID, members []conversation.ConversationMember,
+	messageID gocql.UUID, shortContent string, senderID uuid.UUID, now time.Time) {
+
+	conv, _ := s.getConversationByIDCached(conversationID)
 	inboxUpdates := make([]*ConversationInboxUpdate, 0, len(members))
 	var hiddenMembers []conversation.ConversationMember
 
@@ -273,7 +304,6 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		if !member.IsActive {
 			continue
 		}
-		memberIDs = append(memberIDs, member.UserID)
 
 		inboxEntry, _, err := s.repo.GetConversationInboxEntry(member.UserID, conversationID)
 		if err != nil {
@@ -320,32 +350,12 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	if len(inboxUpdates) > 0 {
 		if err := s.repo.BatchUpdateInbox(inboxUpdates); err != nil {
 			s.logger.Errorw("Failed to batch update inbox", "error", err)
-			return nil, fmt.Errorf("failed to update inbox entries: %w", err)
 		}
 	}
 
-	go s.processHiddenMembers(hiddenMembers, conv, members, conversationID, messageID, shortContent, senderID)
-
-	response := &MessageResponse{
-		ID:             messageID.String(),
-		ConversationID: conversationID.String(),
-		SenderID:       senderID.String(),
-		SenderName:     senderInfo.Username,
-		SenderAvatar:   senderInfo.Avatar,
-		Type:           messageType,
-		Content:        content,
-		Metadata:       metadata,
-		CreatedAt:      now.Format(time.RFC3339),
-		UpdatedAt:      now.Format(time.RFC3339),
+	if len(hiddenMembers) > 0 {
+		s.processHiddenMembers(hiddenMembers, conv, members, conversationID, messageID, shortContent, senderID)
 	}
-
-	if replyToID != nil {
-		response.ReplyToID = replyToID.String()
-	}
-
-	go s.postSendMessageTasks(conversationID, memberIDs, msg, response)
-
-	return response, nil
 }
 
 func (s *Service) processHiddenMembers(hiddenMembers []conversation.ConversationMember, conv *conversation.Conversation,
@@ -399,7 +409,12 @@ func (s *Service) processHiddenMembers(hiddenMembers []conversation.Conversation
 	}
 }
 
-func (s *Service) postSendMessageTasks(conversationID uuid.UUID, memberIDs []uuid.UUID, msg *Message, response *MessageResponse) {
+func (s *Service) postSendMessageTasks(conversationID uuid.UUID, memberIDs []uuid.UUID,
+	members []conversation.ConversationMember, msg *Message, response *MessageResponse,
+	shortContent string, senderID uuid.UUID, messageID gocql.UUID, now time.Time) {
+
+	s.applyInboxFanout(conversationID, members, messageID, shortContent, senderID, now)
+
 	if err := s.cache.SetMessage(msg); err != nil {
 		s.logger.Warnw("Failed to cache message", "message_id", msg.MessageID, "error", err)
 	}

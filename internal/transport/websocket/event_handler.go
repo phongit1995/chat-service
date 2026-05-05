@@ -4,15 +4,21 @@ import (
 	socket "github.com/zishang520/socket.io/servers/socket/v3"
 )
 
+type ConversationMembersGetter interface {
+	GetConversationMembers(conversationID string) ([]string, error)
+}
+
 type EventHandler struct {
 	server          *Server
 	presenceService *PresenceService
+	convMembers     ConversationMembersGetter
 }
 
-func NewEventHandler(server *Server, presenceService *PresenceService) *EventHandler {
+func NewEventHandler(server *Server, presenceService *PresenceService, convMembers ConversationMembersGetter) *EventHandler {
 	return &EventHandler{
 		server:          server,
 		presenceService: presenceService,
+		convMembers:     convMembers,
 	}
 }
 
@@ -96,17 +102,7 @@ func (h *EventHandler) handleTyping(client *socket.Socket, userID string, args [
 		"conversation_id", conversationID,
 	)
 
-	// Emit to other users in conversation (exclude sender)
-	// Get conversation members and emit
-	payload := map[string]any{
-		"user_id":         userID,
-		"conversation_id": conversationID,
-		"is_typing":       true,
-	}
-
-	// TODO: Get conversation members and emit only to them
-	// For now, emit to all users in the conversation room
-	h.server.io.To(socket.Room("conversation:"+conversationID)).Emit("USER_TYPING", payload)
+	h.fanoutTypingToMembers(userID, conversationID, "USER_TYPING", true)
 }
 
 // handleStopTyping handles stop typing indicator from client
@@ -134,12 +130,32 @@ func (h *EventHandler) handleStopTyping(client *socket.Socket, userID string, ar
 		"conversation_id", conversationID,
 	)
 
-	// Emit to other users in conversation
-	payload := map[string]any{
-		"user_id":         userID,
-		"conversation_id": conversationID,
-		"is_typing":       false,
-	}
+	h.fanoutTypingToMembers(userID, conversationID, "USER_STOP_TYPING", false)
+}
 
-	h.server.io.To(socket.Room("conversation:"+conversationID)).Emit("USER_STOP_TYPING", payload)
+func (h *EventHandler) fanoutTypingToMembers(senderUserID, conversationID, event string, isTyping bool) {
+	if h.convMembers == nil {
+		h.server.logger.Warnw("convMembers not configured, skipping typing fanout")
+		return
+	}
+	memberIDs, err := h.convMembers.GetConversationMembers(conversationID)
+	if err != nil {
+		h.server.logger.Warnw("Failed to get members for typing", "conversation_id", conversationID, "error", err)
+		return
+	}
+	recipients := make([]string, 0, len(memberIDs))
+	for _, uid := range memberIDs {
+		if uid != senderUserID {
+			recipients = append(recipients, uid)
+		}
+	}
+	if len(recipients) == 0 {
+		return
+	}
+	payload := map[string]any{
+		"userId":         senderUserID,
+		"conversationId": conversationID,
+		"isTyping":       isTyping,
+	}
+	h.server.EmitToUsers(recipients, event, payload)
 }
