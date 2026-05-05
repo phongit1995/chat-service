@@ -3,6 +3,7 @@ package message
 import (
 	conversationEvents "chat-server/internal/domain/conversation"
 	messageEvents "chat-server/internal/domain/message"
+	"chat-server/internal/constants"
 	"chat-server/internal/infra/kafka"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
@@ -94,7 +95,7 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 
 	conv := &conversation.Conversation{
 		ConversationID:   conversationID,
-		Type:             "direct",
+		Type:             constants.ConversationTypeDirect,
 		Name:             "",
 		Avatar:           "",
 		CreatedBy:        createdBy,
@@ -109,14 +110,14 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 		UserID:         userA,
 		JoinedAt:       now,
 		IsActive:       true,
-		Role:           "member",
+		Role:           constants.MemberRoleDefault,
 	}
 	userBMember := &conversation.ConversationMember{
 		ConversationID: conversationID,
 		UserID:         userB,
 		JoinedAt:       now,
 		IsActive:       true,
-		Role:           "member",
+		Role:           constants.MemberRoleDefault,
 	}
 	s.convRepo.AddMemberToBatch(batch, userAMember)
 	s.convRepo.AddMemberToBatch(batch, userBMember)
@@ -146,7 +147,7 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 	userAInbox := &conversation.ConversationByUser{
 		UserID:           gocqlUserAID,
 		ConversationID:   gocqlConvID,
-		ConversationType: "direct",
+		ConversationType: constants.ConversationTypeDirect,
 		DisplayName:      user2DisplayName,
 		DisplayAvatar:    user2Info.Avatar,
 		OtherUserID:      &gocqlUserBID,
@@ -160,7 +161,7 @@ func (s *Service) createFullDirectConversation(conversationID, userA, userB, cre
 	userBInbox := &conversation.ConversationByUser{
 		UserID:           gocqlUserBID,
 		ConversationID:   gocqlConvID,
-		ConversationType: "direct",
+		ConversationType: constants.ConversationTypeDirect,
 		DisplayName:      user1DisplayName,
 		DisplayAvatar:    user1Info.Avatar,
 		OtherUserID:      &gocqlUserAID,
@@ -291,9 +292,10 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 			continue
 		}
 
-		newUnreadCount := inboxEntry.UnreadCount
 		if member.UserID != senderID {
-			newUnreadCount++
+			if err := s.repo.IncrementUnreadCount(member.UserID, conversationID); err != nil {
+				s.logger.Errorw("Failed to increment unread count", "user_id", member.UserID, "error", err)
+			}
 		}
 
 		inboxUpdates = append(inboxUpdates, &ConversationInboxUpdate{
@@ -309,7 +311,6 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 			LastMessageID:      &messageID,
 			LastMessagePreview: shortContent,
 			LastMessageSender:  &senderID,
-			UnreadCount:        newUnreadCount,
 			LastReadMessageID:  inboxEntry.LastReadMessageID,
 			LastReadAt:         inboxEntry.LastReadAt,
 			UpdatedAt:          &now,
@@ -357,8 +358,8 @@ func (s *Service) processHiddenMembers(hiddenMembers []conversation.Conversation
 		var otherUserID *gocql.UUID
 		var otherUserName, otherUserAvatar string
 
-		if conv.Type == "direct" {
-			conversationType = "direct"
+		if conv.Type == constants.ConversationTypeDirect {
+			conversationType = constants.ConversationTypeDirect
 			for _, member := range allMembers {
 				if member.UserID != m.UserID && member.IsActive {
 					if otherUser, err := s.userCache.GetUserCache(member.UserID, true); err == nil {
@@ -376,21 +377,22 @@ func (s *Service) processHiddenMembers(hiddenMembers []conversation.Conversation
 				}
 			}
 		} else {
-			conversationType = "group"
+			conversationType = constants.ConversationTypeGroupDB
 			displayName = conv.Name
 			displayAvatar = conv.Avatar
 		}
 
-		unreadCount := 0
-		if m.UserID != senderID {
-			unreadCount = 1
-		}
-
 		if err := s.convRepo.UnhideConversation(m.UserID, conversationID, messageID,
-			&messageID, shortContent, &senderID, unreadCount,
+			&messageID, shortContent, &senderID,
 			conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar); err != nil {
 			s.logger.Errorw("Failed to auto-unhide", "user_id", m.UserID, "error", err)
 			continue
+		}
+
+		if m.UserID != senderID {
+			if err := s.convRepo.IncrementUnreadCount(m.UserID, conversationID); err != nil {
+				s.logger.Errorw("Failed to increment unread after unhide", "user_id", m.UserID, "error", err)
+			}
 		}
 
 		s.convCache.RemoveHiddenConversation(m.UserID, conversationID)
@@ -992,12 +994,7 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 		return fmt.Errorf("failed to convert senderID: %w", err)
 	}
 
-	unreadCount := 0
-	if incrementUnread {
-		unreadCount = 1
-	}
-
-	if conv.Type == "direct" {
+	if conv.Type == constants.ConversationTypeDirect {
 		members, err := s.getMembersCached(conversationID)
 		if err != nil {
 			return fmt.Errorf("failed to get members: %w", err)
@@ -1034,7 +1031,7 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 		inboxEntry := &conversation.ConversationByUser{
 			UserID:             gocqlUserID,
 			ConversationID:     gocqlConvID,
-			ConversationType:   "direct",
+			ConversationType:   constants.ConversationTypeDirect,
 			DisplayName:        otherUserDisplayName,
 			DisplayAvatar:      otherUser.Avatar,
 			OtherUserID:        &gocqlOtherUserID,
@@ -1044,7 +1041,6 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 			LastMessageID:      &messageID,
 			LastMessagePreview: messageBody,
 			LastMessageSender:  &gocqlSenderID,
-			UnreadCount:        unreadCount,
 			UpdatedAt:          &now,
 		}
 
@@ -1056,19 +1052,24 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 		inboxEntry := &conversation.ConversationByUser{
 			UserID:             gocqlUserID,
 			ConversationID:     gocqlConvID,
-			ConversationType:   "group",
+			ConversationType:   constants.ConversationTypeGroupDB,
 			DisplayName:        conv.Name,
 			DisplayAvatar:      conv.Avatar,
 			LastMessageAt:      messageID,
 			LastMessageID:      &messageID,
 			LastMessagePreview: messageBody,
 			LastMessageSender:  &gocqlSenderID,
-			UnreadCount:        unreadCount,
 			UpdatedAt:          &now,
 		}
 
 		if err := s.convRepo.AddConversationToUserInbox(inboxEntry); err != nil {
 			return fmt.Errorf("failed to add conversation to inbox: %w", err)
+		}
+	}
+
+	if incrementUnread {
+		if err := s.convRepo.IncrementUnreadCount(userID, conversationID); err != nil {
+			s.logger.Errorw("Failed to increment unread in recreateInboxEntry", "user_id", userID, "error", err)
 		}
 	}
 

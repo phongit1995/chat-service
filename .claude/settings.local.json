@@ -31,7 +31,19 @@
       "Bash(./test_conversations.sh:*)",
       "Bash(go list:*)",
       "Bash(go run:*)",
-      "Bash(xargs -I {} curl -s -X GET 'http://localhost:8080/api/conversations' -H \"Authorization: Bearer {}\")"
+      "Bash(xargs -I {} curl -s -X GET 'http://localhost:8080/api/conversations' -H \"Authorization: Bearer {}\")",
+      "Bash(make build *)",
+      "Bash(sed -n '625,670p' /Volumes/D/GOLANG/chat-server/internal/modules/conversation/conversation.repository.go)",
+      "Bash(sed -n '976,1080p' /Volumes/D/GOLANG/chat-server/internal/modules/message/message.service.go)",
+      "Bash(sed -i '' 's/Type:             \"direct\"/Type:             constants.ConversationTypeDirect/g; *)",
+      "Bash(go vet *)",
+      "Bash(make dev-status *)",
+      "Bash(make dev-up *)",
+      "Bash(go run *)",
+      "Bash(echo \"API PID: $!\")",
+      "Bash(echo \"Chat PID: $!\")",
+      "Read(//private/tmp/**)",
+      "Bash(python3 -m json.tool)"
     ],
     "deny": [],
     "ask": []

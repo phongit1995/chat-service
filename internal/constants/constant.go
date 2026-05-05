@@ -99,6 +99,11 @@ const (
 	ConversationTypePrivate = "PRIVATE"
 	ConversationTypeGroup   = "GROUP"
 	ConversationTypeChannel = "CHANNEL"
+
+	ConversationTypeDirect  = "direct"
+	ConversationTypeGroupDB = "group"
+	MemberRoleDefault       = "member"
+	MemberRoleAdmin         = "admin"
 )
 
 const (

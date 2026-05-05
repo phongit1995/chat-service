@@ -106,8 +106,8 @@ func (h *EventHandler) OnCreated(ctx context.Context, message []byte) error {
 	)
 
 	payload := map[string]interface{}{
-		"conversation": event.Conversation,
-		"message":      event.Message,
+		"conversation": utils.MustToJSONMap(event.Conversation),
+		"message":      utils.MustToJSONMap(event.Message),
 	}
 	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventNewMessage, payload)
 	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)
@@ -191,7 +191,7 @@ func (h *EventHandler) OnDeleted(ctx context.Context, message []byte) error {
 	}
 
 	payload := map[string]interface{}{
-		"conversation": event.Conversation,
+		"conversation": utils.MustToJSONMap(event.Conversation),
 		"messageId":    event.MessageID,
 	}
 
@@ -295,8 +295,8 @@ func (h *EventHandler) OnUpdated(ctx context.Context, message []byte) error {
 	)
 
 	payload := map[string]interface{}{
-		"conversation": event.Conversation,
-		"message":      event.Message,
+		"conversation": utils.MustToJSONMap(event.Conversation),
+		"message":      utils.MustToJSONMap(event.Message),
 	}
 	wrappedData := utils.WrapWebSocketMessage(constants.WebSocketEventMessageUpdated, payload)
 	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrappedData)

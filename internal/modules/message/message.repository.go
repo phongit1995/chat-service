@@ -60,9 +60,29 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 		SELECT user_id, conversation_id, conversation_type, display_name, display_avatar,
 		       other_user_id, other_user_name, other_user_avatar,
 		       last_message_at, last_message_id, last_message_preview, last_message_sender,
-		       unread_count, last_read_message_id, last_read_at, updated_at
+		       last_read_message_id, last_read_at, updated_at
 		FROM conversations_by_user
 		WHERE user_id = ? AND conversation_id = ?
+	`)
+
+	r.preparedQueries["increment_unread"] = session.Query(`
+		UPDATE unread_counts SET count = count + 1 WHERE user_id = ? AND conversation_id = ?
+	`)
+
+	r.preparedQueries["reset_unread"] = session.Query(`
+		UPDATE unread_counts SET count = count + ? WHERE user_id = ? AND conversation_id = ?
+	`)
+
+	r.preparedQueries["get_unread"] = session.Query(`
+		SELECT count FROM unread_counts WHERE user_id = ? AND conversation_id = ?
+	`)
+
+	r.preparedQueries["insert_message_meta"] = session.Query(`
+		INSERT INTO message_meta (conversation_id, message_id, bucket, sender_id) VALUES (?, ?, ?, ?)
+	`)
+
+	r.preparedQueries["get_message_meta"] = session.Query(`
+		SELECT bucket, sender_id FROM message_meta WHERE conversation_id = ? AND message_id = ?
 	`)
 
 	return r
@@ -301,15 +321,15 @@ func (r *Repository) UpdateConversationLastMessage(userID, conversationID uuid.U
 	          (user_id, conversation_id, conversation_type, display_name, display_avatar,
 	           other_user_id, other_user_name, other_user_avatar,
 	           last_message_at, last_message_id, last_message_preview, last_message_sender,
-	           unread_count, last_read_message_id, last_read_at, updated_at)
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	           last_read_message_id, last_read_at, updated_at)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	return r.session.Query(query,
 		gocqlUserID, gocqlConvID, newEntry.ConversationType,
 		newEntry.DisplayName, newEntry.DisplayAvatar,
 		gocqlOtherUserID, newEntry.OtherUserName, newEntry.OtherUserAvatar,
 		newEntry.LastMessageAt, newEntry.LastMessageID, newEntry.LastMessagePreview,
-		gocqlLastMessageSender, newEntry.UnreadCount,
+		gocqlLastMessageSender,
 		newEntry.LastReadMessageID, newEntry.LastReadAt, newEntry.UpdatedAt,
 	).Exec()
 }
@@ -341,15 +361,15 @@ func (r *Repository) BatchUpdateInbox(entries []*ConversationInboxUpdate) error 
 		          (user_id, conversation_id, conversation_type, display_name, display_avatar,
 		           other_user_id, other_user_name, other_user_avatar,
 		           last_message_at, last_message_id, last_message_preview, last_message_sender,
-		           unread_count, last_read_message_id, last_read_at, updated_at)
-		          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		           last_read_message_id, last_read_at, updated_at)
+		          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 		batch.Query(query,
 			gocqlUserID, gocqlConvID, entry.ConversationType,
 			entry.DisplayName, entry.DisplayAvatar,
 			gocqlOtherUserID, entry.OtherUserName, entry.OtherUserAvatar,
 			entry.LastMessageAt, entry.LastMessageID, entry.LastMessagePreview,
-			gocqlLastMessageSender, entry.UnreadCount,
+			gocqlLastMessageSender,
 			entry.LastReadMessageID, entry.LastReadAt, entry.UpdatedAt,
 		)
 	}
@@ -391,7 +411,6 @@ type ConversationInboxUpdate struct {
 	LastMessageID      *gocql.UUID
 	LastMessagePreview string
 	LastMessageSender  *uuid.UUID
-	UnreadCount        int
 	LastReadMessageID  *gocql.UUID
 	LastReadAt         *time.Time
 	UpdatedAt          *time.Time
@@ -420,7 +439,6 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 		LastMessageID      *gocql.UUID
 		LastMessagePreview string
 		LastMessageSender  *gocql.UUID
-		UnreadCount        int
 		LastReadMessageID  *gocql.UUID
 		LastReadAt         *time.Time
 		UpdatedAt          *time.Time
@@ -429,7 +447,7 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 	query := `SELECT user_id, conversation_id, conversation_type, display_name, display_avatar,
 	       other_user_id, other_user_name, other_user_avatar,
 	       last_message_at, last_message_id, last_message_preview, last_message_sender,
-	       unread_count, last_read_message_id, last_read_at, updated_at
+	       last_read_message_id, last_read_at, updated_at
 	FROM conversations_by_user
 	WHERE user_id = ? AND conversation_id = ?`
 
@@ -438,7 +456,7 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 		&gocqlEntry.DisplayName, &gocqlEntry.DisplayAvatar,
 		&gocqlEntry.OtherUserID, &gocqlEntry.OtherUserName, &gocqlEntry.OtherUserAvatar,
 		&gocqlEntry.LastMessageAt, &gocqlEntry.LastMessageID, &gocqlEntry.LastMessagePreview,
-		&gocqlEntry.LastMessageSender, &gocqlEntry.UnreadCount,
+		&gocqlEntry.LastMessageSender,
 		&gocqlEntry.LastReadMessageID, &gocqlEntry.LastReadAt, &gocqlEntry.UpdatedAt,
 	)
 
@@ -469,7 +487,6 @@ func (r *Repository) GetConversationInboxEntry(userID, conversationID uuid.UUID)
 		LastMessageAt:      gocqlEntry.LastMessageAt,
 		LastMessageID:      gocqlEntry.LastMessageID,
 		LastMessagePreview: gocqlEntry.LastMessagePreview,
-		UnreadCount:        gocqlEntry.UnreadCount,
 		LastReadMessageID:  gocqlEntry.LastReadMessageID,
 		LastReadAt:         gocqlEntry.LastReadAt,
 		UpdatedAt:          gocqlEntry.UpdatedAt,
@@ -563,16 +580,81 @@ func (r *Repository) AddToInboxBatch(batch *gocql.Batch, entry *ConversationInbo
 	              (user_id, conversation_id, conversation_type, display_name, display_avatar,
 	               other_user_id, other_user_name, other_user_avatar,
 	               last_message_at, last_message_id, last_message_preview, last_message_sender,
-	               unread_count, last_read_message_id, last_read_at, updated_at)
-	              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	               last_read_message_id, last_read_at, updated_at)
+	              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	batch.Query(mainQuery,
 		gocqlUserID, gocqlConvID, entry.ConversationType,
 		entry.DisplayName, entry.DisplayAvatar,
 		gocqlOtherUserID, entry.OtherUserName, entry.OtherUserAvatar,
 		entry.LastMessageAt, entry.LastMessageID, entry.LastMessagePreview,
-		gocqlLastMessageSender, entry.UnreadCount,
+		gocqlLastMessageSender,
 		entry.LastReadMessageID, entry.LastReadAt, entry.UpdatedAt,
 	)
 
 	return nil
+}
+
+func (r *Repository) IncrementUnreadCount(userID, conversationID uuid.UUID) error {
+	gocqlUserID, err := gocql.ParseUUID(userID.String())
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
+	return r.preparedQueries["increment_unread"].Bind(gocqlUserID, gocqlConvID).Exec()
+}
+
+func (r *Repository) ResetUnreadCount(userID, conversationID uuid.UUID) error {
+	gocqlUserID, err := gocql.ParseUUID(userID.String())
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
+	var current int64
+	if err := r.preparedQueries["get_unread"].Bind(gocqlUserID, gocqlConvID).Scan(&current); err != nil {
+		if err == gocql.ErrNotFound {
+			return nil
+		}
+		return fmt.Errorf("failed to get unread count: %w", err)
+	}
+	if current == 0 {
+		return nil
+	}
+	return r.preparedQueries["reset_unread"].Bind(-current, gocqlUserID, gocqlConvID).Exec()
+}
+
+func (r *Repository) GetUnreadCount(userID, conversationID uuid.UUID) (int64, error) {
+	gocqlUserID, err := gocql.ParseUUID(userID.String())
+	if err != nil {
+		return 0, fmt.Errorf("invalid user ID: %w", err)
+	}
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return 0, fmt.Errorf("invalid conversation ID: %w", err)
+	}
+	var count int64
+	if err := r.preparedQueries["get_unread"].Bind(gocqlUserID, gocqlConvID).Scan(&count); err != nil {
+		if err == gocql.ErrNotFound {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to get unread count: %w", err)
+	}
+	return count, nil
+}
+
+func (r *Repository) InsertMessageMeta(conversationID uuid.UUID, messageID gocql.UUID, bucket int, senderID uuid.UUID) error {
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
+	gocqlSenderID, err := gocql.ParseUUID(senderID.String())
+	if err != nil {
+		return fmt.Errorf("invalid sender ID: %w", err)
+	}
+	return r.preparedQueries["insert_message_meta"].Bind(gocqlConvID, messageID, bucket, gocqlSenderID).Exec()
 }

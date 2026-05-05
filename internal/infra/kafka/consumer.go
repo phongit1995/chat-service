@@ -61,14 +61,13 @@ func (c *Consumer) Start() error {
 
 	for topic, handler := range c.handlers {
 		reader := kafka.NewReader(kafka.ReaderConfig{
-			Brokers:        c.cfg.KafkaBrokers,
-			GroupID:        constants.KafkaConsumerGroup,
-			Topic:          topic,
-			MinBytes:       1,                      // Read immediately when ANY data available
-			MaxBytes:       10e6,                   // Max 10MB per fetch
-			MaxWait:        100 * time.Millisecond, // Max wait time before returning
-			CommitInterval: time.Second,            // Commit offset every second
-			StartOffset:    kafka.LastOffset,       // Start from latest for new consumers
+			Brokers:     c.cfg.KafkaBrokers,
+			GroupID:     constants.KafkaConsumerGroup,
+			Topic:       topic,
+			MinBytes:    1,
+			MaxBytes:    10e6,
+			MaxWait:     100 * time.Millisecond,
+			StartOffset: kafka.LastOffset,
 		})
 
 		c.readers = append(c.readers, reader)
@@ -76,7 +75,7 @@ func (c *Consumer) Start() error {
 		go c.consumeTopic(reader, handler, topic)
 	}
 
-	c.logger.Infow("✅ Kafka Consumer started", "topics", topics, "consumer_group", constants.KafkaConsumerGroup)
+	c.logger.Infow("Kafka Consumer started", "topics", topics, "consumer_group", constants.KafkaConsumerGroup)
 	return nil
 }
 
@@ -85,12 +84,10 @@ func (c *Consumer) consumeTopic(reader *kafka.Reader, handler MessageHandler, to
 
 	messageChan := make(chan kafka.Message, c.workers*2)
 
-	// Start worker pool
 	for i := 0; i < c.workers; i++ {
-		go c.worker(messageChan, handler, topic, i)
+		go c.worker(reader, messageChan, handler, topic, i)
 	}
 
-	// Main loop: read messages and send to workers
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -98,17 +95,17 @@ func (c *Consumer) consumeTopic(reader *kafka.Reader, handler MessageHandler, to
 			close(messageChan)
 			return
 		default:
-			msg, err := reader.ReadMessage(c.ctx)
+			msg, err := reader.FetchMessage(c.ctx)
 			if err != nil {
 				if err == context.Canceled {
 					close(messageChan)
 					return
 				}
-				c.logger.Errorw("Error reading message", "topic", topic, "error", err)
+				c.logger.Errorw("Error fetching message", "topic", topic, "error", err)
 				continue
 			}
 
-			c.logger.Debugw("Message received", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
+			c.logger.Debugw("Message fetched", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
 
 			select {
 			case messageChan <- msg:
@@ -120,61 +117,43 @@ func (c *Consumer) consumeTopic(reader *kafka.Reader, handler MessageHandler, to
 	}
 }
 
-func (c *Consumer) worker(messageChan <-chan kafka.Message, handler MessageHandler, topic string, workerID int) {
-	c.logger.Debugw("Worker started", "topic", topic, "worker_id", workerID, "message_timeout", c.messageTimeout)
+func (c *Consumer) worker(reader *kafka.Reader, messageChan <-chan kafka.Message, handler MessageHandler, topic string, workerID int) {
+	c.logger.Debugw("Worker started", "topic", topic, "worker_id", workerID)
 
 	for msg := range messageChan {
-		// Create context with timeout for this message
 		msgCtx, cancel := context.WithTimeout(c.ctx, c.messageTimeout)
 
-		// Channel to receive handler result
-		errChan := make(chan error, 1)
+		err := handler(msgCtx, msg.Value)
+		cancel()
 
-		// Execute handler in goroutine to allow timeout
-		go func() {
-			errChan <- handler(msgCtx, msg.Value)
-		}()
-
-		// Wait for handler completion or timeout
-		select {
-		case err := <-errChan:
-			cancel()
-			if err != nil {
-				c.logger.Errorw("Error handling message",
-					"topic", topic,
-					"worker_id", workerID,
-					"partition", msg.Partition,
-					"offset", msg.Offset,
-					"error", err,
-				)
-			} else {
-				c.logger.Debugw("Message processed successfully",
-					"topic", topic,
-					"worker_id", workerID,
-					"partition", msg.Partition,
-					"offset", msg.Offset,
-				)
-			}
-		case <-msgCtx.Done():
-			cancel()
-			if msgCtx.Err() == context.DeadlineExceeded {
-				c.logger.Errorw("Message processing timeout",
-					"topic", topic,
-					"worker_id", workerID,
-					"partition", msg.Partition,
-					"offset", msg.Offset,
-					"timeout", c.messageTimeout,
-				)
-			} else {
-				c.logger.Warnw("Message processing cancelled",
-					"topic", topic,
-					"worker_id", workerID,
-					"partition", msg.Partition,
-					"offset", msg.Offset,
-					"error", msgCtx.Err(),
-				)
-			}
+		if err != nil {
+			c.logger.Errorw("Error handling message",
+				"topic", topic,
+				"worker_id", workerID,
+				"partition", msg.Partition,
+				"offset", msg.Offset,
+				"error", err,
+			)
+			continue
 		}
+
+		if commitErr := reader.CommitMessages(c.ctx, msg); commitErr != nil {
+			c.logger.Errorw("Failed to commit offset",
+				"topic", topic,
+				"worker_id", workerID,
+				"partition", msg.Partition,
+				"offset", msg.Offset,
+				"error", commitErr,
+			)
+			continue
+		}
+
+		c.logger.Debugw("Message processed and committed",
+			"topic", topic,
+			"worker_id", workerID,
+			"partition", msg.Partition,
+			"offset", msg.Offset,
+		)
 	}
 
 	c.logger.Debugw("Worker stopped", "topic", topic, "worker_id", workerID)

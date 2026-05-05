@@ -55,8 +55,8 @@ func (b *CacheKeyBuilder) RelationshipList(userID string) string {
 	return fmt.Sprintf(constants.CacheKeyRelationshipList, userID)
 }
 
-func (b *CacheKeyBuilder) UnreadCount(key string) string {
-	return fmt.Sprintf(constants.CacheKeyUnreadCount, key)
+func (b *CacheKeyBuilder) UnreadCount(conversationID, userID string) string {
+	return fmt.Sprintf(constants.CacheKeyUnreadCount, conversationID, userID)
 }
 
 func (b *CacheKeyBuilder) TypingUsers(conversationID string) string {

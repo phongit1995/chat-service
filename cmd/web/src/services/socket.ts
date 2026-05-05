@@ -101,7 +101,8 @@ class SocketService {
   }
 
   sendTyping(conversationId: string, isTyping: boolean) {
-    this.socket?.emit('TYPING', { conversationId, isTyping })
+    const event = isTyping ? 'typing' : 'stop_typing'
+    this.socket?.emit(event, { conversation_id: conversationId })
   }
 
   on(event: string, callback: Function) {

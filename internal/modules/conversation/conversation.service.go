@@ -65,7 +65,7 @@ func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*Conversa
 	if existingConvID == nil {
 		return &ConversationResponse{
 			ID:               "",
-			Type:             "direct",
+			Type:             constants.ConversationTypeDirect,
 			Name:             displayName,
 			Avatar:           otherUser.Avatar,
 			ParticipantCount: 0,
@@ -80,7 +80,7 @@ func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*Conversa
 
 	return &ConversationResponse{
 		ID:               existingConvID.String(),
-		Type:             "direct",
+		Type:             constants.ConversationTypeDirect,
 		Name:             displayName,
 		Avatar:           otherUser.Avatar,
 		CreatedAt:        conv.CreatedAt.Format(time.RFC3339),
@@ -126,7 +126,7 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		}
 		return &ConversationResponse{
 			ID:               existingConvID.String(),
-			Type:             "direct",
+			Type:             constants.ConversationTypeDirect,
 			Name:             otherUserDisplayName,
 			Avatar:           otherUser.Avatar,
 			CreatedAt:        now.Format(time.RFC3339),
@@ -142,7 +142,7 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 
 	conv := &Conversation{
 		ConversationID:   conversationID,
-		Type:             "direct",
+		Type:             constants.ConversationTypeDirect,
 		Name:             "",
 		Avatar:           "",
 		CreatedBy:        user1ID,
@@ -157,14 +157,14 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		UserID:         user1ID,
 		JoinedAt:       now,
 		IsActive:       true,
-		Role:           "member",
+		Role:           constants.MemberRoleDefault,
 	}
 	member2 := &ConversationMember{
 		ConversationID: conversationID,
 		UserID:         user2ID,
 		JoinedAt:       now,
 		IsActive:       true,
-		Role:           "member",
+		Role:           constants.MemberRoleDefault,
 	}
 	s.repo.AddMemberToBatch(batch, member1)
 	s.repo.AddMemberToBatch(batch, member2)
@@ -194,7 +194,7 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 	inbox1 := &ConversationByUser{
 		UserID:           gocqlUser1ID,
 		ConversationID:   gocqlConvID,
-		ConversationType: "direct",
+		ConversationType: constants.ConversationTypeDirect,
 		DisplayName:      otherUserDisplayName,
 		DisplayAvatar:    otherUser.Avatar,
 		OtherUserID:      &gocqlUser2ID,
@@ -207,7 +207,7 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 	inbox2 := &ConversationByUser{
 		UserID:           gocqlUser2ID,
 		ConversationID:   gocqlConvID,
-		ConversationType: "direct",
+		ConversationType: constants.ConversationTypeDirect,
 		DisplayName:      user1DisplayName,
 		DisplayAvatar:    user1.Avatar,
 		OtherUserID:      &gocqlUser1ID,
@@ -248,7 +248,7 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 
 	return &ConversationResponse{
 		ID:               conversationID.String(),
-		Type:             "direct",
+		Type:             constants.ConversationTypeDirect,
 		Name:             otherUserResponseName,
 		Avatar:           otherUser.Avatar,
 		CreatedAt:        now.Format(time.RFC3339),
@@ -287,7 +287,7 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 
 	conv := &Conversation{
 		ConversationID:   conversationID,
-		Type:             "group",
+		Type:             constants.ConversationTypeGroupDB,
 		Name:             name,
 		Avatar:           "",
 		CreatedBy:        creatorID,
@@ -302,7 +302,7 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 	for participantID := range uniqueParticipants {
 		allParticipantIDs = append(allParticipantIDs, participantID)
 
-		role := "member"
+		role := constants.MemberRoleDefault
 		if participantID == creatorID {
 			role = "admin"
 		}
@@ -329,7 +329,7 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 		inbox := &ConversationByUser{
 			UserID:           gocqlParticipantID,
 			ConversationID:   gocqlConvID,
-			ConversationType: "group",
+			ConversationType: constants.ConversationTypeGroupDB,
 			DisplayName:      name,
 			DisplayAvatar:    "",
 			LastMessageAt:    lastMessageAt,
@@ -360,7 +360,7 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 
 	return &ConversationResponse{
 		ID:               conversationID.String(),
-		Type:             "group",
+		Type:             constants.ConversationTypeGroupDB,
 		Name:             name,
 		CreatedAt:        now.Format(time.RFC3339),
 		UpdatedAt:        now.Format(time.RFC3339),
@@ -387,7 +387,7 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 		resp.Name = conv.DisplayName
 		resp.Avatar = conv.DisplayAvatar
 
-		if conv.ConversationType == "direct" && conv.OtherUserID != nil {
+		if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
 			otherUserID, err := uuid.Parse(conv.OtherUserID.String())
 			if err == nil {
 				if cachedUser, cacheErr := s.userCache.GetUserCache(otherUserID, false); cacheErr == nil && cachedUser != nil {
@@ -617,8 +617,8 @@ func (s *Service) UnhideConversation(userID, conversationID uuid.UUID) error {
 	var otherUserID *gocql.UUID
 	var otherUserName, otherUserAvatar string
 
-	if conv.Type == "direct" {
-		conversationType = "direct"
+	if conv.Type == constants.ConversationTypeDirect {
+		conversationType = constants.ConversationTypeDirect
 		members, err := s.GetMembersCached(conversationID)
 		if err == nil {
 			for _, member := range members {
@@ -639,13 +639,13 @@ func (s *Service) UnhideConversation(userID, conversationID uuid.UUID) error {
 			}
 		}
 	} else {
-		conversationType = "group"
+		conversationType = constants.ConversationTypeGroupDB
 		displayName = conv.Name
 		displayAvatar = conv.Avatar
 	}
 
 	newLastMessageAt := gocql.TimeUUID()
-	if err := s.repo.UnhideConversation(userID, conversationID, newLastMessageAt, nil, "", nil, 0,
+	if err := s.repo.UnhideConversation(userID, conversationID, newLastMessageAt, nil, "", nil,
 		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar); err != nil {
 		return fmt.Errorf("failed to unhide conversation: %w", err)
 	}
@@ -708,8 +708,8 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 	var otherUserID *gocql.UUID
 	var otherUserName, otherUserAvatar string
 
-	if conv.Type == "direct" {
-		conversationType = "direct"
+	if conv.Type == constants.ConversationTypeDirect {
+		conversationType = constants.ConversationTypeDirect
 		members, membersErr := s.GetMembersCached(conversationID)
 		if membersErr == nil {
 			for _, member := range members {
@@ -730,14 +730,18 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 			}
 		}
 	} else {
-		conversationType = "group"
+		conversationType = constants.ConversationTypeGroupDB
 		displayName = conv.Name
 		displayAvatar = conv.Avatar
 	}
 
-	if err := s.repo.UnhideConversation(userID, conversationID, messageID, &messageID, messageBody, &senderID, 1,
+	if err := s.repo.UnhideConversation(userID, conversationID, messageID, &messageID, messageBody, &senderID,
 		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar); err != nil {
 		return fmt.Errorf("failed to auto-unhide conversation: %w", err)
+	}
+
+	if err := s.repo.IncrementUnreadCount(userID, conversationID); err != nil {
+		s.logger.Warnw("Failed to increment unread after auto-unhide", "user_id", userID, "conversation_id", conversationID, "error", err)
 	}
 
 	go func() {

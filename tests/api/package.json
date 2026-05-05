@@ -1,0 +1,25 @@
+{
+  "name": "chat-api-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Integration tests for chat-server HTTP + WebSocket API",
+  "scripts": {
+    "test": "node run-all.js",
+    "test:health": "node tests/01-health.test.js",
+    "test:auth": "node tests/02-auth.test.js",
+    "test:users": "node tests/03-users.test.js",
+    "test:conversations": "node tests/04-conversations.test.js",
+    "test:members": "node tests/05-members.test.js",
+    "test:messages": "node tests/06-messages.test.js",
+    "test:ordering": "node tests/07-conv-ordering.test.js",
+    "test:websocket": "node tests/08-websocket.test.js",
+    "test:unread": "node tests/09-unread.test.js",
+    "test:stress": "node tests/10-stress.test.js"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
