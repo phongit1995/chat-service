@@ -102,7 +102,19 @@ export const useChatStore = create<ChatState>((set, get) => {
     const { conversation, message } = eventData
     const currentUser = useAuthStore.getState().user
     
+    // Check if conversation exists in list
+    let existingConv = conversations.find(c => c.id === message.conversationId)
+    
+    if (!existingConv) {
+      // New conversation - add it from the event data
+      console.log('✅ Adding new conversation from NEW_MESSAGE:', conversation.id)
+      set({
+        conversations: [conversation, ...conversations]
+      })
+      existingConv = conversation
+    }
 
+    // Add message to current conversation if viewing it
     if (message.conversationId === currentConversation?.id && message.senderId !== currentUser?.id) {
       const messageExists = messages.some(m => m.id === message.id)
       if (!messageExists) {
@@ -110,7 +122,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
     }
     
-
+    // Update conversation info
     const isCurrentConv = currentConversation?.id === message.conversationId
     const updates: Partial<Conversation> = {
       lastMessageText: message.content,
@@ -118,10 +130,9 @@ export const useChatStore = create<ChatState>((set, get) => {
       participantCount: conversation.participantCount,
     }
     
-
+    // Increment unread count if not current conversation and not own message
     if (!isCurrentConv && message.senderId !== currentUser?.id) {
-      const conv = conversations.find(c => c.id === message.conversationId)
-      updates.unreadCount = (conv?.unreadCount || 0) + 1
+      updates.unreadCount = (existingConv.unreadCount || 0) + 1
     }
     
     set({

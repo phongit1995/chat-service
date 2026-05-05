@@ -100,14 +100,6 @@ class SocketService {
     }
   }
 
-  joinConversation(conversationId: string) {
-    this.socket?.emit('JOIN_CONVERSATION', { conversationId })
-  }
-
-  leaveConversation(conversationId: string) {
-    this.socket?.emit('LEAVE_CONVERSATION', { conversationId })
-  }
-
   sendTyping(conversationId: string, isTyping: boolean) {
     this.socket?.emit('TYPING', { conversationId, isTyping })
   }
