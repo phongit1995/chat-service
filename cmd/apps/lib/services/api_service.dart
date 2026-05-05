@@ -1,11 +1,11 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/env.dart';
 import '../models/models.dart';
 
 class ApiService {
   final Dio _dio;
-  final FlutterSecureStorage _storage;
+  static const _tokenKey = 'accessToken';
 
   ApiService()
       : _dio = Dio(BaseOptions(
@@ -13,11 +13,11 @@ class ApiService {
           headers: {'Content-Type': 'application/json'},
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
-        )),
-        _storage = const FlutterSecureStorage() {
+        )) {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.read(key: 'accessToken');
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString(_tokenKey);
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
@@ -32,7 +32,8 @@ class ApiService {
       'password': password,
     });
     final data = res.data['data'] as Map<String, dynamic>;
-    await _storage.write(key: 'accessToken', value: data['token'] as String);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, data['token'] as String);
     return data;
   }
 
@@ -46,10 +47,14 @@ class ApiService {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: 'accessToken');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
   }
 
-  Future<String?> getToken() => _storage.read(key: 'accessToken');
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_tokenKey);
+  }
 
   Future<User> getProfile() async {
     final res = await _dio.get('/user/me');

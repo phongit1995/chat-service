@@ -4,14 +4,24 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config/env.dart';
 import '../models/models.dart';
 
+class NewMessageEvent {
+  final Message message;
+  final Conversation? conversation;
+  NewMessageEvent(this.message, this.conversation);
+}
+
 class SocketService {
   IO.Socket? _socket;
 
-  final _newMessageCtrl = StreamController<Message>.broadcast();
-  final _conversationUpdatedCtrl = StreamController<Conversation>.broadcast();
+  final _newMessageCtrl = StreamController<NewMessageEvent>.broadcast();
+  final _conversationCreatedCtrl = StreamController<String>.broadcast();
+  final _conversationUpdatedCtrl = StreamController<String>.broadcast();
+  final _conversationDeletedCtrl = StreamController<String>.broadcast();
 
-  Stream<Message> get onNewMessage => _newMessageCtrl.stream;
-  Stream<Conversation> get onConversationUpdated => _conversationUpdatedCtrl.stream;
+  Stream<NewMessageEvent> get onNewMessage => _newMessageCtrl.stream;
+  Stream<String> get onConversationCreated => _conversationCreatedCtrl.stream;
+  Stream<String> get onConversationUpdated => _conversationUpdatedCtrl.stream;
+  Stream<String> get onConversationDeleted => _conversationDeletedCtrl.stream;
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -28,25 +38,40 @@ class SocketService {
           .build(),
     );
 
-    _socket!.on('NEW_MESSAGE', (data) {
+    _socket!.on('message', (raw) {
       try {
-        final payload = data is Map ? Map<String, dynamic>.from(data) : null;
-        if (payload == null) return;
-        final msgRaw = payload['message'];
-        final convRaw = payload['conversation'];
-        if (msgRaw is Map) {
-          _newMessageCtrl.add(Message.fromJson(Map<String, dynamic>.from(msgRaw)));
-        }
-        if (convRaw is Map) {
-          _conversationUpdatedCtrl.add(Conversation.fromJson(Map<String, dynamic>.from(convRaw)));
-        }
-      } catch (_) {}
-    });
+        if (raw is! Map) return;
+        final wrapper = Map<String, dynamic>.from(raw);
+        final type = wrapper['type'] as String?;
+        final data = wrapper['data'];
+        if (type == null || data is! Map) return;
+        final payload = Map<String, dynamic>.from(data);
 
-    _socket!.on('CONVERSATION_CREATED', (data) {
-      try {
-        if (data is Map) {
-          _conversationUpdatedCtrl.add(Conversation.fromJson(Map<String, dynamic>.from(data)));
+        switch (type) {
+          case 'NEW_MESSAGE':
+            final msgRaw = payload['message'];
+            final convRaw = payload['conversation'];
+            if (msgRaw is Map) {
+              final message = Message.fromJson(Map<String, dynamic>.from(msgRaw));
+              Conversation? conv;
+              if (convRaw is Map) {
+                conv = Conversation.fromJson(Map<String, dynamic>.from(convRaw));
+              }
+              _newMessageCtrl.add(NewMessageEvent(message, conv));
+            }
+            break;
+          case 'CONVERSATION_CREATED':
+            final id = payload['id'] as String?;
+            if (id != null) _conversationCreatedCtrl.add(id);
+            break;
+          case 'CONVERSATION_UPDATED':
+            final id = payload['id'] as String?;
+            if (id != null) _conversationUpdatedCtrl.add(id);
+            break;
+          case 'CONVERSATION_DELETED':
+            final id = payload['conversationId'] as String?;
+            if (id != null) _conversationDeletedCtrl.add(id);
+            break;
         }
       } catch (_) {}
     });
@@ -62,6 +87,8 @@ class SocketService {
   void dispose() {
     disconnect();
     _newMessageCtrl.close();
+    _conversationCreatedCtrl.close();
     _conversationUpdatedCtrl.close();
+    _conversationDeletedCtrl.close();
   }
 }

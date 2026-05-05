@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
+import '../services/socket_service.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -18,20 +19,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scroll = ScrollController();
   List<Message> _messages = [];
   bool _loading = true;
-  StreamSubscription<Message>? _sub;
+  StreamSubscription<NewMessageEvent>? _sub;
   bool _sending = false;
 
   @override
   void initState() {
     super.initState();
     _load();
-    _sub = ref.read(socketProvider).onNewMessage.listen((m) {
+    Future.microtask(() {
+      ref.read(activeConversationProvider.notifier).set(widget.conversationId);
+    });
+    _sub = ref.read(socketProvider).onNewMessage.listen((event) {
+      final m = event.message;
       if (m.conversationId != widget.conversationId) return;
       if (_messages.any((e) => e.id == m.id)) return;
       setState(() => _messages = [..._messages, m]);
       _scrollToBottom();
     });
     ref.read(apiProvider).markAsRead(widget.conversationId).catchError((_) {});
+    Future.microtask(() {
+      ref.read(conversationsProvider.notifier).markRead(widget.conversationId);
+    });
   }
 
   @override
@@ -39,6 +47,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _sub?.cancel();
     _input.dispose();
     _scroll.dispose();
+    final notifier = ref.read(activeConversationProvider.notifier);
+    if (ref.read(activeConversationProvider) == widget.conversationId) {
+      notifier.set(null);
+    }
     super.dispose();
   }
 

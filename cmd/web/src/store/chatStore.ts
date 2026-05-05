@@ -101,46 +101,43 @@ export const useChatStore = create<ChatState>((set, get) => {
     const { currentConversation, messages, conversations } = get()
     const { conversation, message } = eventData
     const currentUser = useAuthStore.getState().user
-    
-    // Check if conversation exists in list
-    let existingConv = conversations.find(c => c.id === message.conversationId)
-    
-    if (!existingConv) {
-      // New conversation - add it from the event data
-      console.log('✅ Adding new conversation from NEW_MESSAGE:', conversation.id)
-      set({
-        conversations: [conversation, ...conversations]
-      })
-      existingConv = conversation
-    }
 
-    // Add message to current conversation (dedup by id)
     if (message.conversationId === currentConversation?.id) {
-      const messageExists = messages.some(m => m.id === message.id)
-      if (!messageExists) {
+      const exists = messages.some(m => m.id === message.id)
+      if (!exists) {
         set({ messages: [...messages, message] })
       }
     }
 
-    // Update conversation info
+    const existingConv = conversations.find(c => c.id === message.conversationId)
+    if (!existingConv) {
+      console.log('✅ NEW_MESSAGE for unknown conversation, refetching list:', message.conversationId)
+      get().loadConversations()
+      return
+    }
+
     const isCurrentConv = currentConversation?.id === message.conversationId
     const updates: Partial<Conversation> = {
       lastMessageText: message.content,
       lastMessageAt: message.createdAt,
       participantCount: conversation.participantCount,
     }
-
-    // Increment unread only for others' messages in non-active conversations
     if (!isCurrentConv && message.senderId !== currentUser?.id) {
       updates.unreadCount = (existingConv.unreadCount || 0) + 1
+    } else if (isCurrentConv) {
+      updates.unreadCount = 0
     }
-    
+
     set({
       conversations: moveConversationToTop(
         updateConversationInList(conversations, message.conversationId, updates),
         message.conversationId
       )
     })
+
+    if (isCurrentConv && message.senderId !== currentUser?.id) {
+      apiService.markConversationAsRead(message.conversationId).catch(() => {})
+    }
   })
 
 
@@ -181,27 +178,14 @@ export const useChatStore = create<ChatState>((set, get) => {
 
 
   socketService.on(WebSocketEventType.CONVERSATION_CREATED, (data: ConversationCreatedData) => {
-    const { conversations } = get()
-    
-    if (!conversations.find(c => c.id === data.id)) {
-      set({ conversations: [data, ...conversations] })
-      console.log('✅ New conversation created:', data.id)
-    }
+    console.log('✅ CONVERSATION_CREATED received, refetching list:', data.id)
+    get().loadConversations()
   })
   
 
   socketService.on(WebSocketEventType.CONVERSATION_UPDATED, (data: ConversationUpdatedData) => {
-    const { conversations } = get()
-    
-    set({
-      conversations: updateConversationInList(conversations, data.id, {
-        name: data.name,
-        avatar: data.avatar,
-        participantCount: data.participantCount,
-      })
-    })
-    
-    console.log('✅ Conversation updated:', data.id)
+    console.log('✅ CONVERSATION_UPDATED received, refetching list:', data.id)
+    get().loadConversations()
   })
   
 
@@ -395,12 +379,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       try {
         const response = await apiService.createGroupConversation({ name, participantIds })
         const newConversation = response.data!
-
-        set(state => ({
-          conversations: [newConversation, ...state.conversations],
-          isLoading: false
-        }))
-
+        await get().loadConversations()
+        set({ isLoading: false })
         get().selectConversation(newConversation.id)
       } catch (error: any) {
         set({

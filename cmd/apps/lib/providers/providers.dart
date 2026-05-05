@@ -83,31 +83,99 @@ class AuthNotifier extends Notifier<AuthState> {
 
 final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
 
+class ActiveConversationNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? id) => state = id;
+}
+
+final activeConversationProvider =
+    NotifierProvider<ActiveConversationNotifier, String?>(ActiveConversationNotifier.new);
+
 class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
   @override
   Future<List<Conversation>> build() async {
-    ref.read(socketProvider).onConversationUpdated.listen((conv) {
+    final socket = ref.read(socketProvider);
+
+    socket.onConversationCreated.listen((_) => reload());
+    socket.onConversationUpdated.listen((_) => reload());
+    socket.onConversationDeleted.listen((id) {
       final list = state.value ?? [];
-      final idx = list.indexWhere((c) => c.id == conv.id);
-      final updated = [...list];
-      if (idx >= 0) {
-        updated[idx] = conv;
-      } else {
-        updated.insert(0, conv);
-      }
-      state = AsyncValue.data(updated);
+      state = AsyncValue.data(list.where((c) => c.id != id).toList());
     });
+
+    socket.onNewMessage.listen((event) {
+      final msg = event.message;
+      final list = state.value ?? [];
+      final idx = list.indexWhere((c) => c.id == msg.conversationId);
+
+      if (idx < 0) {
+        reload();
+        return;
+      }
+
+      final me = ref.read(authProvider).user?.id;
+      final activeId = ref.read(activeConversationProvider);
+      final isActive = activeId == msg.conversationId;
+      final old = list[idx];
+
+      int unread = old.unreadCount;
+      if (isActive) {
+        unread = 0;
+      } else if (msg.senderId != me) {
+        unread = old.unreadCount + 1;
+      }
+
+      final updated = Conversation(
+        id: old.id,
+        type: old.type,
+        name: old.name,
+        avatar: old.avatar,
+        lastMessageText: msg.content,
+        lastMessageAt: msg.createdAt,
+        unreadCount: unread,
+        participantCount: event.conversation?.participantCount ?? old.participantCount,
+      );
+
+      final newList = [updated, ...list.where((c) => c.id != msg.conversationId)];
+      state = AsyncValue.data(newList);
+
+      if (isActive && msg.senderId != me) {
+        ref.read(apiProvider).markAsRead(msg.conversationId).catchError((_) {});
+      }
+    });
+
     return ref.read(apiProvider).getConversations();
   }
 
   Future<void> reload() async {
-    state = const AsyncValue.loading();
     try {
       final list = await ref.read(apiProvider).getConversations();
       state = AsyncValue.data(list);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
+  }
+
+  void markRead(String conversationId) {
+    final list = state.value ?? [];
+    final idx = list.indexWhere((c) => c.id == conversationId);
+    if (idx < 0) return;
+    final old = list[idx];
+    if (old.unreadCount == 0) return;
+    final updated = Conversation(
+      id: old.id,
+      type: old.type,
+      name: old.name,
+      avatar: old.avatar,
+      lastMessageText: old.lastMessageText,
+      lastMessageAt: old.lastMessageAt,
+      unreadCount: 0,
+      participantCount: old.participantCount,
+    );
+    final newList = [...list];
+    newList[idx] = updated;
+    state = AsyncValue.data(newList);
   }
 }
 

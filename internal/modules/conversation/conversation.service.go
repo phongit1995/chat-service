@@ -239,6 +239,7 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 				"member_count", len(members),
 			)
 		}
+		s.publishDirectConversationCreated(conversationID, user1ID, user2ID, user1, otherUser, now)
 	}()
 
 	otherUserResponseName := otherUser.FullName
@@ -256,6 +257,63 @@ func (s *Service) CreateDirectConversation(user1ID, user2ID uuid.UUID) (*Convers
 		ParticipantCount: 2,
 		IsNew:            true,
 	}, nil
+}
+
+func (s *Service) publishDirectConversationCreated(convID, user1ID, user2ID uuid.UUID, user1, user2 *models.User, createdAt time.Time) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	user1Name := user1.FullName
+	if user1Name == "" {
+		user1Name = user1.Username
+	}
+	user2Name := user2.FullName
+	if user2Name == "" {
+		user2Name = user2.Username
+	}
+
+	participants := []map[string]interface{}{
+		{"userId": user1ID.String(), "username": user1.Username, "avatar": user1.Avatar},
+		{"userId": user2ID.String(), "username": user2.Username, "avatar": user2.Avatar},
+	}
+
+	createdAtStr := createdAt.Format(time.RFC3339)
+
+	user1Event := &conversationEvents.CreatedEvent{
+		ConversationID: convID.String(),
+		Data: map[string]interface{}{
+			"id":               convID.String(),
+			"type":             constants.ConversationTypeDirect,
+			"name":             user2Name,
+			"avatar":           user2.Avatar,
+			"createdAt":        createdAtStr,
+			"updatedAt":        createdAtStr,
+			"participantCount": 2,
+			"unreadCount":      0,
+			"participants":     participants,
+		},
+	}
+	user2Event := &conversationEvents.CreatedEvent{
+		ConversationID: convID.String(),
+		Data: map[string]interface{}{
+			"id":               convID.String(),
+			"type":             constants.ConversationTypeDirect,
+			"name":             user1Name,
+			"avatar":           user1.Avatar,
+			"createdAt":        createdAtStr,
+			"updatedAt":        createdAtStr,
+			"participantCount": 2,
+			"unreadCount":      0,
+			"participants":     participants,
+		},
+	}
+
+	if err := s.kafkaProducer.PublishConversationCreated(ctx, user1Event); err != nil {
+		s.logger.Errorw("Failed to publish CONVERSATION_CREATED for user1", "conversation_id", convID, "error", err)
+	}
+	if err := s.kafkaProducer.PublishConversationCreated(ctx, user2Event); err != nil {
+		s.logger.Errorw("Failed to publish CONVERSATION_CREATED for user2", "conversation_id", convID, "error", err)
+	}
 }
 
 func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, participantIDs []uuid.UUID) (*ConversationResponse, error) {
@@ -356,6 +414,7 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 				"member_count", len(members),
 			)
 		}
+		s.publishGroupConversationCreated(conversationID, name, allParticipantIDs, now)
 	}()
 
 	return &ConversationResponse{
@@ -367,6 +426,46 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 		ParticipantCount: len(uniqueParticipants),
 		IsNew:            true,
 	}, nil
+}
+
+func (s *Service) publishGroupConversationCreated(convID uuid.UUID, name string, participantIDs []uuid.UUID, createdAt time.Time) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	participants := make([]map[string]interface{}, 0, len(participantIDs))
+	for _, pid := range participantIDs {
+		u, err := s.userCache.GetUserCache(pid, true)
+		if err != nil || u == nil {
+			continue
+		}
+		participants = append(participants, map[string]interface{}{
+			"userId":   pid.String(),
+			"username": u.Username,
+			"avatar":   u.Avatar,
+		})
+	}
+
+	createdAtStr := createdAt.Format(time.RFC3339)
+
+	for _, pid := range participantIDs {
+		event := &conversationEvents.CreatedEvent{
+			ConversationID: convID.String(),
+			Data: map[string]interface{}{
+				"id":               convID.String(),
+				"type":             constants.ConversationTypeGroupDB,
+				"name":             name,
+				"createdAt":        createdAtStr,
+				"updatedAt":        createdAtStr,
+				"participantCount": len(participantIDs),
+				"unreadCount":      0,
+				"participants":     participants,
+			},
+		}
+		if err := s.kafkaProducer.PublishConversationCreated(ctx, event); err != nil {
+			s.logger.Errorw("Failed to publish CONVERSATION_CREATED for group participant",
+				"conversation_id", convID, "user_id", pid, "error", err)
+		}
+	}
 }
 
 func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*ConversationsListResponse, error) {
