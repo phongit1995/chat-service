@@ -4,7 +4,7 @@ import (
 	conversationEvents "chat-server/internal/domain/conversation"
 	messageEvents "chat-server/internal/domain/message"
 	"chat-server/internal/constants"
-	"chat-server/internal/infra/kafka"
+	"chat-server/internal/transport/kafka"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
 	userModule "chat-server/internal/modules/user"

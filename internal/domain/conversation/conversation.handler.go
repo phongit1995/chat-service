@@ -2,7 +2,7 @@ package conversation
 
 import (
 	"chat-server/internal/constants"
-	"chat-server/internal/infra/websocket"
+	"chat-server/internal/transport/websocket"
 	"chat-server/internal/utils"
 	"context"
 	"encoding/json"

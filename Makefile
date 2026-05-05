@@ -10,20 +10,20 @@
 
 dev-up:
 	@echo "🚀 Starting development infrastructure..."
-	docker compose -f docker-compose.dev.yml up -d
+	docker compose -f infra/compose/dev.yml up -d
 
 dev-down:
-	docker compose -f docker-compose.dev.yml down
+	docker compose -f infra/compose/dev.yml down
 
 dev-logs:
-	docker compose -f docker-compose.dev.yml logs -f
+	docker compose -f infra/compose/dev.yml logs -f
 
 dev-clean:
-	docker compose -f docker-compose.dev.yml down -v
+	docker compose -f infra/compose/dev.yml down -v
 	docker system prune -f
 
 dev-status:
-	docker compose -f docker-compose.dev.yml ps
+	docker compose -f infra/compose/dev.yml ps
 
 # ==================== Run Services ====================
 
@@ -101,16 +101,16 @@ seed:
 # ==================== Database CLI ====================
 
 db-shell:
-	docker compose -f docker-compose.dev.yml exec postgres psql -U postgres -d chat_server_dev
+	docker compose -f infra/compose/dev.yml exec postgres psql -U postgres -d chat_server_dev
 
 redis-cli:
-	docker compose -f docker-compose.dev.yml exec redis redis-cli -a redis123
+	docker compose -f infra/compose/dev.yml exec redis redis-cli -a redis123
 
 scylla-cli:
-	docker compose -f docker-compose.dev.yml exec scylladb cqlsh
+	docker compose -f infra/compose/dev.yml exec scylladb cqlsh
 
 kafka-cli:
-	docker compose -f docker-compose.dev.yml exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic chat.message.created
+	docker compose -f infra/compose/dev.yml exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic chat.message.created
 
 # ==================== Tools ====================
 

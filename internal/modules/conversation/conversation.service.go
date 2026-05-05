@@ -3,7 +3,7 @@ package conversation
 import (
 	"chat-server/internal/constants"
 	conversationEvents "chat-server/internal/domain/conversation"
-	"chat-server/internal/infra/kafka"
+	"chat-server/internal/transport/kafka"
 	"chat-server/internal/models"
 	userModule "chat-server/internal/modules/user"
 	"chat-server/internal/utils"

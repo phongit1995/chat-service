@@ -2,8 +2,8 @@ package main
 
 import (
 	"chat-server/internal/config"
-	"chat-server/internal/infra/kafka"
-	"chat-server/internal/infra/websocket"
+	"chat-server/internal/transport/kafka"
+	"chat-server/internal/transport/websocket"
 	"context"
 	"fmt"
 	"log"

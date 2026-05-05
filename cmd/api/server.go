@@ -2,7 +2,7 @@ package main
 
 import (
 	"chat-server/internal/config"
-	"chat-server/internal/infra/websocket"
+	"chat-server/internal/transport/websocket"
 	"chat-server/internal/modules/auth"
 	"chat-server/internal/modules/conversation"
 	"chat-server/internal/modules/health"

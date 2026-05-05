@@ -3,7 +3,7 @@ package message
 import (
 	"chat-server/internal/constants"
 	conversationDomain "chat-server/internal/domain/conversation"
-	"chat-server/internal/infra/websocket"
+	"chat-server/internal/transport/websocket"
 	"chat-server/internal/utils"
 	"context"
 	"encoding/json"

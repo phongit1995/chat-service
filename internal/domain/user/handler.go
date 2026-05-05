@@ -1,7 +1,7 @@
 package user
 
 import (
-	"chat-server/internal/infra/websocket"
+	"chat-server/internal/transport/websocket"
 	"context"
 
 	"go.uber.org/zap"
