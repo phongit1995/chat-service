@@ -1,726 +1,362 @@
-# Chat Server - Microservices Architecture
+# Chat Server — Microservices Chat Platform
 
-A scalable, real-time chat server built with Go microservices, featuring Kafka message streaming, Socket.IO WebSocket support, JWT authentication, and clean architecture principles.
+A real-time chat platform built in Go with a microservices architecture, using Kafka for event streaming, Socket.IO + Redis Adapter for distributed WebSocket, multi-database storage (PostgreSQL + ScyllaDB + Redis), and clean architecture.
 
-## 🚀 Features
+## Key Features
 
-- **Microservices Architecture**: Separate API and Chat services for scalability
-- **Real-time Communication**: Socket.IO v3 with Redis Adapter for distributed WebSocket
-- **Event Streaming**: Kafka for asynchronous message processing between services
-- **RESTful API**: Well-structured REST endpoints with Swagger documentation
-- **JWT Authentication**: Secure token-based authentication system
-- **Clean Architecture**: Modular design with clear separation of concerns
-- **Dependency Injection**: Using Uber's Dig for clean dependency management
-- **Type-Safe HTTP Handlers**: Generic response types with compile-time safety
-- **Comprehensive Logging**: Structured logging with Zap
-- **Multi-Database**: PostgreSQL (relational), ScyllaDB (messages), Redis (cache & WebSocket)
-- **API Documentation**: Auto-generated Swagger/OpenAPI documentation
-- **Docker Support**: Full containerization with Docker Compose
-- **Request Tracing**: X-Trace-Id for distributed tracing
+- Microservices: separate **API Service** (REST + WebSocket + Kafka Producer) and **Chat Service** (WebSocket + Kafka Consumer)
+- Real-time messaging with Socket.IO v3 + Redis Adapter — supports horizontal scaling
+- Event streaming via Kafka (KRaft mode) for inter-service communication
+- Idempotent message send with client-minted `clientMsgId` + optimistic UI
+- Async per-member fanout on send; typing routed via user rooms
+- Multi-database:
+  - **PostgreSQL** — users, relationships, conversations, members
+  - **ScyllaDB** — message storage (high-throughput, time-series)
+  - **Redis** — cache + WebSocket adapter + presence
+- JWT authentication (shared secret across both services)
+- Dedicated migration service for both PostgreSQL and ScyllaDB
+- Auto-generated Swagger / OpenAPI docs
+- Web client (React + Vite) and mobile client (Flutter) under `clients/`
+- Observability: Loki + Grafana + Alloy
+- Distributed tracing via `X-Trace-Id`
 
-## 📋 Tech Stack
+## Tech Stack
 
-### Core Technologies
-- **Language**: Go 1.24.5
-- **Web Framework**: Gin (high-performance HTTP framework)
-- **WebSocket**: Socket.IO v3 (`github.com/zishang520/socket.io`)
-- **Message Broker**: Apache Kafka (Confluent Platform 7.5.0)
-- **Databases**:
-  - PostgreSQL (users, relationships, conversations)
-  - ScyllaDB (message storage)
-  - Redis (cache & WebSocket adapter)
+- **Language:** Go 1.24.5
+- **HTTP framework:** Gin
+- **WebSocket:** `zishang520/socket.io/servers/socket/v3` + `adapters/redis/v3`
+- **Message broker:** Apache Kafka (Confluent 7.5.0, KRaft) — client `segmentio/kafka-go`
+- **RDBMS:** PostgreSQL 15 + GORM + pgx
+- **NoSQL:** ScyllaDB 5.4 + `gocql`
+- **Cache:** Redis 7 (`go-redis/v9`)
+- **Auth:** `golang-jwt/jwt/v5` + bcrypt
+- **Migrations:** `golang-migrate/migrate/v4` (PG) + custom CQL runner (Scylla)
+- **DI:** Uber Dig
+- **Logging:** Uber Zap
+- **Validation:** `go-playground/validator/v10`
+- **Config:** `caarlos0/env` + `joho/godotenv`
+- **Docs:** Swaggo
+- **Observability:** Loki + Grafana + Alloy
 
-### Key Libraries
-- **Authentication**: JWT (golang-jwt/jwt)
-- **Logging**: Uber Zap (structured logging)
-- **Dependency Injection**: Uber Dig
-- **API Documentation**: Swaggo
-- **Password Hashing**: bcrypt (golang.org/x/crypto)
-- **Configuration**: godotenv + caarlos0/env
-- **Validation**: go-playground/validator/v10
-- **Kafka Client**: Confluent Kafka Go
-- **Socket.IO**: zishang520/socket.io v3
-- **Redis Adapter**: zishang520/redis-adapter v3
+## Architecture
 
-## 🏗️ Architecture
-
-### Microservices Overview
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Client                               │
-│                (Browser/Mobile App)                         │
-└────────────┬────────────────────────────────┬───────────────┘
-             │                                │
-             │ HTTP REST                      │ WebSocket
-             │                                │
-       ┌─────▼──────────┐              ┌─────▼──────────┐
-       │  API Service   │              │  Chat Service  │
-       │   :8080        │              │    :8081       │
-       │                │              │                │
-       │ • REST API     │              │ • WebSocket    │
-       │ • WebSocket    │◄─────────────┤ • Kafka        │
-       │ • Kafka        │   Redis      │   Consumer     │
-       │   Producer     │   Adapter    │                │
-       └────┬───────────┘              └────┬───────────┘
-            │                               │
-            │ Events                        │ Messages
-            │                               │
-       ┌────▼───────────────────────────────▼────┐
-       │           Kafka Cluster                 │
-       │     (Message Streaming Platform)        │
-       └─────────────────────────────────────────┘
-            │                               │
-       ┌────▼──────────┐              ┌────▼──────────┐
-       │  PostgreSQL   │              │   ScyllaDB    │
-       │  (Metadata)   │              │  (Messages)   │
-       └───────────────┘              └───────────────┘
+```text
+            ┌────────────────────────┐
+            │    Client (Web/App)    │
+            └───────┬────────────────┘
+       HTTP/REST    │     WebSocket
+                    │
+       ┌────────────┴────────────┐
+       │                         │
+┌──────▼──────┐           ┌──────▼──────┐
+│ API Service │           │ Chat Service│
+│   :8080     │           │             │
+│             │           │             │
+│ REST + WS   │◄── Redis ►│  WS only    │
+│ Kafka Prod. │  Adapter  │ Kafka Cons. │
+└──────┬──────┘           └──────┬──────┘
+       │                         │
+       └────────────┬────────────┘
+                    ▼
+              Kafka Cluster
+                    │
+       ┌────────────┼────────────┐
+       ▼            ▼            ▼
+  PostgreSQL    ScyllaDB       Redis
+  (metadata)   (messages)   (cache+WS)
 ```
 
 ### Service Responsibilities
 
-#### API Service (`:8080`)
-- **REST API**: User authentication, profile management, relationships
-- **WebSocket**: Real-time chat (optional - clients can connect here or to Chat service)
-- **Kafka Producer**: Publishes message events to Kafka
-- **Database**: PostgreSQL (users, relationships, conversations)
-
-#### Chat Service (`:8081`)
-- **WebSocket Only**: Dedicated real-time chat service
-- **Kafka Consumer**: Processes message events from Kafka
-- **Message Storage**: Saves messages to ScyllaDB
-- **No Database Dependencies**: Minimal service for chat only
+- **API Service (`:8080`)** — Auth, user, relationships, conversations, message API; WebSocket; produces Kafka events.
+- **Chat Service (`:8081`)** — WebSocket only; consumes Kafka events and broadcasts to user rooms / conversation rooms.
+- **Migration Service** — Run-once: applies migrations for both PostgreSQL and ScyllaDB.
 
 ### Project Structure
 
-```
+```text
 chat-server/
 ├── cmd/
-│   ├── api/                       # API Service (REST + WebSocket + Kafka Producer)
-│   │   ├── main.go               # Entry point
-│   │   ├── config.go             # Service-specific config & validation
-│   │   ├── container.go          # DI container setup
-│   │   └── server.go             # HTTP server configuration
-│   └── chat/                      # Chat Service (WebSocket + Kafka Consumer)
-│       ├── main.go               # Entry point
-│       ├── config.go             # Service-specific config & validation
-│       └── container.go          # DI container setup
+│   ├── api/             # API service entry (main, config, container, server)
+│   ├── chat/            # Chat service entry
+│   └── migrations/      # Migration runner + postgres/ + scylla/
 ├── internal/
-│   ├── config/                   # Shared configuration
-│   │   └── config.go
-│   ├── db/                       # Database connections
-│   │   ├── postgres.go           # PostgreSQL connection
-│   │   └── scylla.go             # ScyllaDB connection
-│   ├── logger/                   # Logging setup
-│   │   └── logger.go
-│   ├── middleware/               # HTTP middlewares
-│   │   └── auth.middleware.go
-│   ├── models/                   # Database models
-│   │   ├── user.model.go
-│   │   ├── conversation.model.go
-│   │   ├── message.model.go
-│   │   └── relationship.model.go
-│   ├── services/                 # Business services
-│   │   ├── jwt.service.go
-│   │   ├── cache.service.go
-│   │   ├── kafka_producer.go
-│   │   └── kafka_consumer.go
-│   ├── utils/                    # Utility functions
-│   │   └── http.go              # HTTP helpers & response types
-│   └── modules/                  # Feature modules
-│       ├── auth/                # Authentication
-│       ├── user/                # User management
-│       ├── relationships/       # Friend/block management
-│       ├── conversation/        # Conversation management
-│       ├── message/             # Message management
-│       ├── websocket/           # Shared WebSocket module
-│       │   ├── server.go        # Socket.IO server setup
-│       │   ├── handlers.go      # WebSocket event handlers
-│       │   ├── kafka_handlers.go # Kafka message handlers
-│       │   └── dig.go           # DI providers
-│       └── health/              # Health checks
-├── .env                          # API Service environment
-├── .env.chat                     # Chat Service environment
-├── docker-compose.yml            # Full stack orchestration
-├── docker-compose.dev.yml        # Development infrastructure
-├── Dockerfile                    # Multi-stage build
-├── Makefile                      # Build & dev commands
-└── README.md
+│   ├── config/          # Shared loader
+│   ├── constants/       # SINGLE SOURCE OF TRUTH (kafka topics, cache keys, ws events…)
+│   ├── db/              # PostgreSQL (GORM) + ScyllaDB (gocql)
+│   ├── domain/          # Domain handlers (message, conversation, user)
+│   ├── logger/          # Zap setup
+│   ├── middleware/      # HTTP middlewares (auth, …)
+│   ├── models/          # GORM models
+│   ├── services/        # JWT, cache, ...
+│   ├── transport/
+│   │   ├── kafka/       # Producer / Consumer + adapter, providers
+│   │   └── websocket/   # Socket.IO server, redis adapter, presence, handlers
+│   ├── modules/         # Feature modules (clean architecture)
+│   │   ├── auth/        #   {module}.router|controller|service|repository|dto|dig.go
+│   │   ├── user/
+│   │   ├── relationships/
+│   │   ├── conversation/
+│   │   ├── message/
+│   │   └── health/
+│   └── utils/           # HTTP helpers, cache key helpers
+├── infra/
+│   ├── docker/          # Dockerfiles
+│   ├── monitoring/      # Loki, Grafana, Alloy configs
+│   ├── nginx/
+│   └── scripts/
+├── clients/
+│   ├── web/             # React + Vite + Tailwind
+│   └── apps/            # Flutter mobile
+├── docker-compose.yml       # Full production stack
+├── docker-compose.dev.yml   # Dev infrastructure
+├── docker-compose.test.yml
+├── Makefile
+└── docs/                # Swagger output
 ```
 
-### Architectural Patterns
+### Key Patterns
 
-#### 1. **Microservices Communication**
+#### 1. Centralized constants
 
-**Synchronous (REST)**:
-- Client → API Service: User operations, profile, relationships
+All Kafka topics, cache keys, and WebSocket events are defined in [internal/constants/constant.go](internal/constants/constant.go). No hard-coded strings.
 
-**Asynchronous (Kafka)**:
-- API Service → Kafka → Chat Service: Message events
-- Enables loose coupling and service independence
+#### 2. Service-specific config validation
 
-**Real-time (WebSocket + Redis Adapter)**:
-- Client can connect to either API or Chat service
-- Redis Adapter syncs events across all WebSocket instances
-- Horizontal scaling support
+Each service validates its own config with `go-playground/validator`:
 
-#### 2. **Event-Driven Architecture**
+- API: full stack (DB, Redis, Scylla, Kafka, JWT, …)
+- Chat: minimal (WebSocket Redis, Kafka, JWT)
 
-```go
-// API Service publishes message event
-producer.Publish(kafka.Message{
-    Topic: "chat.messages",
-    Event: "message.sent",
-    Data: messageData,
-})
+#### 3. Dependency Injection (Uber Dig)
 
-// Chat Service consumes and processes
-consumer.Subscribe("chat.messages", func(msg kafka.Message) {
-    // Save to ScyllaDB
-    // Broadcast via WebSocket
-    wsServer.Emit("message.received", msg.Data)
-})
+Each module exposes a `Provider` in `{module}.dig.go`. The container is built in `cmd/{service}/container.go`.
+
+#### 4. Event-Driven
+
+```text
+API → produce → Kafka topic → Chat consume → WS broadcast to user / conversation rooms
 ```
 
-#### 3. **Service-Specific Configuration**
+#### 5. Distributed WebSocket
 
-Each service has its own config struct with validation:
+Both services share `internal/transport/websocket` + Redis Adapter, enabling horizontal scaling.
 
-```go
-// API Service - Full validation
-type APIConfigValidator struct {
-    DBHost              string   `validate:"required"`
-    RedisHost           string   `validate:"required"`
-    WebSocketRedisHost  string   `validate:"required"`
-    ScyllaHost          string   `validate:"required"`
-    JWTSecret           string   `validate:"required,min=32"`
-    CORSAllowedOrigins  []string `validate:"required,min=1"`
-}
+#### 6. Clean architecture layering
 
-// Chat Service - Minimal validation
-type ChatConfigValidator struct {
-    WebSocketRedisHost string `validate:"required"`
-    JWTSecret          string `validate:"required,min=32"`
-}
-```
+Controller (thin) → Service (business logic) → Repository (data access).
 
-#### 4. **Shared WebSocket Module**
+#### 7. Generic typed HTTP response
 
-Both services use the same WebSocket module:
+All REST responses use `utils.Response[T]` with `traceId`, `path`, `timestamp`.
 
-```go
-// internal/modules/websocket/server.go
-func NewSocketIOServer(cfg *config.Config) (*Server, error) {
-    // Create Socket.IO server
-    io := socketio.NewServer(nil, nil)
+## Getting Started
 
-    // Redis Adapter for distributed WebSocket
-    adapter := redis_adapter.NewRedisAdapterWithDefault(
-        redisClient.String(),
-    )
-    io.Adapter(adapter)
+### Requirements
 
-    return &Server{IO: io}, nil
-}
-```
-
-#### 5. **Clean Architecture Layers**
-
-```
-┌─────────────────────────────────────┐
-│         Controller Layer            │  HTTP handlers, WebSocket events
-├─────────────────────────────────────┤
-│          Service Layer              │  Business logic
-├─────────────────────────────────────┤
-│        Repository Layer             │  Data access
-└─────────────────────────────────────┘
-```
-
-## 🛠️ Getting Started
-
-### Prerequisites
-
-- Go 1.24.5 or higher
+- Go 1.24.5+
 - Docker & Docker Compose
-- Make (optional, for convenience commands)
+- (Optional) Make, Yarn (for the web client), Flutter (for the mobile client)
 
-### Quick Start with Docker
+### Quick start — full stack with Docker
 
-1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/chat-server.git
-cd chat-server
+# Build & start all services + infrastructure + monitoring
+docker compose up -d
+
+# Status
+docker compose ps
 ```
 
-2. **Set up environment files**
+### Local development
+
 ```bash
-cp .env.example .env
-cp .env.example .env.chat
-```
-
-3. **Start all services**
-```bash
-docker-compose up -d
-```
-
-This will start:
-- PostgreSQL (port 5432)
-- Redis (port 6379) - Cache
-- Redis (port 6380) - WebSocket Adapter
-- ScyllaDB (port 9042)
-- Kafka + KRaft (port 9092)
-- API Service (port 8080)
-- Chat Service (port 8081)
-
-4. **Check service status**
-```bash
-docker-compose ps
-```
-
-### Development Setup (Local)
-
-1. **Start infrastructure only**
-```bash
+# 1. Start infrastructure (postgres, redis, scylla, kafka)
 make dev-up
+
+# 2. Apply migrations
+make migrate-up
+
+# 3. (Optional) Seed 100 test users (test1@gmail.com … test100@gmail.com / 123456)
+make seed
+
+# 4. Run the two services in separate terminals
+make run-api      # :8080
+make run-chat     # :8081
+
+# 5. (Optional) Web UI
+make web-install
+make web-dev      # :3000
 ```
 
-2. **Run API Service**
-```bash
-make run-api
-# Or manually:
-go run ./cmd/api/main.go
-```
+### Endpoints
 
-3. **Run Chat Service (in another terminal)**
-```bash
-make run-chat
-# Or manually:
-go run ./cmd/chat/main.go
-```
+- **API REST:** `http://localhost:8080/api/...`
+- **API WebSocket:** `ws://localhost:8080/socket.io/`
+- **Swagger:** `http://localhost:8080/swagger/index.html`
+- **Chat WebSocket:** `ws://localhost:8081/socket.io/`
+- **Health (API):** `http://localhost:8080/api/health`
+- **Health (Chat):** `http://localhost:8081/health`
+- **Web UI (dev):** `http://localhost:3000`
+- **Grafana:** `http://localhost:3001`
 
-### Service Endpoints
+## Configuration
 
-- **API Service**: `http://localhost:8080`
-  - REST API: `http://localhost:8080/api/*`
-  - WebSocket: `ws://localhost:8080/socket.io/`
-  - Swagger: `http://localhost:8080/swagger/index.html`
+The two services read separate env files:
 
-- **Chat Service**: `http://localhost:8081`
-  - WebSocket: `ws://localhost:8081/socket.io/`
+- **API Service** — `.env`
+- **Chat Service** — `.env.chat`
 
-## 🔧 Configuration
+These values **must match** across both services:
 
-### API Service (`.env`)
+- `JWT_SECRET` — minimum 32 characters
+- `WEBSOCKET_REDIS_*` — must point to the same Redis instance / DB
+- `KAFKA_BROKERS` — same cluster
+
+Example `.env` (API):
 
 ```env
-# Server Configuration
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 GIN_MODE=debug
 
-# PostgreSQL
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=chat_server_dev
 DB_USER=postgres
 DB_PASSWORD=postgres123
 
-# Redis (Cache)
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=redis123
 REDIS_DB=0
 
-# Redis (WebSocket Adapter)
 WEBSOCKET_REDIS_HOST=localhost
-WEBSOCKET_REDIS_PORT=6380
+WEBSOCKET_REDIS_PORT=6379
 WEBSOCKET_REDIS_PASSWORD=redis123
 WEBSOCKET_REDIS_DB=1
 
-# ScyllaDB
 SCYLLA_HOST=localhost
 SCYLLA_PORT=9042
 SCYLLA_KEYSPACE=chat_server
 SCYLLA_CONSISTENCY=LOCAL_QUORUM
 
-# Kafka
-KAFKA_BROKER=localhost:9092
-KAFKA_GROUP_ID=chat-api-service
-KAFKA_AUTO_OFFSET_RESET=latest
+KAFKA_BROKERS=localhost:9092
 
-# JWT
 JWT_SECRET=your-secret-key-min-32-chars-here
 JWT_EXPIRY=24h
 
-# CORS
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
-### Chat Service (`.env.chat`)
+`.env.chat` only keeps `WEBSOCKET_REDIS_*`, `KAFKA_BROKERS`, `JWT_SECRET` / `JWT_EXPIRY`.
 
-```env
-# Server Configuration
-GIN_MODE=debug
-CHAT_PORT=8081
+## Migrations
 
-# Redis (WebSocket Adapter) - Required
-WEBSOCKET_REDIS_HOST=localhost
-WEBSOCKET_REDIS_PORT=6380
-WEBSOCKET_REDIS_PASSWORD=redis123
-WEBSOCKET_REDIS_DB=1
-
-# Kafka - Required
-KAFKA_BROKER=localhost:9092
-KAFKA_GROUP_ID=chat-service
-KAFKA_AUTO_OFFSET_RESET=latest
-
-# JWT - Required for authentication
-JWT_SECRET=your-secret-key-min-32-chars-here
-```
-
-## 📚 API Documentation
-
-### Interactive Swagger UI
-
-```
-http://localhost:8080/swagger/index.html
-```
-
-### REST API Endpoints
-
-#### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
-
-#### User Management
-- `GET /api/user/profile` - Get user profile (protected)
-- `PUT /api/user/profile` - Update user profile (protected)
-
-#### Relationships
-- `POST /api/relationships/friend-request` - Send friend request
-- `POST /api/relationships/accept-friend` - Accept friend request
-- `POST /api/relationships/block` - Block user
-- `GET /api/relationships/friends` - Get friends list
-- `GET /api/relationships/blocked` - Get blocked users
-
-#### Conversations
-- `GET /api/conversations` - Get user's conversations
-- `POST /api/conversations` - Create conversation
-- `GET /api/conversations/:id/messages` - Get conversation messages
-
-#### Messages
-- `POST /api/messages` - Send message (publishes to Kafka)
-- `GET /api/messages/:id` - Get specific message
-- `PUT /api/messages/:id/read` - Mark message as read
-
-#### Health Check
-- `GET /api/health` - System health status
-
-### WebSocket Events
-
-#### Client → Server
-
-```javascript
-// Connect with JWT token
-const socket = io('http://localhost:8080', {
-  auth: { token: 'your-jwt-token' }
-});
-
-// Join conversation
-socket.emit('conversation.join', { conversationId: 'uuid' });
-
-// Send message
-socket.emit('message.send', {
-  conversationId: 'uuid',
-  content: 'Hello!',
-  type: 'text'
-});
-
-// Typing indicator
-socket.emit('typing.start', { conversationId: 'uuid' });
-socket.emit('typing.stop', { conversationId: 'uuid' });
-```
-
-#### Server → Client
-
-```javascript
-// Message received
-socket.on('message.received', (data) => {
-  console.log('New message:', data);
-});
-
-// User typing
-socket.on('typing.user', (data) => {
-  console.log(`${data.username} is typing...`);
-});
-
-// Message read
-socket.on('message.read', (data) => {
-  console.log('Message marked as read:', data);
-});
-```
-
-### Response Format
-
-All API responses follow a consistent format:
-
-**Success Response:**
-```json
-{
-  "success": true,
-  "status": 200,
-  "traceId": "550e8400-e29b-41d4-a716-446655440000",
-  "timestamp": "2025-11-30T10:00:00Z",
-  "path": "/api/user/profile",
-  "data": {
-    "id": "uuid",
-    "username": "john_doe",
-    "email": "john@example.com"
-  }
-}
-```
-
-**Error Response:**
-```json
-{
-  "success": false,
-  "status": 401,
-  "traceId": "550e8400-e29b-41d4-a716-446655440000",
-  "timestamp": "2025-11-30T10:00:00Z",
-  "path": "/api/user/profile",
-  "error": "invalid or expired token"
-}
-```
-
-## 🧪 Development
-
-### Available Make Commands
+The migration service handles PostgreSQL (`.sql`) and ScyllaDB (`.cql`) in parallel.
 
 ```bash
-make help              # Show all available commands
-
-# Development - Run Services
-make run-api          # Run API service
-make run-chat         # Run Chat service
-make build            # Build both services
-make swagger          # Generate Swagger docs
-
-# Docker Development Environment
-make dev-up           # Start all infrastructure (PostgreSQL, Redis, Scylla, Kafka)
-make dev-down         # Stop all services
-make dev-logs         # View logs
-make dev-clean        # Clean up everything
-make dev-status       # Check service status
-
-# Database Operations
-make db-shell         # Connect to PostgreSQL
-make redis-cli        # Connect to Redis
-make scylla-shell     # Connect to ScyllaDB
-
-# Kafka Operations
-make kafka-topics     # List Kafka topics
-make kafka-consume    # Consume messages from topic
-
-# Go Modules
-make mod-tidy         # Tidy dependencies
-make mod-download     # Download dependencies
+make migrate-up        # apply all
+make migrate-down      # rollback (interactive, asks for steps)
+make migrate-version   # show current versions
+make migrate-create    # create a new migration pair (PG + Scylla, same timestamp)
 ```
 
-### Database Schema
+Environment variables:
 
-#### PostgreSQL Tables
+- `MIGRATION_ACTION` — `up` | `down` | `version`
+- `MIGRATE_DB` — `postgres` | `scylla` | `all` (default `all`)
+- `MIGRATION_STEPS` — number of rollback steps
 
-- `users` - User accounts
-- `relationships` - Friend requests, friendships, blocks
-- `conversations` - Chat conversations metadata
-- `conversation_participants` - Users in conversations
+Files:
 
-#### ScyllaDB Tables
+- `cmd/migrations/postgres/{ts}_{name}.{up|down}.sql`
+- `cmd/migrations/scylla/{ts}_{name}.{up|down}.cql`
 
-```cql
-CREATE TABLE messages (
-    conversation_id uuid,
-    message_id uuid,
-    sender_id uuid,
-    content text,
-    message_type text,
-    created_at timestamp,
-    is_read boolean,
-    PRIMARY KEY (conversation_id, created_at, message_id)
-) WITH CLUSTERING ORDER BY (created_at DESC);
+ScyllaDB migrations automatically replace `chat_keyspace` with the actual keyspace at runtime.
+
+## Kafka Topics
+
+Defined in [internal/constants/constant.go](internal/constants/constant.go):
+
+- `CHAT.MESSAGE.CREATED` — new message
+- `CHAT.MESSAGE.UPDATED` — message edited
+- `CHAT.MESSAGE.DELETED` — message deleted
+- `CHAT.CONVERSATION.CREATED` — conversation created
+- `CHAT.CONVERSATION.UPDATED` — conversation updated
+- `CHAT.CONVERSATION.DELETED` — conversation deleted
+- `CHAT.USER.ONLINE` / `CHAT.USER.OFFLINE` — presence
+- `CHAT.USER.TYPING` — typing indicator
+
+Consumer group: `CHAT-SERVICE-CONSUMERS`.
+
+## WebSocket Events (server → client)
+
+- `NEW_MESSAGE` — new message
+- `MESSAGE_UPDATED` / `MESSAGE_DELETED` — message edits / deletions
+- `CONVERSATION_CREATED` / `CONVERSATION_UPDATED` / `CONVERSATION_DELETED` — conversation lifecycle
+- `USER_ONLINE` / `USER_OFFLINE` — presence
+- `USER_TYPING` / `USER_STOP_TYPING` — typing
+- `ERROR` — server-side error
+
+Client connection with JWT:
+
+```js
+const socket = io('http://localhost:8080', { auth: { token: jwt } });
+socket.on('NEW_MESSAGE', (msg) => { /* ... */ });
 ```
 
-### Kafka Topics
+## REST API (main endpoints)
 
-- `chat.messages` - Message events
-  - `message.sent` - New message created
-  - `message.read` - Message marked as read
-  - `message.deleted` - Message deleted
+- `POST /api/auth/register`, `POST /api/auth/login`
+- `GET|PUT /api/user/profile`
+- `POST /api/relationships/...` (friend request, accept, block, list)
+- `GET|POST /api/conversations`, `GET /api/conversations/:id/messages`
+- `POST /api/messages` (server-side idempotency by `clientMsgId`), `PUT /api/messages/:id/read`
+- `GET /api/health`
 
-## 🎯 Key Features Deep Dive
+See Swagger UI for the full reference.
 
-### 1. Distributed WebSocket with Redis Adapter
-
-```go
-// Multiple WebSocket instances sync via Redis
-// Client A connects to API Service (8080)
-// Client B connects to Chat Service (8081)
-// Both can communicate in real-time
-
-adapter := redis_adapter.NewRedisAdapterWithDefault("redis://localhost:6380")
-io.Adapter(adapter)
-```
-
-### 2. Kafka Event Streaming
-
-```go
-// API Service: Publish message event
-err := producer.Publish(ctx, kafka.Message{
-    Topic: "chat.messages",
-    Key:   conversationID,
-    Value: messageJSON,
-})
-
-// Chat Service: Consume and process
-consumer.Subscribe("chat.messages", func(msg *kafka.Message) {
-    // Save to ScyllaDB
-    scylla.SaveMessage(message)
-
-    // Broadcast via WebSocket
-    wsServer.To(conversationID).Emit("message.received", message)
-})
-```
-
-### 3. Service-Specific Validation
-
-```go
-// Validates at startup - fail fast
-func (c *APIServiceConfig) Validate() error {
-    validator := validator.New()
-    return validator.Struct(&APIConfigValidator{
-        DBHost:     c.DBHost,
-        RedisHost:  c.RedisHost,
-        // ... other required fields
-    })
-}
-```
-
-### 4. Request Tracing
-
-Every request gets a unique trace ID:
-```
-X-Trace-Id: 550e8400-e29b-41d4-a716-446655440000
-```
-
-Track requests across microservices for debugging.
-
-## 📊 Monitoring & Health Checks
-
-### API Service Health
+## Useful Make Commands
 
 ```bash
-curl http://localhost:8080/api/health
+make help                 # list everything
+make dev-up / dev-down    # infrastructure
+make run-api / run-chat   # run a service
+make build                # build both binaries
+make build-migrate / build-seed
+make migrate-up / down / version / create
+make seed                 # 100 test users
+make db-shell / redis-cli / scylla-cli / kafka-cli
+make swagger              # generate Swagger
+make web-dev / web-build  # web client
 ```
 
-Response:
-```json
-{
-  "status": "healthy",
-  "version": "1.0.0",
-  "services": {
-    "postgres": "connected",
-    "redis": "connected",
-    "scylla": "connected",
-    "kafka": "connected"
-  }
-}
-```
+## Docker
 
-### Chat Service Health
+`docker-compose.yml` at the root runs the full stack: postgres, redis, scylla, kafka, migrate, api, chat, web, loki, grafana, alloy.
+
+`docker-compose.dev.yml` runs infrastructure only for local development.
+
+Horizontal scaling:
 
 ```bash
-curl http://localhost:8081/health
+docker compose up -d --scale api=3 --scale chat=3
 ```
 
-## 🚢 Production Deployment
+## Observability
 
-### Build Production Binaries
+- Centralized logs via **Alloy → Loki → Grafana**
+- Trace IDs propagate across HTTP → Kafka → WebSocket
+- Health endpoints for liveness / readiness probes
 
-```bash
-# API Service
-CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/api ./cmd/api
+## Contributing
 
-# Chat Service
-CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/chat ./cmd/chat
-```
+1. Fork and create a `feature/xxx` branch
+2. Use Conventional Commits
+3. Run `go fmt`, `make mod-tidy`; do not add unnecessary comments (the codebase follows a no-comments style)
+4. Open a PR
 
-### Docker Production Build
+## License
 
-```bash
-# Build images
-docker build -t chat-server-api:latest --target api .
-docker build -t chat-server-chat:latest --target chat .
-
-# Run containers
-docker run -p 8080:8080 --env-file .env chat-server-api:latest
-docker run -p 8081:8081 --env-file .env.chat chat-server-chat:latest
-```
-
-### Scaling Strategy
-
-**Horizontal Scaling:**
-- Run multiple instances of each service
-- Redis Adapter syncs WebSocket events
-- Kafka consumer groups distribute load
-- Load balancer in front of services
-
-**Example with Docker Compose:**
-```bash
-docker-compose up -d --scale api=3 --scale chat=3
-```
-
-## 🛡️ Security Best Practices
-
-- ✅ JWT tokens with expiration
-- ✅ Password hashing with bcrypt
-- ✅ SQL injection protection (GORM)
-- ✅ CORS configuration
-- ✅ Request validation
-- ✅ Service-specific config validation
-- ✅ Secure headers
-- ✅ Environment-based secrets
-- ✅ WebSocket authentication via JWT
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Style
-
-- Follow Go best practices
-- Use `gofmt` for formatting
-- Write meaningful commit messages
-- Add tests for new features
-- Update documentation
-
-## 📝 License
-
-This project is licensed under the MIT License.
-
-## 🙏 Acknowledgments
-
-- [Gin](https://github.com/gin-gonic/gin) - HTTP web framework
-- [GORM](https://gorm.io/) - ORM library
-- [Uber Zap](https://github.com/uber-go/zap) - Logging library
-- [Uber Dig](https://github.com/uber-go/dig) - Dependency injection
-- [Socket.IO Go](https://github.com/zishang520/socket.io) - WebSocket library
-- [Confluent Kafka Go](https://github.com/confluentinc/confluent-kafka-go) - Kafka client
-- [Swaggo](https://github.com/swaggo/swag) - Swagger generation
-
----
-
-**Made with ❤️ and Go**
+MIT.
