@@ -10,14 +10,11 @@ export const Login = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/chat', { replace: true })
-    }
+    if (isAuthenticated) navigate('/chat', { replace: true })
   }, [isAuthenticated, navigate])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-
     try {
       await login(email, password)
       navigate('/chat', { replace: true })
@@ -27,31 +24,37 @@ export const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-soft p-4 relative overflow-hidden">
+      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gradient-warm opacity-30 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-gradient-cool opacity-30 blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md relative">
         <div className="text-center mb-8 animate-fadeIn">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
-            <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-signature rounded-2xl shadow-glow-gradient mb-4">
+            <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-blue-100">Sign in to continue to your account</p>
+          <h1 className="text-[34px] leading-tight font-bold font-display">
+            Welcome <span className="text-gradient">back</span>
+          </h1>
+          <p className="text-ink-secondary mt-2">Sign in to continue the conversation</p>
         </div>
 
         <Card shadow="xl" className="animate-fadeIn" style={{ animationDelay: '0.1s' }}>
           <form onSubmit={handleSubmit} className="space-y-5">
             <Input
-              label="Email Address"
+              label="Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              placeholder="you@example.com"
               required
               disabled={isLoading}
               leftIcon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               }
             />
@@ -61,25 +64,26 @@ export const Login = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="••••••••"
               required
               disabled={isLoading}
               leftIcon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               }
             />
 
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center cursor-pointer">
+            <div className="flex items-center justify-between text-[13px]">
+              <label className="flex items-center cursor-pointer text-ink-secondary">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 accent-primary-500 rounded border-line"
                 />
-                <span className="ml-2 text-gray-700">Remember me</span>
+                <span className="ml-2">Remember me</span>
               </label>
-              <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
+              <a href="#" className="text-primary-500 hover:text-primary-600 font-semibold">
                 Forgot password?
               </a>
             </div>
@@ -92,22 +96,22 @@ export const Login = () => {
               isLoading={isLoading}
               disabled={isLoading}
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-blue-600 hover:text-blue-700 font-semibold transition">
-                Create account
+            <p className="text-ink-secondary text-[13px]">
+              New here?{' '}
+              <Link to="/register" className="text-primary-500 hover:text-primary-600 font-semibold">
+                Create an account
               </Link>
             </p>
           </div>
         </Card>
 
-        <p className="text-center text-blue-100 text-sm mt-6">
-          © 2024 Chat App. All rights reserved.
+        <p className="text-center text-ink-tertiary text-[12px] mt-6">
+          © 2026 Chat App. All rights reserved.
         </p>
       </div>
     </div>

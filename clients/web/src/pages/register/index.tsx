@@ -12,14 +12,11 @@ export const Register = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/chat', { replace: true })
-    }
+    if (isAuthenticated) navigate('/chat', { replace: true })
   }, [isAuthenticated, navigate])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-
     try {
       await register(username, email, password, fullName)
       navigate('/login', { replace: true })
@@ -29,16 +26,22 @@ export const Register = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-purple-700 to-pink-700 p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-soft p-4 relative overflow-hidden">
+      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-gradient-warm opacity-30 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-gradient-cool opacity-30 blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md relative">
         <div className="text-center mb-8 animate-fadeIn">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
-            <svg className="w-10 h-10 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-signature rounded-2xl shadow-glow-gradient mb-4">
+            <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">Create Account</h1>
-          <p className="text-purple-100">Sign up to get started</p>
+          <h1 className="text-[34px] leading-tight font-bold font-display">
+            Join the <span className="text-gradient">vibe</span>
+          </h1>
+          <p className="text-ink-secondary mt-2">Create an account to start chatting</p>
         </div>
 
         <Card shadow="xl" className="animate-fadeIn" style={{ animationDelay: '0.1s' }}>
@@ -48,7 +51,7 @@ export const Register = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Choose a username"
+              placeholder="@yourhandle"
               required
               disabled={isLoading}
               leftIcon={
@@ -59,16 +62,17 @@ export const Register = () => {
             />
 
             <Input
-              label="Email Address"
+              label="Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              placeholder="you@example.com"
               required
               disabled={isLoading}
               leftIcon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               }
             />
@@ -78,58 +82,54 @@ export const Register = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
+              placeholder="At least 6 characters"
               required
               disabled={isLoading}
               leftIcon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               }
             />
 
             <Input
-              label="Full Name"
+              label="Full name"
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="Your full name"
+              placeholder="How should we call you?"
               disabled={isLoading}
             />
 
-            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-              <p className="flex items-start">
-                <svg className="w-5 h-5 text-gray-400 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>By signing up, you agree to our Terms of Service and Privacy Policy.</span>
-              </p>
-            </div>
+            <p className="text-[12px] text-ink-tertiary bg-surface-tinted px-4 py-3 rounded-xl">
+              By signing up you agree to our Terms of Service and Privacy Policy.
+            </p>
 
             <Button
               type="submit"
-              variant="secondary"
+              variant="primary"
               size="lg"
               fullWidth
               isLoading={isLoading}
               disabled={isLoading}
             >
-              {isLoading ? 'Creating account...' : 'Create Account'}
+              {isLoading ? 'Creating account…' : 'Create account'}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            <p className="text-ink-secondary text-[13px]">
               Already have an account?{' '}
-              <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold transition">
+              <Link to="/login" className="text-primary-500 hover:text-primary-600 font-semibold">
                 Sign in
               </Link>
             </p>
           </div>
         </Card>
 
-        <p className="text-center text-purple-100 text-sm mt-6">
-          © 2024 Chat App. All rights reserved.
+        <p className="text-center text-ink-tertiary text-[12px] mt-6">
+          © 2026 Chat App. All rights reserved.
         </p>
       </div>
     </div>

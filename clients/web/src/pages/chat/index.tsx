@@ -43,8 +43,8 @@ export const Chat = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-xl">
+    <div className="flex h-screen bg-surface-base">
+      <div className="w-80 bg-surface border-r border-line-subtle flex flex-col shadow-soft-md">
         <ChatSidebar
           user={user}
           conversations={conversations}
@@ -57,7 +57,7 @@ export const Chat = () => {
         <UserSearch show={showSearch} onSelectUser={handleSelectUser} />
       </div>
 
-      <div className="flex-1 flex flex-col bg-white chat-pattern">
+      <div className="flex-1 flex flex-col bg-surface-base">
         {tempChatUser && !currentConversation ? (
           <NewChatView
             tempChatUser={tempChatUser}

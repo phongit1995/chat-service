@@ -3,39 +3,40 @@ import { HTMLAttributes } from 'react'
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   padding?: 'none' | 'sm' | 'md' | 'lg'
   shadow?: 'none' | 'sm' | 'md' | 'lg' | 'xl'
+  gradientBorder?: boolean
 }
 
-export const Card = ({ 
-  padding = 'md', 
-  shadow = 'md', 
-  className = '', 
-  children, 
-  ...props 
+export const Card = ({
+  padding = 'md',
+  shadow = 'md',
+  gradientBorder = false,
+  className = '',
+  children,
+  ...props
 }: CardProps) => {
-  const paddingStyles = {
+  const paddings = {
     none: '',
     sm: 'p-4',
     md: 'p-6',
-    lg: 'p-8'
+    lg: 'p-8',
   }
-
-  const shadowStyles = {
+  const shadows = {
     none: '',
-    sm: 'shadow-sm',
-    md: 'shadow-md',
-    lg: 'shadow-lg',
-    xl: 'shadow-xl'
+    sm: 'shadow-soft-sm',
+    md: 'shadow-soft-md',
+    lg: 'shadow-soft-lg',
+    xl: 'shadow-soft-xl',
   }
 
   return (
     <div
-      className={`
-        bg-white rounded-xl 
-        ${paddingStyles[padding]} 
-        ${shadowStyles[shadow]} 
-        border border-gray-100
-        ${className}
-      `}
+      className={[
+        'bg-surface rounded-xl',
+        paddings[padding],
+        shadows[shadow],
+        gradientBorder ? 'border-gradient' : 'border border-line-subtle',
+        className,
+      ].join(' ')}
       {...props}
     >
       {children}
