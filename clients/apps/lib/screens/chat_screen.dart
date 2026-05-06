@@ -5,6 +5,10 @@ import 'package:uuid/uuid.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
 import '../services/socket_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_gradients.dart';
+import '../theme/app_typography.dart';
+import '../theme/widgets.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -74,7 +78,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         });
         _scrollToBottom();
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -82,8 +86,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -112,7 +119,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollToBottom();
 
     try {
-      await ref.read(apiProvider).sendMessage(widget.conversationId, text, clientMsgId: clientMsgId);
+      await ref
+          .read(apiProvider)
+          .sendMessage(widget.conversationId, text, clientMsgId: clientMsgId);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -127,71 +136,140 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  String _formatTime(String iso) {
+    final t = DateTime.tryParse(iso);
+    if (t == null) return '';
+    final h = t.hour.toString().padLeft(2, '0');
+    final m = t.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(authProvider).user;
     final title = widget.conversation?.displayName ?? 'Chat';
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      backgroundColor: AppColors.bgBase,
+      appBar: AppBar(
+        backgroundColor: AppColors.bgSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: Row(
+          children: [
+            GradientAvatar(
+              name: title,
+              imageUrl: widget.conversation?.avatar,
+              size: 36,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontFamily: AppTypography.display,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: AppColors.success,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'Active now',
+                        style: TextStyle(color: AppColors.success, fontSize: 11, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.call_outlined, color: AppColors.textSecondary),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_horiz_rounded, color: AppColors.textSecondary),
+            onPressed: () {},
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : ListView.builder(
                     controller: _scroll,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     itemCount: _messages.length,
                     itemBuilder: (_, i) {
                       final m = _messages[i];
-                      final isMe = m.senderId == me?.id;
-                      return Align(
-                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                          decoration: BoxDecoration(
-                            color: isMe ? Colors.blue : Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (!isMe && m.senderName != null)
-                                Text(m.senderName!,
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                              Text(m.content,
-                                  style: TextStyle(color: isMe ? Colors.white : Colors.black87)),
-                            ],
-                          ),
-                        ),
+                      final isMine = m.senderId == me?.id;
+                      return MessageBubble(
+                        content: m.content,
+                        isMine: isMine,
+                        senderName: isMine ? null : m.senderName,
+                        time: _formatTime(m.createdAt),
                       );
                     },
                   ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
+            top: false,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: AppColors.bgSurface,
+                border: Border(top: BorderSide(color: AppColors.lineSubtle)),
+              ),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _input,
                       decoration: const InputDecoration(
-                        hintText: 'Type a message',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        hintText: 'Type a message…',
                       ),
                       onSubmitted: (_) => _send(),
                       textInputAction: TextInputAction.send,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _sending ? null : _send,
-                    icon: const Icon(Icons.send),
+                  GestureDetector(
+                    onTap: _sending ? null : _send,
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: _sending ? null : AppGradients.signature,
+                        color: _sending ? AppColors.textDisabled : null,
+                        shape: BoxShape.circle,
+                        boxShadow: _sending ? null : AppShadows.glowGradient,
+                      ),
+                      child: const Icon(Icons.send_rounded, color: Colors.white),
+                    ),
                   ),
                 ],
               ),

@@ -8,6 +8,7 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/chat_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const ProviderScope(child: ChatApp()));
@@ -64,7 +65,7 @@ class _ChatAppState extends ConsumerState<ChatApp> {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Chat Server',
-      theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
+      theme: AppTheme.light(),
       routerConfig: _router,
       debugShowCheckedModeBanner: false,
     );
