@@ -169,6 +169,3 @@ jobs:
           labels: ${{ steps.meta-web.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            VITE_API_BASE_URL=https://chat-server-api.ola-server.click
-
