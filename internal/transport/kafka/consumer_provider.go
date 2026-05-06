@@ -10,6 +10,7 @@ import (
 
 func ProvideConsumer(c *dig.Container) error {
 	providers := []interface{}{
+		NewProducer,
 		NewConsumer,
 		NewKafkaEventAdapter,
 	}
