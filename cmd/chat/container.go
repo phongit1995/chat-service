@@ -2,6 +2,7 @@ package main
 
 import (
 	"chat-server/internal/config"
+	"chat-server/internal/db"
 	"chat-server/internal/transport/kafka"
 	"chat-server/internal/transport/websocket"
 	"chat-server/internal/logger"
@@ -22,6 +23,7 @@ func NewContainer() (*dig.Container, error) {
 		logger.CreateLogger,
 		services.NewCacheService,
 		services.NewJWTService,
+		db.NewPostgresDB,
 	}
 
 	for _, p := range providers {

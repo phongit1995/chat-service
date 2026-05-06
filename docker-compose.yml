@@ -32,8 +32,6 @@ services:
     labels:
       - "logging=enabled"
     restart: unless-stopped
-    ports:
-      - "${API_PORT:-5444}:8080"
     environment:
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
@@ -80,6 +78,10 @@ services:
       - "logging=enabled"
     restart: unless-stopped
     environment:
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
+      - REDIS_DB=${REDIS_DB:-0}
       - WEBSOCKET_REDIS_HOST=${WEBSOCKET_REDIS_HOST:-redis}
       - WEBSOCKET_REDIS_PORT=${WEBSOCKET_REDIS_PORT:-6379}
       - WEBSOCKET_REDIS_PASSWORD=${WEBSOCKET_REDIS_PASSWORD:-redis123}
@@ -87,22 +89,44 @@ services:
       - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-change-in-production-min-32-chars}
       - JWT_EXPIRY=${JWT_EXPIRY:-24h}
       - KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
+      - CLOUDINARY_URL=${CLOUDINARY_URL}
+      - CHAT_PORT=${CHAT_PORT:-8081}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-chat_server}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres123}
+      - DB_SSL_MODE=${DB_SSL_MODE:-disable}
     depends_on:
       - redis
       - kafka
     networks:
       - chat-network
 
+
   web:
     image: ${DOCKERHUB_USERNAME}/chat-service-web:${WEB_VERSION:-latest}
     container_name: chat-server-web
     restart: unless-stopped
-    ports:
-      - "${WEB_PORT:-5445}:80"
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080}
     depends_on:
       - api
+    networks:
+      - chat-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: chat-server-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-5241}:80"
+    volumes:
+      - ./infra/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+      - chat
+      - web
     networks:
       - chat-network
 
