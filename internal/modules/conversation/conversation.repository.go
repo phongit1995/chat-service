@@ -626,7 +626,8 @@ func (r *Repository) HideConversation(userID, conversationID uuid.UUID) error {
 
 func (r *Repository) UnhideConversation(userID, conversationID uuid.UUID, newLastMessageAt gocql.UUID,
 	lastMessageID *gocql.UUID, lastMessagePreview string, lastMessageSender *uuid.UUID,
-	conversationType, displayName, displayAvatar string, otherUserID *gocql.UUID, otherUserName, otherUserAvatar string) error {
+	conversationType, displayName, displayAvatar string, otherUserID *gocql.UUID, otherUserName, otherUserAvatar string,
+	unreadCount int) error {
 
 	batch := r.session.NewBatch(gocql.LoggedBatch)
 
@@ -647,63 +648,15 @@ func (r *Repository) UnhideConversation(userID, conversationID uuid.UUID, newLas
 	                     (user_id, conversation_id, conversation_type, display_name, display_avatar,
 	                      other_user_id, other_user_name, other_user_avatar,
 	                      last_message_at, last_message_id, last_message_preview, last_message_sender,
-	                      last_read_message_id, last_read_at, updated_at)
-	                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	                      unread_count, last_read_message_id, last_read_at, updated_at)
+	                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	batch.Query(insertInboxQuery,
 		gocqlUserID, gocqlConvID, conversationType, displayName, displayAvatar,
 		otherUserID, otherUserName, otherUserAvatar,
 		newLastMessageAt, lastMessageID, lastMessagePreview, gocqlLastMessageSender,
-		nil, nil, now,
+		unreadCount, nil, nil, now,
 	)
 
 	return r.session.ExecuteBatch(batch)
 }
 
-func (r *Repository) IncrementUnreadCount(userID, conversationID uuid.UUID) error {
-	gocqlUserID, _ := gocql.ParseUUID(userID.String())
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
-	return r.session.Query(
-		`UPDATE unread_counts SET count = count + 1 WHERE user_id = ? AND conversation_id = ?`,
-		gocqlUserID, gocqlConvID,
-	).Exec()
-}
-
-func (r *Repository) ResetUnreadCount(userID, conversationID uuid.UUID) error {
-	gocqlUserID, _ := gocql.ParseUUID(userID.String())
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
-	var current int64
-	err := r.session.Query(
-		`SELECT count FROM unread_counts WHERE user_id = ? AND conversation_id = ?`,
-		gocqlUserID, gocqlConvID,
-	).Scan(&current)
-	if err != nil {
-		if err == gocql.ErrNotFound {
-			return nil
-		}
-		return fmt.Errorf("failed to get unread count: %w", err)
-	}
-	if current == 0 {
-		return nil
-	}
-	return r.session.Query(
-		`UPDATE unread_counts SET count = count + ? WHERE user_id = ? AND conversation_id = ?`,
-		-current, gocqlUserID, gocqlConvID,
-	).Exec()
-}
-
-func (r *Repository) GetUnreadCount(userID, conversationID uuid.UUID) (int64, error) {
-	gocqlUserID, _ := gocql.ParseUUID(userID.String())
-	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
-	var count int64
-	err := r.session.Query(
-		`SELECT count FROM unread_counts WHERE user_id = ? AND conversation_id = ?`,
-		gocqlUserID, gocqlConvID,
-	).Scan(&count)
-	if err != nil {
-		if err == gocql.ErrNotFound {
-			return 0, nil
-		}
-		return 0, fmt.Errorf("failed to get unread count: %w", err)
-	}
-	return count, nil
-}

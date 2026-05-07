@@ -312,7 +312,21 @@ func (s *Service) applyInboxFanout(conversationID uuid.UUID, members []conversat
 	messageID gocql.UUID, shortContent string, senderID uuid.UUID, now time.Time) {
 
 	conv, _ := s.getConversationByIDCached(conversationID)
-	inboxUpdates := make([]*ConversationInboxUpdate, 0, len(members))
+
+	activeIDs := make([]uuid.UUID, 0, len(members))
+	for _, m := range members {
+		if m.IsActive {
+			activeIDs = append(activeIDs, m.UserID)
+		}
+	}
+
+	currentUnread, err := s.repo.GetUnreadCounts(activeIDs, conversationID)
+	if err != nil {
+		s.logger.Errorw("Failed to batch read unread counts", "conversation_id", conversationID, "error", err)
+		currentUnread = map[uuid.UUID]int{}
+	}
+
+	inboxUpdates := make([]*ConversationInboxUpdate, 0, len(activeIDs))
 	var hiddenMembers []conversation.ConversationMember
 
 	for _, member := range members {
@@ -320,13 +334,8 @@ func (s *Service) applyInboxFanout(conversationID uuid.UUID, members []conversat
 			continue
 		}
 
-		inboxEntry, _, err := s.repo.GetConversationInboxEntry(member.UserID, conversationID)
-		if err != nil {
-			s.logger.Errorw("Failed to get inbox entry", "user_id", member.UserID, "error", err)
-			continue
-		}
-
-		if inboxEntry == nil {
+		_, hasInbox := currentUnread[member.UserID]
+		if !hasInbox {
 			isHidden, _ := s.convRepo.CheckIfHidden(member.UserID, conversationID)
 			if isHidden {
 				hiddenMembers = append(hiddenMembers, member)
@@ -337,27 +346,19 @@ func (s *Service) applyInboxFanout(conversationID uuid.UUID, members []conversat
 			continue
 		}
 
+		newUnread := currentUnread[member.UserID]
 		if member.UserID != senderID {
-			if err := s.repo.IncrementUnreadCount(member.UserID, conversationID); err != nil {
-				s.logger.Errorw("Failed to increment unread count", "user_id", member.UserID, "error", err)
-			}
+			newUnread++
 		}
 
 		inboxUpdates = append(inboxUpdates, &ConversationInboxUpdate{
 			UserID:             member.UserID,
 			ConversationID:     conversationID,
-			ConversationType:   inboxEntry.ConversationType,
-			DisplayName:        inboxEntry.DisplayName,
-			DisplayAvatar:      inboxEntry.DisplayAvatar,
-			OtherUserID:        inboxEntry.OtherUserID,
-			OtherUserName:      inboxEntry.OtherUserName,
-			OtherUserAvatar:    inboxEntry.OtherUserAvatar,
 			LastMessageAt:      messageID,
 			LastMessageID:      &messageID,
 			LastMessagePreview: shortContent,
 			LastMessageSender:  &senderID,
-			LastReadMessageID:  inboxEntry.LastReadMessageID,
-			LastReadAt:         inboxEntry.LastReadAt,
+			UnreadCount:        newUnread,
 			UpdatedAt:          &now,
 		})
 	}
@@ -407,17 +408,17 @@ func (s *Service) processHiddenMembers(hiddenMembers []conversation.Conversation
 			displayAvatar = conv.Avatar
 		}
 
-		if err := s.convRepo.UnhideConversation(m.UserID, conversationID, messageID,
-			&messageID, shortContent, &senderID,
-			conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar); err != nil {
-			s.logger.Errorw("Failed to auto-unhide", "user_id", m.UserID, "error", err)
-			continue
+		unreadAfterUnhide := 0
+		if m.UserID != senderID {
+			unreadAfterUnhide = 1
 		}
 
-		if m.UserID != senderID {
-			if err := s.convRepo.IncrementUnreadCount(m.UserID, conversationID); err != nil {
-				s.logger.Errorw("Failed to increment unread after unhide", "user_id", m.UserID, "error", err)
-			}
+		if err := s.convRepo.UnhideConversation(m.UserID, conversationID, messageID,
+			&messageID, shortContent, &senderID,
+			conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar,
+			unreadAfterUnhide); err != nil {
+			s.logger.Errorw("Failed to auto-unhide", "user_id", m.UserID, "error", err)
+			continue
 		}
 
 		s.convCache.RemoveHiddenConversation(m.UserID, conversationID)
@@ -1058,6 +1059,11 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 			otherUserDisplayName = otherUser.Username
 		}
 
+		initialUnread := 0
+		if incrementUnread {
+			initialUnread = 1
+		}
+
 		now := time.Now()
 		inboxEntry := &conversation.ConversationByUser{
 			UserID:             gocqlUserID,
@@ -1072,6 +1078,7 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 			LastMessageID:      &messageID,
 			LastMessagePreview: messageBody,
 			LastMessageSender:  &gocqlSenderID,
+			UnreadCount:        initialUnread,
 			UpdatedAt:          &now,
 		}
 
@@ -1079,6 +1086,11 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 			return fmt.Errorf("failed to add conversation to inbox: %w", err)
 		}
 	} else {
+		initialUnread := 0
+		if incrementUnread {
+			initialUnread = 1
+		}
+
 		now := time.Now()
 		inboxEntry := &conversation.ConversationByUser{
 			UserID:             gocqlUserID,
@@ -1090,17 +1102,12 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 			LastMessageID:      &messageID,
 			LastMessagePreview: messageBody,
 			LastMessageSender:  &gocqlSenderID,
+			UnreadCount:        initialUnread,
 			UpdatedAt:          &now,
 		}
 
 		if err := s.convRepo.AddConversationToUserInbox(inboxEntry); err != nil {
 			return fmt.Errorf("failed to add conversation to inbox: %w", err)
-		}
-	}
-
-	if incrementUnread {
-		if err := s.convRepo.IncrementUnreadCount(userID, conversationID); err != nil {
-			s.logger.Errorw("Failed to increment unread in recreateInboxEntry", "user_id", userID, "error", err)
 		}
 	}
 

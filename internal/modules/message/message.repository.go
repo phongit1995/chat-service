@@ -65,18 +65,6 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 		WHERE user_id = ? AND conversation_id = ?
 	`)
 
-	r.preparedQueries["increment_unread"] = session.Query(`
-		UPDATE unread_counts SET count = count + 1 WHERE user_id = ? AND conversation_id = ?
-	`)
-
-	r.preparedQueries["reset_unread"] = session.Query(`
-		UPDATE unread_counts SET count = count + ? WHERE user_id = ? AND conversation_id = ?
-	`)
-
-	r.preparedQueries["get_unread"] = session.Query(`
-		SELECT count FROM unread_counts WHERE user_id = ? AND conversation_id = ?
-	`)
-
 	r.preparedQueries["insert_message_meta"] = session.Query(`
 		INSERT INTO message_meta (conversation_id, message_id, bucket, sender_id) VALUES (?, ?, ?, ?)
 	`)
@@ -341,15 +329,18 @@ func (r *Repository) BatchUpdateInbox(entries []*ConversationInboxUpdate) error 
 
 	batch := r.session.NewBatch(gocql.UnloggedBatch)
 
+	const query = `UPDATE conversations_by_user
+	               SET last_message_at = ?,
+	                   last_message_id = ?,
+	                   last_message_preview = ?,
+	                   last_message_sender = ?,
+	                   unread_count = ?,
+	                   updated_at = ?
+	               WHERE user_id = ? AND conversation_id = ?`
+
 	for _, entry := range entries {
 		gocqlUserID, _ := gocql.ParseUUID(entry.UserID.String())
 		gocqlConvID, _ := gocql.ParseUUID(entry.ConversationID.String())
-
-		var gocqlOtherUserID *gocql.UUID
-		if entry.OtherUserID != nil {
-			id, _ := gocql.ParseUUID(entry.OtherUserID.String())
-			gocqlOtherUserID = &id
-		}
 
 		var gocqlLastMessageSender *gocql.UUID
 		if entry.LastMessageSender != nil {
@@ -357,24 +348,57 @@ func (r *Repository) BatchUpdateInbox(entries []*ConversationInboxUpdate) error 
 			gocqlLastMessageSender = &id
 		}
 
-		query := `INSERT INTO conversations_by_user
-		          (user_id, conversation_id, conversation_type, display_name, display_avatar,
-		           other_user_id, other_user_name, other_user_avatar,
-		           last_message_at, last_message_id, last_message_preview, last_message_sender,
-		           last_read_message_id, last_read_at, updated_at)
-		          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
 		batch.Query(query,
-			gocqlUserID, gocqlConvID, entry.ConversationType,
-			entry.DisplayName, entry.DisplayAvatar,
-			gocqlOtherUserID, entry.OtherUserName, entry.OtherUserAvatar,
 			entry.LastMessageAt, entry.LastMessageID, entry.LastMessagePreview,
-			gocqlLastMessageSender,
-			entry.LastReadMessageID, entry.LastReadAt, entry.UpdatedAt,
+			gocqlLastMessageSender, entry.UnreadCount, entry.UpdatedAt,
+			gocqlUserID, gocqlConvID,
 		)
 	}
 
 	return r.session.ExecuteBatch(batch)
+}
+
+func (r *Repository) GetUnreadCounts(userIDs []uuid.UUID, conversationID uuid.UUID) (map[uuid.UUID]int, error) {
+	result := make(map[uuid.UUID]int, len(userIDs))
+	if len(userIDs) == 0 {
+		return result, nil
+	}
+
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return nil, fmt.Errorf("invalid conversation ID: %w", err)
+	}
+
+	gocqlIDs := make([]gocql.UUID, 0, len(userIDs))
+	for _, id := range userIDs {
+		g, err := gocql.ParseUUID(id.String())
+		if err != nil {
+			continue
+		}
+		gocqlIDs = append(gocqlIDs, g)
+	}
+
+	iter := r.session.Query(
+		`SELECT user_id, unread_count FROM conversations_by_user
+		 WHERE user_id IN ? AND conversation_id = ?`,
+		gocqlIDs, gocqlConvID,
+	).Iter()
+
+	var (
+		uid   gocql.UUID
+		count int
+	)
+	for iter.Scan(&uid, &count) {
+		parsed, err := uuid.Parse(uid.String())
+		if err != nil {
+			continue
+		}
+		result[parsed] = count
+	}
+	if err := iter.Close(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (r *Repository) UpdateConversationPreview(userID, conversationID uuid.UUID, newPreview string) error {
@@ -411,6 +435,7 @@ type ConversationInboxUpdate struct {
 	LastMessageID      *gocql.UUID
 	LastMessagePreview string
 	LastMessageSender  *uuid.UUID
+	UnreadCount        int
 	LastReadMessageID  *gocql.UUID
 	LastReadAt         *time.Time
 	UpdatedAt          *time.Time
@@ -592,59 +617,6 @@ func (r *Repository) AddToInboxBatch(batch *gocql.Batch, entry *ConversationInbo
 	)
 
 	return nil
-}
-
-func (r *Repository) IncrementUnreadCount(userID, conversationID uuid.UUID) error {
-	gocqlUserID, err := gocql.ParseUUID(userID.String())
-	if err != nil {
-		return fmt.Errorf("invalid user ID: %w", err)
-	}
-	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
-	if err != nil {
-		return fmt.Errorf("invalid conversation ID: %w", err)
-	}
-	return r.preparedQueries["increment_unread"].Bind(gocqlUserID, gocqlConvID).Exec()
-}
-
-func (r *Repository) ResetUnreadCount(userID, conversationID uuid.UUID) error {
-	gocqlUserID, err := gocql.ParseUUID(userID.String())
-	if err != nil {
-		return fmt.Errorf("invalid user ID: %w", err)
-	}
-	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
-	if err != nil {
-		return fmt.Errorf("invalid conversation ID: %w", err)
-	}
-	var current int64
-	if err := r.preparedQueries["get_unread"].Bind(gocqlUserID, gocqlConvID).Scan(&current); err != nil {
-		if err == gocql.ErrNotFound {
-			return nil
-		}
-		return fmt.Errorf("failed to get unread count: %w", err)
-	}
-	if current == 0 {
-		return nil
-	}
-	return r.preparedQueries["reset_unread"].Bind(-current, gocqlUserID, gocqlConvID).Exec()
-}
-
-func (r *Repository) GetUnreadCount(userID, conversationID uuid.UUID) (int64, error) {
-	gocqlUserID, err := gocql.ParseUUID(userID.String())
-	if err != nil {
-		return 0, fmt.Errorf("invalid user ID: %w", err)
-	}
-	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
-	if err != nil {
-		return 0, fmt.Errorf("invalid conversation ID: %w", err)
-	}
-	var count int64
-	if err := r.preparedQueries["get_unread"].Bind(gocqlUserID, gocqlConvID).Scan(&count); err != nil {
-		if err == gocql.ErrNotFound {
-			return 0, nil
-		}
-		return 0, fmt.Errorf("failed to get unread count: %w", err)
-	}
-	return count, nil
 }
 
 func (r *Repository) InsertMessageMeta(conversationID uuid.UUID, messageID gocql.UUID, bucket int, senderID uuid.UUID) error {

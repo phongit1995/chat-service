@@ -770,7 +770,7 @@ func (s *Service) UnhideConversation(userID, conversationID uuid.UUID) error {
 
 	newLastMessageAt := gocql.TimeUUID()
 	if err := s.repo.UnhideConversation(userID, conversationID, newLastMessageAt, nil, "", nil,
-		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar); err != nil {
+		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar, 0); err != nil {
 		return fmt.Errorf("failed to unhide conversation: %w", err)
 	}
 
@@ -859,13 +859,14 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 		displayAvatar = conv.Avatar
 	}
 
-	if err := s.repo.UnhideConversation(userID, conversationID, messageID, &messageID, messageBody, &senderID,
-		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar); err != nil {
-		return fmt.Errorf("failed to auto-unhide conversation: %w", err)
+	unreadAfter := 0
+	if userID != senderID {
+		unreadAfter = 1
 	}
 
-	if err := s.repo.IncrementUnreadCount(userID, conversationID); err != nil {
-		s.logger.Warnw("Failed to increment unread after auto-unhide", "user_id", userID, "conversation_id", conversationID, "error", err)
+	if err := s.repo.UnhideConversation(userID, conversationID, messageID, &messageID, messageBody, &senderID,
+		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar, unreadAfter); err != nil {
+		return fmt.Errorf("failed to auto-unhide conversation: %w", err)
 	}
 
 	go func() {
