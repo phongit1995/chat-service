@@ -1,8 +1,13 @@
+DROP TABLE IF EXISTS chat_keyspace.refresh_tokens_by_user;
+DROP TABLE IF EXISTS chat_keyspace.refresh_tokens;
 DROP TABLE IF EXISTS chat_keyspace.archived_conversations;
 DROP TABLE IF EXISTS chat_keyspace.hidden_conversations;
 DROP TABLE IF EXISTS chat_keyspace.conversation_read_by_user;
 DROP TABLE IF EXISTS chat_keyspace.conversations_by_user;
+DROP TABLE IF EXISTS chat_keyspace.message_meta;
+DROP TABLE IF EXISTS chat_keyspace.messages_by_conversation_v2;
 DROP TABLE IF EXISTS chat_keyspace.messages_by_conversation;
 DROP TABLE IF EXISTS chat_keyspace.direct_conversations_by_user_pair;
 DROP TABLE IF EXISTS chat_keyspace.conversation_members_by_conversation;
 DROP TABLE IF EXISTS chat_keyspace.conversations;
+DROP KEYSPACE IF EXISTS chat_keyspace;

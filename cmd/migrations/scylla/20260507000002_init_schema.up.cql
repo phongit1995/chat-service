@@ -1,3 +1,9 @@
+CREATE KEYSPACE IF NOT EXISTS chat_keyspace
+WITH replication = {
+    'class': 'NetworkTopologyStrategy',
+    'datacenter1': 1
+};
+
 CREATE TABLE IF NOT EXISTS chat_keyspace.conversations (
     conversation_id   uuid PRIMARY KEY,
     type              text,
@@ -47,6 +53,36 @@ CREATE TABLE IF NOT EXISTS chat_keyspace.messages_by_conversation (
       'compaction_window_unit': 'DAYS'
   };
 
+CREATE TABLE IF NOT EXISTS chat_keyspace.messages_by_conversation_v2 (
+    conversation_id uuid,
+    bucket          int,
+    message_id      timeuuid,
+    sender_id       uuid,
+    sender_name     text,
+    sender_avatar   text,
+    message_type    text,
+    content         text,
+    metadata        text,
+    created_at      timestamp,
+    updated_at      timestamp,
+    deleted_at      timestamp,
+    reply_to_id     timeuuid,
+    PRIMARY KEY ((conversation_id, bucket), message_id)
+) WITH CLUSTERING ORDER BY (message_id DESC)
+  AND compaction = {
+      'class': 'TimeWindowCompactionStrategy',
+      'compaction_window_size': 1,
+      'compaction_window_unit': 'DAYS'
+  };
+
+CREATE TABLE IF NOT EXISTS chat_keyspace.message_meta (
+    conversation_id uuid,
+    message_id      timeuuid,
+    bucket          int,
+    sender_id       uuid,
+    PRIMARY KEY (conversation_id, message_id)
+);
+
 CREATE TABLE IF NOT EXISTS chat_keyspace.conversations_by_user (
     user_id              uuid,
     conversation_id      uuid,
@@ -95,3 +131,17 @@ CREATE TABLE IF NOT EXISTS chat_keyspace.archived_conversations (
     archived_at          timestamp,
     PRIMARY KEY (user_id, archive_bucket, conversation_id)
 ) WITH CLUSTERING ORDER BY (archive_bucket DESC, conversation_id ASC);
+
+CREATE TABLE IF NOT EXISTS chat_keyspace.refresh_tokens (
+    token_id   uuid PRIMARY KEY,
+    user_id    uuid,
+    issued_at  timestamp,
+    expires_at timestamp,
+    revoked    boolean
+) WITH default_time_to_live = 2592000;
+
+CREATE TABLE IF NOT EXISTS chat_keyspace.refresh_tokens_by_user (
+    user_id  uuid,
+    token_id uuid,
+    PRIMARY KEY (user_id, token_id)
+) WITH default_time_to_live = 2592000;
