@@ -40,6 +40,10 @@ class Conversation {
   final String? avatar;
   final String? lastMessageText;
   final String? lastMessageAt;
+  final String? lastMessageSenderId;
+  final String? lastMessageSenderName;
+  final bool isLastMessageFromMe;
+  final bool seen;
   final int unreadCount;
   final int participantCount;
 
@@ -50,6 +54,10 @@ class Conversation {
     this.avatar,
     this.lastMessageText,
     this.lastMessageAt,
+    this.lastMessageSenderId,
+    this.lastMessageSenderName,
+    this.isLastMessageFromMe = false,
+    this.seen = false,
     this.unreadCount = 0,
     this.participantCount = 0,
   });
@@ -61,6 +69,10 @@ class Conversation {
         avatar: json['avatar'] as String?,
         lastMessageText: json['lastMessageText'] as String?,
         lastMessageAt: json['lastMessageAt'] as String?,
+        lastMessageSenderId: json['lastMessageSenderId'] as String?,
+        lastMessageSenderName: json['lastMessageSenderName'] as String?,
+        isLastMessageFromMe: (json['isLastMessageFromMe'] as bool?) ?? false,
+        seen: (json['seen'] as bool?) ?? false,
         unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
         participantCount: (json['participantCount'] as num?)?.toInt() ?? 0,
       );

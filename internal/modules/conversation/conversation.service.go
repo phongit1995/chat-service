@@ -500,6 +500,31 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 			}
 		}
 
+		if conv.LastMessageSender != nil {
+			senderIDStr := conv.LastMessageSender.String()
+			resp.LastMessageSenderID = senderIDStr
+			resp.IsLastMessageFromMe = senderIDStr == userID.String()
+			if senderUUID, err := uuid.Parse(senderIDStr); err == nil {
+				if u, cerr := s.userCache.GetUserCache(senderUUID, false); cerr == nil && u != nil {
+					name := u.FullName
+					if name == "" {
+						name = u.Username
+					}
+					resp.LastMessageSenderName = name
+				}
+			}
+		}
+
+		if conv.LastMessageID != nil {
+			if conv.LastReadMessageID != nil && *conv.LastReadMessageID == *conv.LastMessageID {
+				resp.Seen = true
+			} else if resp.IsLastMessageFromMe {
+				resp.Seen = true
+			}
+		} else {
+			resp.Seen = true
+		}
+
 		t := conv.LastMessageAt.Time()
 		resp.LastMessageAt = t.Format(time.RFC3339)
 

@@ -115,7 +115,7 @@ kafka-cli:
 # ==================== Tools ====================
 
 swagger:
-	~/go/bin/swag init -g cmd/api/main.go -o docs
+	~/go/bin/swag init -g cmd/api/main.go -o cmd/api/docs --parseDependency
 
 mod-tidy:
 	go mod tidy

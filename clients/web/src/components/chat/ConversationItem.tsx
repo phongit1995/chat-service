@@ -74,17 +74,36 @@ export const ConversationItem = ({ conversation, isActive, onClick }: Conversati
                   hasUnread ? 'font-semibold text-ink-primary' : 'text-ink-secondary'
                 }`}
               >
+                {conversation.isLastMessageFromMe ? (
+                  <span className="text-ink-tertiary">You: </span>
+                ) : conversation.type === 'group' && conversation.lastMessageSenderName ? (
+                  <span className="text-ink-tertiary">{conversation.lastMessageSenderName}: </span>
+                ) : null}
                 {conversation.lastMessageText}
               </p>
             ) : (
               <p className="text-[13px] text-ink-tertiary italic flex-1">No messages yet</p>
             )}
 
-            {hasUnread && (
+            {hasUnread ? (
               <span className="bg-gradient-signature text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-2 flex-shrink-0 shadow-glow-gradient animate-scaleIn">
                 {conversation.unreadCount! > 99 ? '99+' : conversation.unreadCount}
               </span>
-            )}
+            ) : conversation.isLastMessageFromMe && conversation.seen ? (
+              <span
+                title="Seen"
+                className="text-primary-500 text-[13px] flex-shrink-0"
+              >
+                ✓✓
+              </span>
+            ) : conversation.isLastMessageFromMe ? (
+              <span
+                title="Sent"
+                className="text-ink-tertiary text-[13px] flex-shrink-0"
+              >
+                ✓
+              </span>
+            ) : null}
           </div>
         </div>
       </div>

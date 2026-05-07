@@ -109,6 +109,10 @@ export interface Conversation {
   avatar?: string
   lastMessageText?: string
   lastMessageAt?: string
+  lastMessageSenderId?: string
+  lastMessageSenderName?: string
+  isLastMessageFromMe?: boolean
+  seen?: boolean
   unreadCount?: number
   participantCount?: number
 }

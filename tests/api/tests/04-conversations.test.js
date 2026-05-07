@@ -78,6 +78,47 @@ async function main() {
   r = await req('PUT', `/conversations/${directAB}/read`, {}, bob.token)
   ok('mark as read → 200', r.status === 200)
 
+  // ── 5b. Last-message metadata (sender + seen flag) ───────────────────────
+  // After bob's "bump direct" msg, alice's view should show bob as sender
+  r = await req('GET', '/conversations', undefined, alice.token)
+  const aliceDirect = (data(r)?.conversations ?? []).find(c => c.id === directAB)
+  ok('alice sees direct in list', !!aliceDirect)
+  ok('alice: lastMessageSenderId = bob', aliceDirect?.lastMessageSenderId === bob.id)
+  ok('alice: lastMessageSenderName non-empty', !!aliceDirect?.lastMessageSenderName)
+  ok('alice: isLastMessageFromMe = false', aliceDirect?.isLastMessageFromMe === false)
+  ok('alice: seen = false (unread bob msg)', aliceDirect?.seen === false)
+
+  // Bob's view: he sent it, so isLastMessageFromMe = true and seen = true
+  r = await req('GET', '/conversations', undefined, bob.token)
+  const bobDirect = (data(r)?.conversations ?? []).find(c => c.id === directAB)
+  ok('bob: lastMessageSenderId = bob', bobDirect?.lastMessageSenderId === bob.id)
+  ok('bob: isLastMessageFromMe = true', bobDirect?.isLastMessageFromMe === true)
+  ok('bob: seen = true (own msg)', bobDirect?.seen === true)
+
+  // Alice sends a new msg → she sees seen=true (own), bob sees seen=false (unread)
+  await req('POST', '/messages', { conversationId: directAB, type: 'text', content: 'reply from alice' }, alice.token)
+  await sleep(150)
+
+  r = await req('GET', '/conversations', undefined, alice.token)
+  const aliceDirect2 = (data(r)?.conversations ?? []).find(c => c.id === directAB)
+  ok('alice after own msg: isLastMessageFromMe = true', aliceDirect2?.isLastMessageFromMe === true)
+  ok('alice after own msg: seen = true', aliceDirect2?.seen === true)
+  ok('alice after own msg: lastMessageSenderId = alice', aliceDirect2?.lastMessageSenderId === alice.id)
+
+  r = await req('GET', '/conversations', undefined, bob.token)
+  const bobDirect2 = (data(r)?.conversations ?? []).find(c => c.id === directAB)
+  ok('bob after alice msg: isLastMessageFromMe = false', bobDirect2?.isLastMessageFromMe === false)
+  ok('bob after alice msg: seen = false', bobDirect2?.seen === false)
+
+  // After bob marks as read, his seen flag should flip to true
+  r = await req('PUT', `/conversations/${directAB}/read`, {}, bob.token)
+  ok('bob marks as read → 200', r.status === 200)
+  await sleep(100)
+  r = await req('GET', '/conversations', undefined, bob.token)
+  const bobDirect3 = (data(r)?.conversations ?? []).find(c => c.id === directAB)
+  ok('bob after read: seen = true', bobDirect3?.seen === true)
+  ok('bob after read: unreadCount = 0', bobDirect3?.unreadCount === 0)
+
   // ── 6. Hide / unhide conversation ────────────────────────────────────────
   r = await req('POST', `/conversations/${groupAlpha}/hide`, {}, charlie.token)
   ok('hide → 2xx', is2xx(r.status))

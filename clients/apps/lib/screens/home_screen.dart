@@ -208,17 +208,7 @@ class _ConversationTile extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            conv.lastMessageText ?? 'No messages yet',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: unread ? AppColors.textPrimary : AppColors.textSecondary,
-                              fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
-                              fontStyle: conv.lastMessageText == null ? FontStyle.italic : FontStyle.normal,
-                            ),
-                          ),
+                          child: _buildPreviewText(conv, unread),
                         ),
                         if (unread) ...[
                           const SizedBox(width: 8),
@@ -238,6 +228,16 @@ class _ConversationTile extends StatelessWidget {
                               ),
                             ),
                           ),
+                        ] else if (conv.isLastMessageFromMe) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            conv.seen ? '✓✓' : '✓',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: conv.seen ? AppColors.primary : AppColors.textTertiary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -247,6 +247,53 @@ class _ConversationTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPreviewText(Conversation conv, bool unread) {
+    final hasText = conv.lastMessageText != null && conv.lastMessageText!.isNotEmpty;
+    if (!hasText) {
+      return Text(
+        'No messages yet',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 13,
+          color: AppColors.textTertiary,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+
+    String? prefix;
+    if (conv.isLastMessageFromMe) {
+      prefix = 'You: ';
+    } else if (conv.type == 'group' &&
+        conv.lastMessageSenderName != null &&
+        conv.lastMessageSenderName!.isNotEmpty) {
+      prefix = '${conv.lastMessageSenderName}: ';
+    }
+
+    final baseStyle = TextStyle(
+      fontSize: 13,
+      color: unread ? AppColors.textPrimary : AppColors.textSecondary,
+      fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
+    );
+
+    return RichText(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        style: baseStyle,
+        children: [
+          if (prefix != null)
+            TextSpan(
+              text: prefix,
+              style: baseStyle.copyWith(color: AppColors.textTertiary),
+            ),
+          TextSpan(text: conv.lastMessageText!),
+        ],
       ),
     );
   }

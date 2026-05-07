@@ -10,17 +10,21 @@ type CreateGroupConversationRequest struct {
 }
 
 type ConversationResponse struct {
-	ID               string `json:"id" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`
-	Type             string `json:"type" example:"direct"`
-	Name             string `json:"name,omitempty" example:"John Doe"`
-	Avatar           string `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
-	CreatedAt        string `json:"createdAt" example:"2024-01-15T10:30:00Z"`
-	UpdatedAt        string `json:"updatedAt" example:"2024-01-15T15:45:00Z"`
-	LastMessageText  string `json:"lastMessageText,omitempty" example:"Hello, how are you?"`
-	LastMessageAt    string `json:"lastMessageAt,omitempty" example:"2024-01-15T15:45:00Z"`
-	ParticipantCount int    `json:"participantCount" example:"2"`
-	UnreadCount      int    `json:"unreadCount" example:"5"`
-	IsNew            bool   `json:"isNew,omitempty" example:"true"`
+	ID                    string `json:"id" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`
+	Type                  string `json:"type" example:"direct"`
+	Name                  string `json:"name,omitempty" example:"John Doe"`
+	Avatar                string `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
+	CreatedAt             string `json:"createdAt" example:"2024-01-15T10:30:00Z"`
+	UpdatedAt             string `json:"updatedAt" example:"2024-01-15T15:45:00Z"`
+	LastMessageText       string `json:"lastMessageText,omitempty" example:"Hello, how are you?"`
+	LastMessageAt         string `json:"lastMessageAt,omitempty" example:"2024-01-15T15:45:00Z"`
+	LastMessageSenderID   string `json:"lastMessageSenderId,omitempty" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb"`
+	LastMessageSenderName string `json:"lastMessageSenderName,omitempty" example:"John Doe"`
+	IsLastMessageFromMe   bool   `json:"isLastMessageFromMe" example:"false"`
+	Seen                  bool   `json:"seen" example:"true"`
+	ParticipantCount      int    `json:"participantCount" example:"2"`
+	UnreadCount           int    `json:"unreadCount" example:"5"`
+	IsNew                 bool   `json:"isNew,omitempty" example:"true"`
 }
 
 type ConversationsListResponse struct {
