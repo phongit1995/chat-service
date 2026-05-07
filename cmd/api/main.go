@@ -2,6 +2,8 @@ package main
 
 import (
 	"chat-server/internal/config"
+	"chat-server/internal/constants"
+	"chat-server/internal/transport/kafka"
 	"chat-server/internal/transport/websocket"
 	"context"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -46,6 +49,15 @@ func main() {
 		return nil
 	}); err != nil {
 		log.Fatalf("❌ Failed to connect database: %v", err)
+	}
+
+	if err := c.Invoke(func(cfg *config.Config, logger *zap.SugaredLogger) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		specs := kafka.DefaultTopicSpecs(constants.AllKafkaTopics())
+		return kafka.EnsureTopics(ctx, cfg.KafkaBrokers, specs, logger)
+	}); err != nil {
+		log.Fatalf("❌ Failed to ensure Kafka topics: %v", err)
 	}
 
 	quit := make(chan os.Signal, 1)

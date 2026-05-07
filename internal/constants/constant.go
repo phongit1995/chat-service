@@ -12,6 +12,20 @@ const (
 	KafkaTopicUserTyping          = "CHAT.USER.TYPING"
 )
 
+func AllKafkaTopics() []string {
+	return []string{
+		KafkaTopicMessageCreated,
+		KafkaTopicMessageDeleted,
+		KafkaTopicMessageUpdated,
+		KafkaTopicConversationCreated,
+		KafkaTopicConversationUpdated,
+		KafkaTopicConversationDeleted,
+		KafkaTopicUserOnline,
+		KafkaTopicUserOffline,
+		KafkaTopicUserTyping,
+	}
+}
+
 const (
 	KafkaConsumerGroup = "CHAT-SERVICE-CONSUMERS"
 )
