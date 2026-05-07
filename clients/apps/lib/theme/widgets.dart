@@ -174,6 +174,9 @@ class MessageBubble extends StatelessWidget {
   final bool isMine;
   final String? senderName;
   final String time;
+  final String status;
+  final bool isLastOwnMessage;
+  final bool conversationSeen;
 
   const MessageBubble({
     super.key,
@@ -181,7 +184,33 @@ class MessageBubble extends StatelessWidget {
     required this.isMine,
     this.senderName,
     required this.time,
+    this.status = 'sent',
+    this.isLastOwnMessage = false,
+    this.conversationSeen = false,
   });
+
+  Widget? _buildStatusIcon() {
+    if (!isMine) return null;
+    final color = Colors.white.withValues(alpha: 0.9);
+
+    if (status == 'sending') {
+      return SizedBox(
+        width: 12,
+        height: 12,
+        child: CircularProgressIndicator(strokeWidth: 1.5, color: color),
+      );
+    }
+    if (status == 'failed') {
+      return Icon(Icons.error_outline, size: 14, color: Colors.redAccent.shade100);
+    }
+    if (isLastOwnMessage && conversationSeen) {
+      return Text(
+        '✓✓',
+        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+      );
+    }
+    return Text('✓', style: TextStyle(color: color, fontSize: 12));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -199,48 +228,65 @@ class MessageBubble extends StatelessWidget {
             bottomRight: Radius.circular(AppRadius.xl),
           );
 
+    final statusIcon = _buildStatusIcon();
+    final isFailed = status == 'failed';
+
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            gradient: isMine ? AppGradients.signature : null,
-            color: isMine ? null : AppColors.bgOverlay,
-            borderRadius: radius,
-            boxShadow: isMine ? AppShadows.md : null,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!isMine && senderName != null && senderName!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: GradientText(
-                    senderName!,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        child: Opacity(
+          opacity: isFailed ? 0.7 : 1.0,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: isMine ? AppGradients.signature : null,
+              color: isMine ? null : AppColors.bgOverlay,
+              borderRadius: radius,
+              boxShadow: isMine ? AppShadows.md : null,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isMine && senderName != null && senderName!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: GradientText(
+                      senderName!,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                Text(
+                  content,
+                  style: TextStyle(
+                    color: isMine ? Colors.white : AppColors.textPrimary,
+                    fontSize: 15,
+                    height: 1.35,
                   ),
                 ),
-              Text(
-                content,
-                style: TextStyle(
-                  color: isMine ? Colors.white : AppColors.textPrimary,
-                  fontSize: 15,
-                  height: 1.35,
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      time,
+                      style: TextStyle(
+                        color: isMine
+                            ? Colors.white.withValues(alpha: 0.85)
+                            : AppColors.textTertiary,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (statusIcon != null) ...[
+                      const SizedBox(width: 6),
+                      statusIcon,
+                    ],
+                  ],
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                time,
-                style: TextStyle(
-                  color: isMine ? Colors.white.withValues(alpha: 0.85) : AppColors.textTertiary,
-                  fontSize: 11,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

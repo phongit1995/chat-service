@@ -18,7 +18,7 @@ class SocketService {
   private listeners: Map<string, Set<Function>> = new Map()
 
   connect(token: string) {
-    if (this.socket?.connected) {
+    if (this.socket) {
       return
     }
 

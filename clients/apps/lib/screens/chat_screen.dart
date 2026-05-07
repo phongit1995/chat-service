@@ -220,21 +220,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    itemCount: _messages.length,
-                    itemBuilder: (_, i) {
-                      final m = _messages[i];
-                      final isMine = m.senderId == me?.id;
-                      return MessageBubble(
-                        content: m.content,
-                        isMine: isMine,
-                        senderName: isMine ? null : m.senderName,
-                        time: _formatTime(m.createdAt),
-                      );
-                    },
-                  ),
+                : Builder(builder: (_) {
+                    int lastOwnIdx = -1;
+                    for (var i = _messages.length - 1; i >= 0; i--) {
+                      if (_messages[i].senderId == me?.id) {
+                        lastOwnIdx = i;
+                        break;
+                      }
+                    }
+                    final convSeen = widget.conversation?.seen ?? false;
+                    return ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      itemCount: _messages.length,
+                      itemBuilder: (_, i) {
+                        final m = _messages[i];
+                        final isMine = m.senderId == me?.id;
+                        return MessageBubble(
+                          content: m.content,
+                          isMine: isMine,
+                          senderName: isMine ? null : m.senderName,
+                          time: _formatTime(m.createdAt),
+                          status: m.status,
+                          isLastOwnMessage: i == lastOwnIdx,
+                          conversationSeen: convSeen,
+                        );
+                      },
+                    );
+                  }),
           ),
           SafeArea(
             top: false,

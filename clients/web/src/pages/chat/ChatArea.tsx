@@ -38,16 +38,26 @@ export const ChatArea = ({
       <ChatHeader conversation={conversation} />
 
       <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin bg-surface-base">
-        {messages
-          .slice()
-          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-          .map((message) => (
+        {(() => {
+          const sorted = messages
+            .slice()
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+          const lastOwnIdx = (() => {
+            for (let i = sorted.length - 1; i >= 0; i--) {
+              if (sorted[i].senderId === user?.id) return i
+            }
+            return -1
+          })()
+          return sorted.map((message, idx) => (
             <MessageBubble
               key={message.id}
               message={message}
               isOwnMessage={message.senderId === user?.id}
+              isLastOwnMessage={idx === lastOwnIdx}
+              conversationSeen={!!conversation.seen}
             />
-          ))}
+          ))
+        })()}
         {typingUsers.size > 0 && <TypingIndicator typingUsers={typingUsers} />}
         <div ref={messagesEndRef} />
       </div>
