@@ -95,7 +95,7 @@ const (
 	CacheTTLOTP                 = 300
 	CacheTTLPasswordResetToken  = 1800
 	CacheTTLClientMsgIDDedup    = 300
-	CacheTTLLastRead            = 3600
+	CacheTTLLastRead            = 31536000
 )
 
 const (
