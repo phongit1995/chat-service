@@ -475,6 +475,7 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 	}
 
 	otherReadPairs := make([]OtherUserReadState, 0)
+	otherReads := make(map[string]*gocql.UUID)
 	for _, conv := range conversations {
 		if conv.ConversationType == constants.ConversationTypeDirect &&
 			conv.OtherUserID != nil &&
@@ -488,16 +489,37 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 			if err != nil {
 				continue
 			}
+			key := otherUUID.String() + ":" + convUUID.String()
+			if cachedMsgID, cacheErr := s.cache.GetLastRead(convUUID, otherUUID); cacheErr == nil && cachedMsgID != "" {
+				gocqlMsgID, parseErr := gocql.ParseUUID(cachedMsgID)
+				if parseErr == nil {
+					otherReads[key] = &gocqlMsgID
+					continue
+				}
+			}
 			otherReadPairs = append(otherReadPairs, OtherUserReadState{
 				UserID:         otherUUID,
 				ConversationID: convUUID,
 			})
 		}
 	}
-	otherReads, err := s.repo.GetOtherUsersLastRead(otherReadPairs)
-	if err != nil {
-		s.logger.Warnw("Failed to fetch other users last read", "error", err)
-		otherReads = map[string]*gocql.UUID{}
+	if len(otherReadPairs) > 0 {
+		dbReads, err := s.repo.GetOtherUsersLastRead(otherReadPairs)
+		if err != nil {
+			s.logger.Warnw("Failed to fetch other users last read", "error", err)
+		} else {
+			for k, v := range dbReads {
+				otherReads[k] = v
+			}
+			go func() {
+				for _, p := range otherReadPairs {
+					key := p.UserID.String() + ":" + p.ConversationID.String()
+					if msgID, ok := dbReads[key]; ok && msgID != nil {
+						s.cache.SetLastRead(p.ConversationID, p.UserID, msgID.String())
+					}
+				}
+			}()
+		}
 	}
 
 	responses := make([]ConversationResponse, 0, len(conversations))
@@ -636,6 +658,7 @@ func (s *Service) MarkConversationAsRead(userID, conversationID uuid.UUID) error
 
 	go func() {
 		s.cache.ResetUnreadCount(conversationID, userID)
+		s.cache.SetLastRead(conversationID, userID, lastReadMessageID.String())
 		s.InvalidateUserConversationsCache([]uuid.UUID{userID})
 	}()
 

@@ -52,6 +52,7 @@ const (
 	CacheKeyOTPVerification     = "OTP:%s:VERIFICATION"
 	CacheKeyPasswordResetToken  = "PASSWORD:%s:RESET_TOKEN"
 	CacheKeyConversationPattern = "USER:*:CONVERSATIONS"
+	CacheKeyLastRead            = "LAST_READ:%s:%s"
 )
 
 const (
@@ -94,6 +95,7 @@ const (
 	CacheTTLOTP                 = 300
 	CacheTTLPasswordResetToken  = 1800
 	CacheTTLClientMsgIDDedup    = 300
+	CacheTTLLastRead            = 3600
 )
 
 const (

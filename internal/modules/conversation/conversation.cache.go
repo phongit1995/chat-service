@@ -208,3 +208,22 @@ func (c *CacheService) DeleteHiddenConversationsCache(userID uuid.UUID) error {
 	key := fmt.Sprintf(constants.CacheKeyHiddenConversations, userID.String())
 	return c.cache.Delete(key)
 }
+
+func (c *CacheService) GetLastRead(conversationID, userID uuid.UUID) (string, error) {
+	key := fmt.Sprintf(constants.CacheKeyLastRead, conversationID.String(), userID.String())
+	var msgID string
+	if err := c.cache.Get(key, &msgID); err != nil {
+		return "", err
+	}
+	return msgID, nil
+}
+
+func (c *CacheService) SetLastRead(conversationID, userID uuid.UUID, messageID string) error {
+	key := fmt.Sprintf(constants.CacheKeyLastRead, conversationID.String(), userID.String())
+	return c.cache.Set(key, messageID, constants.CacheTTLLastRead*time.Second)
+}
+
+func (c *CacheService) DeleteLastRead(conversationID, userID uuid.UUID) error {
+	key := fmt.Sprintf(constants.CacheKeyLastRead, conversationID.String(), userID.String())
+	return c.cache.Delete(key)
+}
