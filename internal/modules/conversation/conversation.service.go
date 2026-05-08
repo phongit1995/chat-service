@@ -662,6 +662,23 @@ func (s *Service) MarkConversationAsRead(userID, conversationID uuid.UUID) error
 		s.InvalidateUserConversationsCache([]uuid.UUID{userID})
 	}()
 
+	if userConv.LastMessageSender != nil && userConv.OtherUserID != nil {
+		senderID := *userConv.LastMessageSender
+		otherUserID := *userConv.OtherUserID
+		if senderID != gocql.UUID(userID) && senderID == otherUserID {
+			event := &conversationEvents.UpdatedEvent{
+				ConversationID: conversationID.String(),
+				Data: map[string]interface{}{
+					"id":   conversationID.String(),
+					"seen": true,
+				},
+			}
+			if err := s.kafkaProducer.PublishConversationUpdated(context.Background(), event); err != nil {
+				s.logger.Warnw("Failed to publish conversation updated event for seen", "error", err)
+			}
+		}
+	}
+
 	return nil
 }
 

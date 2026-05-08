@@ -15,12 +15,12 @@ class SocketService {
 
   final _newMessageCtrl = StreamController<NewMessageEvent>.broadcast();
   final _conversationCreatedCtrl = StreamController<String>.broadcast();
-  final _conversationUpdatedCtrl = StreamController<String>.broadcast();
+  final _conversationUpdatedCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _conversationDeletedCtrl = StreamController<String>.broadcast();
 
   Stream<NewMessageEvent> get onNewMessage => _newMessageCtrl.stream;
   Stream<String> get onConversationCreated => _conversationCreatedCtrl.stream;
-  Stream<String> get onConversationUpdated => _conversationUpdatedCtrl.stream;
+  Stream<Map<String, dynamic>> get onConversationUpdated => _conversationUpdatedCtrl.stream;
   Stream<String> get onConversationDeleted => _conversationDeletedCtrl.stream;
 
   bool get isConnected => _socket?.connected ?? false;
@@ -65,8 +65,7 @@ class SocketService {
             if (id != null) _conversationCreatedCtrl.add(id);
             break;
           case 'CONVERSATION_UPDATED':
-            final id = payload['id'] as String?;
-            if (id != null) _conversationUpdatedCtrl.add(id);
+            _conversationUpdatedCtrl.add(payload);
             break;
           case 'CONVERSATION_DELETED':
             final id = payload['conversationId'] as String?;

@@ -98,7 +98,34 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     final socket = ref.read(socketProvider);
 
     socket.onConversationCreated.listen((_) => reload());
-    socket.onConversationUpdated.listen((_) => reload());
+    socket.onConversationUpdated.listen((data) {
+      final id = data['id'] as String?;
+      final seen = data['seen'];
+      if (id != null && seen is bool) {
+        final list = state.value ?? [];
+        final idx = list.indexWhere((c) => c.id == id);
+        if (idx >= 0) {
+          final old = list[idx];
+          final updated = Conversation(
+            id: old.id,
+            type: old.type,
+            name: old.name,
+            avatar: old.avatar,
+            lastMessageText: old.lastMessageText,
+            lastMessageAt: old.lastMessageAt,
+            unreadCount: old.unreadCount,
+            participantCount: old.participantCount,
+            isLastMessageFromMe: old.isLastMessageFromMe,
+            seen: seen,
+          );
+          final newList = [...list];
+          newList[idx] = updated;
+          state = AsyncValue.data(newList);
+          return;
+        }
+      }
+      reload();
+    });
     socket.onConversationDeleted.listen((id) {
       final list = state.value ?? [];
       state = AsyncValue.data(list.where((c) => c.id != id).toList());

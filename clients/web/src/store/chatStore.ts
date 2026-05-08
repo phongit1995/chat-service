@@ -190,8 +190,18 @@ export const useChatStore = create<ChatState>((set, get) => {
   
 
   socketService.on(WebSocketEventType.CONVERSATION_UPDATED, (data: ConversationUpdatedData) => {
-    console.log('✅ CONVERSATION_UPDATED received, refetching list:', data.id)
-    get().loadConversations()
+    const { conversations, currentConversation } = get()
+    if (data.id && data.seen !== undefined) {
+      set({
+        conversations: updateConversationInList(conversations, data.id, { seen: data.seen }),
+        ...(currentConversation?.id === data.id
+          ? { currentConversation: { ...currentConversation, seen: data.seen } }
+          : {}),
+      })
+    } else {
+      console.log('✅ CONVERSATION_UPDATED received, refetching list:', data.id)
+      get().loadConversations()
+    }
   })
   
 
