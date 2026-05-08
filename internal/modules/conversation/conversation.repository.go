@@ -277,6 +277,43 @@ func (r *Repository) AddConversationToUserInbox(conv *ConversationByUser) error 
 	).Exec()
 }
 
+type OtherUserReadState struct {
+	UserID            uuid.UUID
+	ConversationID    uuid.UUID
+	LastReadMessageID *gocql.UUID
+}
+
+func (r *Repository) GetOtherUsersLastRead(pairs []OtherUserReadState) (map[string]*gocql.UUID, error) {
+	result := make(map[string]*gocql.UUID, len(pairs))
+	if len(pairs) == 0 {
+		return result, nil
+	}
+
+	for _, p := range pairs {
+		gocqlUserID, err := gocql.ParseUUID(p.UserID.String())
+		if err != nil {
+			continue
+		}
+		gocqlConvID, err := gocql.ParseUUID(p.ConversationID.String())
+		if err != nil {
+			continue
+		}
+
+		var lastRead *gocql.UUID
+		err = r.session.Query(
+			`SELECT last_read_message_id FROM conversations_by_user
+			 WHERE user_id = ? AND conversation_id = ?`,
+			gocqlUserID, gocqlConvID,
+		).Scan(&lastRead)
+		if err != nil && err != gocql.ErrNotFound {
+			continue
+		}
+		key := p.UserID.String() + ":" + p.ConversationID.String()
+		result[key] = lastRead
+	}
+	return result, nil
+}
+
 func (r *Repository) GetUserConversations(userID uuid.UUID, limit int) ([]ConversationByUser, error) {
 	gocqlUserID, err := gocql.ParseUUID(userID.String())
 	if err != nil {

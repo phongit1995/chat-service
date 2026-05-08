@@ -474,6 +474,32 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 		return nil, fmt.Errorf("failed to get user conversations: %w", err)
 	}
 
+	otherReadPairs := make([]OtherUserReadState, 0)
+	for _, conv := range conversations {
+		if conv.ConversationType == constants.ConversationTypeDirect &&
+			conv.OtherUserID != nil &&
+			conv.LastMessageSender != nil &&
+			conv.LastMessageSender.String() == userID.String() {
+			otherUUID, err := uuid.Parse(conv.OtherUserID.String())
+			if err != nil {
+				continue
+			}
+			convUUID, err := uuid.Parse(conv.ConversationID.String())
+			if err != nil {
+				continue
+			}
+			otherReadPairs = append(otherReadPairs, OtherUserReadState{
+				UserID:         otherUUID,
+				ConversationID: convUUID,
+			})
+		}
+	}
+	otherReads, err := s.repo.GetOtherUsersLastRead(otherReadPairs)
+	if err != nil {
+		s.logger.Warnw("Failed to fetch other users last read", "error", err)
+		otherReads = map[string]*gocql.UUID{}
+	}
+
 	responses := make([]ConversationResponse, 0, len(conversations))
 	for _, conv := range conversations {
 		resp := ConversationResponse{
@@ -515,14 +541,23 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 			}
 		}
 
-		if conv.LastMessageID != nil {
-			if conv.LastReadMessageID != nil && *conv.LastReadMessageID == *conv.LastMessageID {
-				resp.Seen = true
-			} else if resp.IsLastMessageFromMe {
-				resp.Seen = true
+		if conv.LastMessageID == nil {
+			resp.Seen = true
+		} else if resp.IsLastMessageFromMe {
+			if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
+				otherUUID, perr := uuid.Parse(conv.OtherUserID.String())
+				convUUID, cerr := uuid.Parse(conv.ConversationID.String())
+				if perr == nil && cerr == nil {
+					key := otherUUID.String() + ":" + convUUID.String()
+					if otherLastRead, ok := otherReads[key]; ok && otherLastRead != nil {
+						resp.Seen = *otherLastRead == *conv.LastMessageID
+					}
+				}
 			}
 		} else {
-			resp.Seen = true
+			if conv.LastReadMessageID != nil && *conv.LastReadMessageID == *conv.LastMessageID {
+				resp.Seen = true
+			}
 		}
 
 		t := conv.LastMessageAt.Time()
