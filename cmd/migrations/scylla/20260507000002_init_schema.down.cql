@@ -1,5 +1,3 @@
-DROP TABLE IF EXISTS chat_keyspace.refresh_tokens_by_user;
-DROP TABLE IF EXISTS chat_keyspace.refresh_tokens;
 DROP TABLE IF EXISTS chat_keyspace.archived_conversations;
 DROP TABLE IF EXISTS chat_keyspace.hidden_conversations;
 DROP TABLE IF EXISTS chat_keyspace.conversation_read_by_user;

@@ -11,14 +11,18 @@ discovery.docker "containers" {
   }
 }
 
-loki.source.docker "containers" {
-  host       = "unix:///var/run/docker.sock"
-  targets    = discovery.docker.containers.targets
-  forward_to = [loki.process.parse_logs.receiver]
-  relabel_rules = rule {
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+  rule {
     source_labels = ["__meta_docker_container_name"]
     target_label  = "container"
   }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.parse_logs.receiver]
 }
 
 loki.process "parse_logs" {
@@ -54,12 +58,6 @@ loki.process "parse_logs" {
 loki.write "loki" {
   endpoint {
     url = "http://loki:3100/loki/api/v1/push"
-    
-    queue_config {
-      capacity         = 10000
-      max_shards       = 10
-      max_samples_per_send = 5000
-    }
   }
 }
 

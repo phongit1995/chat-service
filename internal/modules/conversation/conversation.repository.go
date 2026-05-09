@@ -1,13 +1,16 @@
 package conversation
 
 import (
+	"context"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type Repository struct {
@@ -88,6 +91,11 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 		       unread_count, last_read_message_id, last_read_at, updated_at
 		FROM conversations_by_user
 		WHERE user_id = ?
+	`)
+
+	r.preparedQueries["get_user_last_read"] = session.Query(`
+		SELECT last_read_message_id FROM conversations_by_user
+		WHERE user_id = ? AND conversation_id = ?
 	`)
 
 	return r
@@ -289,28 +297,47 @@ func (r *Repository) GetOtherUsersLastRead(pairs []OtherUserReadState) (map[stri
 		return result, nil
 	}
 
-	for _, p := range pairs {
-		gocqlUserID, err := gocql.ParseUUID(p.UserID.String())
-		if err != nil {
-			continue
-		}
-		gocqlConvID, err := gocql.ParseUUID(p.ConversationID.String())
-		if err != nil {
-			continue
-		}
-
-		var lastRead *gocql.UUID
-		err = r.session.Query(
-			`SELECT last_read_message_id FROM conversations_by_user
-			 WHERE user_id = ? AND conversation_id = ?`,
-			gocqlUserID, gocqlConvID,
-		).Scan(&lastRead)
-		if err != nil && err != gocql.ErrNotFound {
-			continue
-		}
-		key := p.UserID.String() + ":" + p.ConversationID.String()
-		result[key] = lastRead
+	type item struct {
+		key      string
+		lastRead *gocql.UUID
 	}
+
+	var mu sync.Mutex
+	g, ctx := errgroup.WithContext(context.Background())
+	g.SetLimit(16)
+
+	for _, p := range pairs {
+		p := p
+		g.Go(func() error {
+			gocqlUserID, err := gocql.ParseUUID(p.UserID.String())
+			if err != nil {
+				return nil
+			}
+			gocqlConvID, err := gocql.ParseUUID(p.ConversationID.String())
+			if err != nil {
+				return nil
+			}
+
+			var lastRead *gocql.UUID
+			err = r.preparedQueries["get_user_last_read"].
+				Bind(gocqlUserID, gocqlConvID).
+				WithContext(ctx).
+				Scan(&lastRead)
+			if err != nil && err != gocql.ErrNotFound {
+				return nil
+			}
+
+			it := item{
+				key:      p.UserID.String() + ":" + p.ConversationID.String(),
+				lastRead: lastRead,
+			}
+			mu.Lock()
+			result[it.key] = it.lastRead
+			mu.Unlock()
+			return nil
+		})
+	}
+	_ = g.Wait()
 	return result, nil
 }
 
