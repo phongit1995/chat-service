@@ -116,14 +116,24 @@ export const useChatStore = create<ChatState>((set, get) => {
     }
 
     const existingConv = conversations.find(c => c.id === message.conversationId)
+    const isCurrentConv = currentConversation?.id === message.conversationId
+    const isFromMe = message.senderId === currentUser?.id
+
     if (!existingConv) {
-      console.log('✅ NEW_MESSAGE for unknown conversation, refetching list:', message.conversationId)
-      get().loadConversations()
+      const newConv: Conversation = {
+        ...conversation,
+        lastMessageText: message.content,
+        lastMessageAt: message.createdAt,
+        lastMessageSenderId: message.senderId,
+        lastMessageSenderName: message.senderName,
+        isLastMessageFromMe: isFromMe,
+        seen: isFromMe ? false : isCurrentConv,
+        unreadCount: isFromMe ? 0 : (isCurrentConv ? 0 : 1),
+      }
+      set({ conversations: [newConv, ...conversations] })
       return
     }
 
-    const isCurrentConv = currentConversation?.id === message.conversationId
-    const isFromMe = message.senderId === currentUser?.id
     const updates: Partial<Conversation> = {
       lastMessageText: message.content,
       lastMessageAt: message.createdAt,
