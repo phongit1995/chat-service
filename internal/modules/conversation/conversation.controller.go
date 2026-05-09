@@ -170,6 +170,38 @@ func (ctrl *Controller) GetUserConversations(c *gin.Context) (interface{}, error
 	return conversations, nil
 }
 
+// GetConversationDetail godoc
+// @Summary      Get conversation detail
+// @Description  Get full detail of a conversation including other-user info and presence (direct only)
+// @Tags         conversations
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Conversation ID"
+// @Success      200  {object}  ConversationSuccessResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Failure      404  {object}  utils.APIError
+// @Router       /conversations/{id} [get]
+func (ctrl *Controller) GetConversationDetail(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	conversationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid conversation ID")
+	}
+
+	detail, err := ctrl.service.GetConversationDetail(userID, conversationID)
+	if err != nil {
+		ctrl.logger.Errorw("Failed to get conversation detail", "error", err)
+		return nil, utils.NewHTTPError(http.StatusNotFound, "conversation not found")
+	}
+
+	return detail, nil
+}
+
 // MarkConversationAsRead godoc
 // @Summary      Mark conversation as read
 // @Description  Mark all messages in a conversation as read for the authenticated user

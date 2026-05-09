@@ -1,5 +1,6 @@
 import { Conversation } from '../../types'
 import { Avatar } from '../ui'
+import { formatLastActive } from '../../utils/relativeTime'
 
 interface ChatHeaderProps {
   conversation?: Conversation
@@ -35,24 +36,38 @@ export const ChatHeader = ({ conversation, onBack }: ChatHeaderProps) => {
           </button>
         )}
 
-        <Avatar
-          src={conversation.avatar}
-          name={displayName}
-          size="md"
-          status="online"
-        />
-
-        <div className="flex-1 min-w-0">
-          <h2 className="text-[18px] font-semibold font-display text-ink-primary truncate">
-            {displayName}
-          </h2>
-          <p className="text-[12px] text-status-success font-medium flex items-center gap-1.5">
-            <span className="w-2 h-2 bg-status-success rounded-full animate-pulse-soft" />
-            {conversation.type === 'direct'
+        {(() => {
+          const isDirect = conversation.type === 'direct'
+          const isOnline = isDirect && !!conversation.isOnline
+          const subtitle = isDirect
+            ? isOnline
               ? 'Active now'
-              : `${conversation.participantCount || 0} members`}
-          </p>
-        </div>
+              : formatLastActive(conversation.lastActiveAt)
+            : `${conversation.participantCount || 0} members`
+          const subtitleColor = isOnline
+            ? 'text-status-success'
+            : isDirect && subtitle.startsWith('Active')
+              ? 'text-ink-secondary'
+              : 'text-ink-tertiary'
+          return (
+            <>
+              <Avatar
+                src={conversation.avatar}
+                name={displayName}
+                size="md"
+                status={isDirect ? (isOnline ? 'online' : 'offline') : undefined}
+              />
+              <div className="flex-1 min-w-0">
+                <h2 className="text-[18px] font-semibold font-display text-ink-primary truncate">
+                  {displayName}
+                </h2>
+                <p className={`text-[12px] font-medium ${subtitleColor}`}>
+                  {subtitle}
+                </p>
+              </div>
+            </>
+          )
+        })()}
 
         <div className="flex items-center gap-1">
           <button

@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_gradients.dart';
 import '../theme/app_typography.dart';
 import '../theme/widgets.dart';
+import '../utils/relative_time.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -147,7 +148,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(authProvider).user;
-    final title = widget.conversation?.displayName ?? 'Chat';
+    final convsState = ref.watch(conversationsProvider);
+    final liveConv = convsState.value?.firstWhere(
+      (c) => c.id == widget.conversationId,
+      orElse: () => widget.conversation ?? Conversation(id: widget.conversationId, type: 'direct'),
+    );
+    final conv = liveConv ?? widget.conversation;
+    final title = conv?.displayName ?? 'Chat';
+    final isDirect = conv?.type == 'direct';
+    final isOnline = isDirect && (conv?.isOnline ?? false);
+    final subtitle = isDirect
+        ? (isOnline ? 'Active now' : formatLastActive(conv?.lastActiveAt))
+        : '${conv?.participantCount ?? 0} members';
+    final subtitleColor = isOnline
+        ? AppColors.success
+        : (isDirect && subtitle.startsWith('Active') ? AppColors.textSecondary : AppColors.textTertiary);
 
     return Scaffold(
       backgroundColor: AppColors.bgBase,
@@ -161,10 +176,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
         title: Row(
           children: [
-            GradientAvatar(
-              name: title,
-              imageUrl: widget.conversation?.avatar,
-              size: 36,
+            Stack(
+              children: [
+                GradientAvatar(
+                  name: title,
+                  imageUrl: conv?.avatar,
+                  size: 36,
+                ),
+                if (isOnline)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.bgSurface, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -182,22 +215,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       fontSize: 16,
                     ),
                   ),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppColors.success,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'Active now',
-                        style: TextStyle(color: AppColors.success, fontSize: 11, fontWeight: FontWeight.w500),
-                      ),
-                    ],
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: subtitleColor, fontSize: 11, fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -229,6 +250,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       }
                     }
                     final convSeen = widget.conversation?.seen ?? false;
+                    final isGroup = widget.conversation?.type == 'group';
+                    const streakGapMs = 5 * 60 * 1000;
                     return ListView.builder(
                       controller: _scroll,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -236,14 +259,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       itemBuilder: (_, i) {
                         final m = _messages[i];
                         final isMine = m.senderId == me?.id;
+                        final tCur = DateTime.tryParse(m.createdAt)?.millisecondsSinceEpoch ?? 0;
+                        bool sameAsPrev = false;
+                        bool sameAsNext = false;
+                        if (i > 0) {
+                          final p = _messages[i - 1];
+                          final tPrev = DateTime.tryParse(p.createdAt)?.millisecondsSinceEpoch ?? 0;
+                          sameAsPrev = p.senderId == m.senderId && (tCur - tPrev) < streakGapMs;
+                        }
+                        if (i < _messages.length - 1) {
+                          final n = _messages[i + 1];
+                          final tNext = DateTime.tryParse(n.createdAt)?.millisecondsSinceEpoch ?? 0;
+                          sameAsNext = n.senderId == m.senderId && (tNext - tCur) < streakGapMs;
+                        }
+                        final isFirstInStreak = !sameAsPrev;
+                        final isLastInStreak = !sameAsNext;
                         return MessageBubble(
                           content: m.content,
                           isMine: isMine,
                           senderName: isMine ? null : m.senderName,
+                          senderAvatar: isMine ? null : m.senderAvatar,
                           time: _formatTime(m.createdAt),
                           status: m.status,
                           isLastOwnMessage: i == lastOwnIdx,
                           conversationSeen: convSeen,
+                          isGroup: isGroup,
+                          isFirstInStreak: isFirstInStreak,
+                          isLastInStreak: isLastInStreak,
+                          showTime: isLastInStreak,
                         );
                       },
                     );

@@ -47,10 +47,12 @@ export const ChatSidebar = ({
             <button
               onClick={onNewChatClick}
               className="p-2.5 hover:bg-white/20 rounded-full text-white transition-transform duration-fast ease-ease-bounce hover:scale-110 active:scale-95"
-              title="New chat"
+              title="Search (⌘K)"
+              aria-label="Search"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
               </svg>
             </button>
             <button
@@ -66,6 +68,20 @@ export const ChatSidebar = ({
           </div>
         </div>
       </div>
+
+      <button
+        onClick={onNewChatClick}
+        className="mx-3 mt-3 flex items-center gap-3 px-4 py-2.5 bg-surface-overlay hover:bg-surface-elevated text-ink-secondary rounded-xl text-sm transition-colors text-left"
+      >
+        <svg className="w-4 h-4 text-ink-tertiary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+        </svg>
+        <span className="flex-1">Search people, conversations...</span>
+        <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-ink-tertiary bg-surface border border-line rounded">
+          ⌘K
+        </kbd>
+      </button>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         <div className="p-3">

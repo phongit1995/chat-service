@@ -45,6 +45,11 @@ export const ConversationItem = ({ conversation, isActive, onClick }: Conversati
           size="lg"
           storyRing={hasUnread}
           storyRingSeen={!hasUnread}
+          status={
+            conversation.type === 'direct' && conversation.isOnline
+              ? 'online'
+              : undefined
+          }
         />
 
         <div className="flex-1 min-w-0">

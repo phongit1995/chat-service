@@ -33,6 +33,30 @@ class User {
   String get displayName => fullName?.isNotEmpty == true ? fullName! : username;
 }
 
+class OtherUserBrief {
+  final String id;
+  final String username;
+  final String? fullName;
+  final String? avatar;
+  final String? bio;
+
+  OtherUserBrief({
+    required this.id,
+    required this.username,
+    this.fullName,
+    this.avatar,
+    this.bio,
+  });
+
+  factory OtherUserBrief.fromJson(Map<String, dynamic> json) => OtherUserBrief(
+        id: json['id'] as String,
+        username: (json['username'] as String?) ?? '',
+        fullName: json['fullName'] as String?,
+        avatar: json['avatar'] as String?,
+        bio: json['bio'] as String?,
+      );
+}
+
 class Conversation {
   final String id;
   final String type;
@@ -46,6 +70,9 @@ class Conversation {
   final bool seen;
   final int unreadCount;
   final int participantCount;
+  final OtherUserBrief? otherUser;
+  final bool isOnline;
+  final String? lastActiveAt;
 
   Conversation({
     required this.id,
@@ -60,6 +87,9 @@ class Conversation {
     this.seen = false,
     this.unreadCount = 0,
     this.participantCount = 0,
+    this.otherUser,
+    this.isOnline = false,
+    this.lastActiveAt,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
@@ -75,6 +105,40 @@ class Conversation {
         seen: (json['seen'] as bool?) ?? false,
         unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
         participantCount: (json['participantCount'] as num?)?.toInt() ?? 0,
+        otherUser: json['otherUser'] is Map<String, dynamic>
+            ? OtherUserBrief.fromJson(json['otherUser'] as Map<String, dynamic>)
+            : null,
+        isOnline: (json['isOnline'] as bool?) ?? false,
+        lastActiveAt: json['lastActiveAt'] as String?,
+      );
+
+  Conversation copyWith({
+    String? lastMessageText,
+    String? lastMessageAt,
+    String? lastMessageSenderId,
+    String? lastMessageSenderName,
+    bool? isLastMessageFromMe,
+    bool? seen,
+    int? unreadCount,
+    bool? isOnline,
+    String? lastActiveAt,
+  }) =>
+      Conversation(
+        id: id,
+        type: type,
+        name: name,
+        avatar: avatar,
+        lastMessageText: lastMessageText ?? this.lastMessageText,
+        lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+        lastMessageSenderId: lastMessageSenderId ?? this.lastMessageSenderId,
+        lastMessageSenderName: lastMessageSenderName ?? this.lastMessageSenderName,
+        isLastMessageFromMe: isLastMessageFromMe ?? this.isLastMessageFromMe,
+        seen: seen ?? this.seen,
+        unreadCount: unreadCount ?? this.unreadCount,
+        participantCount: participantCount,
+        otherUser: otherUser,
+        isOnline: isOnline ?? this.isOnline,
+        lastActiveAt: lastActiveAt ?? this.lastActiveAt,
       );
 
   String get displayName =>

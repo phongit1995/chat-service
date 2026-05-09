@@ -95,9 +95,10 @@ class ApiService {
     return response.data
   }
 
-  async searchUsers(query: string, limit = 20): Promise<ApiResponse<SearchUsersResponse>> {
+  async searchUsers(query: string, limit = 20, signal?: AbortSignal): Promise<ApiResponse<SearchUsersResponse>> {
     const response = await this.api.get<ApiResponse<SearchUsersResponse>>('/user/search', {
-      params: { q: query, limit }
+      params: { q: query, limit },
+      signal,
     })
     return response.data
   }

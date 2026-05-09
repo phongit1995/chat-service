@@ -123,12 +123,17 @@ export const useChatStore = create<ChatState>((set, get) => {
     }
 
     const isCurrentConv = currentConversation?.id === message.conversationId
+    const isFromMe = message.senderId === currentUser?.id
     const updates: Partial<Conversation> = {
       lastMessageText: message.content,
       lastMessageAt: message.createdAt,
+      lastMessageSenderId: message.senderId,
+      lastMessageSenderName: message.senderName,
+      isLastMessageFromMe: isFromMe,
+      seen: isFromMe ? false : isCurrentConv,
       participantCount: conversation.participantCount,
     }
-    if (!isCurrentConv && message.senderId !== currentUser?.id) {
+    if (!isCurrentConv && !isFromMe) {
       updates.unreadCount = (existingConv.unreadCount || 0) + 1
     } else if (isCurrentConv) {
       updates.unreadCount = 0
@@ -277,15 +282,6 @@ export const useChatStore = create<ChatState>((set, get) => {
   })
   
 
-  socketService.on(WebSocketEventType.USER_ONLINE, (data: { userId: string; status: string }) => {
-    console.log('User online:', data.userId)
-
-  })
-  
-  socketService.on(WebSocketEventType.USER_OFFLINE, (data: { userId: string; status: string }) => {
-    console.log('User offline:', data.userId)
-
-  })
 
   return {
     conversations: [],
@@ -336,23 +332,36 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       set({ isLoading: true, error: null })
       try {
-        const messagesResponse = await apiService.getMessages(conversationId)
-        const conv = conversations.find(c => c.id === conversationId)
-        
+        const [messagesResponse, detailResponse] = await Promise.all([
+          apiService.getMessages(conversationId),
+          apiService.getConversation(conversationId).catch(() => null),
+        ])
+        const detail = detailResponse?.data as Conversation | undefined
+        const baseConv = conversations.find(c => c.id === conversationId)
+        const merged: Conversation | null = detail
+          ? { ...(baseConv || {} as Conversation), ...detail }
+          : (baseConv || null)
+
+        const updates: Partial<Conversation> = { unreadCount: 0 }
+        if (detail) {
+          updates.otherUser = detail.otherUser
+          updates.isOnline = detail.isOnline
+          updates.lastActiveAt = detail.lastActiveAt
+        }
 
         set({
-          currentConversation: conv || null,
+          currentConversation: merged,
           messages: messagesResponse.data?.messages || [],
           typingUsers: new Map(),
           typingTimeouts: new Map(),
           isLoading: false,
-          conversations: updateConversationInList(conversations, conversationId, { unreadCount: 0 })
+          conversations: updateConversationInList(conversations, conversationId, updates),
         })
 
         socketService.joinConversation(conversationId)
 
 
-        if (conv?.unreadCount && conv.unreadCount > 0) {
+        if (baseConv?.unreadCount && baseConv.unreadCount > 0) {
           get().markAsRead(conversationId)
         }
       } catch (error: any) {

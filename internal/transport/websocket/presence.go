@@ -56,6 +56,10 @@ func (s *PresenceService) AddConnection(userID string) (bool, error) {
 		return false, err
 	}
 
+	if err := s.SetLastActive(userID); err != nil {
+		s.logger.Warnw("Failed to set last_active on connect", "user_id", userID, "error", err)
+	}
+
 	isFirstConnection := count == 1
 	s.logger.Debugw("Added connection",
 		"user_id", userID,
@@ -77,6 +81,12 @@ func (s *PresenceService) RemoveConnection(userID string) (bool, error) {
 	}
 
 	isLastConnection := count == 0
+	if isLastConnection {
+		if err := s.SetLastActive(userID); err != nil {
+			s.logger.Warnw("Failed to set last_active on disconnect", "user_id", userID, "error", err)
+		}
+	}
+
 	s.logger.Debugw("Removed connection",
 		"user_id", userID,
 		"remaining_connections", count,
@@ -128,6 +138,61 @@ func (s *PresenceService) GetOnlineUsers(userIDs []string) map[string]bool {
 		}
 	}
 
+	return result
+}
+
+func (s *PresenceService) getLastActiveKey(userID string) string {
+	return fmt.Sprintf(constants.CacheKeyLastActive, userID)
+}
+
+func (s *PresenceService) SetLastActive(userID string) error {
+	key := s.getLastActiveKey(userID)
+	client := s.cache.GetClient()
+	ctx := s.cache.GetContext()
+	now := time.Now().UTC().Format(time.RFC3339)
+	if err := client.Set(ctx, key, now, time.Duration(constants.LastActiveTTLSeconds)*time.Second).Err(); err != nil {
+		s.logger.Errorw("Failed to set last_active", "user_id", userID, "error", err)
+		return err
+	}
+	return nil
+}
+
+func (s *PresenceService) GetLastActive(userID string) string {
+	key := s.getLastActiveKey(userID)
+	client := s.cache.GetClient()
+	ctx := s.cache.GetContext()
+	val, err := client.Get(ctx, key).Result()
+	if err != nil {
+		return ""
+	}
+	return val
+}
+
+func (s *PresenceService) GetLastActiveBatch(userIDs []string) map[string]string {
+	result := make(map[string]string, len(userIDs))
+	if len(userIDs) == 0 {
+		return result
+	}
+
+	keys := make([]string, len(userIDs))
+	for i, userID := range userIDs {
+		keys[i] = s.getLastActiveKey(userID)
+	}
+
+	client := s.cache.GetClient()
+	ctx := s.cache.GetContext()
+	values, err := client.MGet(ctx, keys...).Result()
+	if err != nil {
+		s.logger.Errorw("Failed to batch get last_active", "error", err)
+		return result
+	}
+	for i, val := range values {
+		if val != nil {
+			if str, ok := val.(string); ok {
+				result[userIDs[i]] = str
+			}
+		}
+	}
 	return result
 }
 

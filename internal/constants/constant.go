@@ -76,8 +76,11 @@ const (
 )
 
 const (
-	CacheKeyPresence   = "PRESENCE:%s:ONLINE"
-	PresenceTTLSeconds = 300
+	CacheKeyPresence       = "PRESENCE:%s:ONLINE"
+	PresenceTTLSeconds     = 300
+	CacheKeyLastActive     = "PRESENCE:%s:LAST_ACTIVE"
+	LastActiveTTLSeconds   = 86400
+	OnlineGraceWindowSecs  = 120
 )
 
 const (

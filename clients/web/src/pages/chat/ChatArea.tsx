@@ -37,26 +37,55 @@ export const ChatArea = ({
     <>
       <ChatHeader conversation={conversation} />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin bg-surface-base">
+      <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin bg-surface-base">
         {(() => {
           const sorted = messages
             .slice()
             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-          const lastOwnIdx = (() => {
-            for (let i = sorted.length - 1; i >= 0; i--) {
-              if (sorted[i].senderId === user?.id) return i
+
+          const STREAK_GAP_MS = 5 * 60 * 1000
+          const isGroup = conversation.type === 'group'
+
+          let lastOwnIdx = -1
+          for (let i = sorted.length - 1; i >= 0; i--) {
+            if (sorted[i].senderId === user?.id) {
+              lastOwnIdx = i
+              break
             }
-            return -1
-          })()
-          return sorted.map((message, idx) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              isOwnMessage={message.senderId === user?.id}
-              isLastOwnMessage={idx === lastOwnIdx}
-              conversationSeen={!!conversation.seen}
-            />
-          ))
+          }
+
+          return sorted.map((message, idx) => {
+            const prev = sorted[idx - 1]
+            const next = sorted[idx + 1]
+            const t = new Date(message.createdAt).getTime()
+
+            const sameSenderAsPrev =
+              !!prev &&
+              prev.senderId === message.senderId &&
+              t - new Date(prev.createdAt).getTime() < STREAK_GAP_MS
+
+            const sameSenderAsNext =
+              !!next &&
+              next.senderId === message.senderId &&
+              new Date(next.createdAt).getTime() - t < STREAK_GAP_MS
+
+            const isFirstInStreak = !sameSenderAsPrev
+            const isLastInStreak = !sameSenderAsNext
+
+            return (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                isOwnMessage={message.senderId === user?.id}
+                isLastOwnMessage={idx === lastOwnIdx}
+                conversationSeen={!!conversation.seen}
+                isGroup={isGroup}
+                isFirstInStreak={isFirstInStreak}
+                isLastInStreak={isLastInStreak}
+                showTime={isLastInStreak}
+              />
+            )
+          })
         })()}
         {typingUsers.size > 0 && <TypingIndicator typingUsers={typingUsers} />}
         <div ref={messagesEndRef} />

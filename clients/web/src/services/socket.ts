@@ -5,7 +5,6 @@ import type {
   MessageUpdatedEventData,
   MessageDeletedEventData,
   UserTypingData,
-  UserStatusData,
   ConversationCreatedData,
   ConversationUpdatedData,
   ConversationDeletedData
@@ -70,14 +69,6 @@ class SocketService {
           break
           
         // User events
-        case WebSocketEventType.USER_ONLINE:
-          this.emit(WebSocketEventType.USER_ONLINE, wrapper.data as UserStatusData)
-          break
-          
-        case WebSocketEventType.USER_OFFLINE:
-          this.emit(WebSocketEventType.USER_OFFLINE, wrapper.data as UserStatusData)
-          break
-          
         case WebSocketEventType.USER_TYPING:
           this.emit(WebSocketEventType.USER_TYPING, wrapper.data as UserTypingData)
           break

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Button, Input } from './ui'
+import { Button, Input, Modal, ModalHeader, ModalBody, ModalFooter } from './ui'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
@@ -23,8 +23,6 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
   const [isUploading, setIsUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState(user?.avatar || '')
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  if (!isOpen) return null
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -54,7 +52,7 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
       setIsUploading(true)
       const response = await apiService.uploadImage(file)
       const imageUrl = response.data?.secureUrl || response.data?.url
-      
+
       if (imageUrl) {
         setFormData(prev => ({ ...prev, avatar: imageUrl }))
         setPreviewUrl(imageUrl)
@@ -70,11 +68,11 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
       setIsLoading(true)
       const response = await apiService.updateProfile(formData)
-      
+
       if (response.success && response.data) {
         setUser(response.data as User)
         toast.success('Profile updated successfully')
@@ -88,53 +86,32 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
     }
   }
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
-
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      onClick={handleBackdropClick}
-    >
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Edit Profile</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <Modal isOpen={isOpen} onClose={onClose} size="lg" ariaLabel="Edit profile">
+      <ModalHeader title="Edit Profile" subtitle="Update your personal info" onClose={onClose} />
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+        <ModalBody className="space-y-5">
           <div className="flex flex-col items-center">
             <div className="relative group">
-              <div 
-                className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-4xl font-bold cursor-pointer overflow-hidden"
+              <div
+                className="w-28 h-28 rounded-full bg-gradient-signature flex items-center justify-center text-white text-3xl font-bold cursor-pointer overflow-hidden shadow-soft-md ring-4 ring-surface"
                 onClick={handleImageClick}
               >
                 {previewUrl ? (
-                  <img 
-                    src={previewUrl} 
-                    alt="Profile" 
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={previewUrl} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                   user?.username?.charAt(0).toUpperCase() || 'U'
                 )}
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   {isUploading ? (
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-white" />
                   ) : (
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   )}
                 </div>
@@ -148,76 +125,48 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
                 disabled={isUploading}
               />
             </div>
-            <p className="mt-2 text-sm text-gray-500">Click to upload avatar</p>
-            <p className="text-xs text-gray-400">Max size: 5MB (JPG, PNG, GIF, WEBP)</p>
+            <p className="mt-3 text-xs text-ink-tertiary">Click avatar to upload · max 5MB</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-ink-secondary mb-1.5 uppercase tracking-wide">
+                Username
+              </label>
+              <Input value={user?.username || ''} disabled className="bg-surface-elevated cursor-not-allowed" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-secondary mb-1.5 uppercase tracking-wide">
+                Email
+              </label>
+              <Input value={user?.email || ''} disabled className="bg-surface-elevated cursor-not-allowed" />
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Username
-            </label>
-            <Input
-              value={user?.username || ''}
-              disabled
-              className="bg-gray-50 cursor-not-allowed"
-            />
-            <p className="mt-1 text-xs text-gray-500">Username cannot be changed</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
-            <Input
-              value={user?.email || ''}
-              disabled
-              className="bg-gray-50 cursor-not-allowed"
-            />
-            <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
-          </div>
-
-          <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="fullName" className="block text-xs font-semibold text-ink-secondary mb-1.5 uppercase tracking-wide">
               Full Name
             </label>
-            <Input
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              placeholder="Enter your full name"
-            />
+            <Input id="fullName" name="fullName" value={formData.fullName} onChange={handleChange} placeholder="Your full name" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="phone" className="block text-xs font-semibold text-ink-secondary mb-1.5 uppercase tracking-wide">
+                Phone
+              </label>
+              <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} placeholder="+84..." />
+            </div>
+            <div>
+              <label htmlFor="dateOfBirth" className="block text-xs font-semibold text-ink-secondary mb-1.5 uppercase tracking-wide">
+                Date of Birth
+              </label>
+              <Input id="dateOfBirth" name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleChange} />
+            </div>
           </div>
 
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-              Phone
-            </label>
-            <Input
-              id="phone"
-              name="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="+84987654321"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
-              Date of Birth
-            </label>
-            <Input
-              id="dateOfBirth"
-              name="dateOfBirth"
-              type="date"
-              value={formData.dateOfBirth}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="bio" className="block text-xs font-semibold text-ink-secondary mb-1.5 uppercase tracking-wide">
               Bio
             </label>
             <textarea
@@ -226,31 +175,22 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
               value={formData.bio}
               onChange={handleChange}
               placeholder="Tell us about yourself..."
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition resize-none"
+              rows={3}
+              className="w-full px-4 py-2.5 border border-line rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition bg-surface text-ink-primary placeholder:text-ink-tertiary resize-none"
             />
           </div>
+        </ModalBody>
 
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300"
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1"
-              disabled={isLoading || isUploading}
-              isLoading={isLoading}
-            >
-              Save Changes
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <ModalFooter>
+          <Button type="button" onClick={onClose} disabled={isLoading}
+            className="bg-surface-overlay text-ink-primary hover:bg-surface-elevated">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading || isUploading} isLoading={isLoading}>
+            Save changes
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   )
 }

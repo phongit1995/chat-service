@@ -3,9 +3,10 @@ package conversation
 import (
 	"chat-server/internal/constants"
 	conversationEvents "chat-server/internal/domain/conversation"
-	"chat-server/internal/transport/kafka"
 	"chat-server/internal/models"
 	userModule "chat-server/internal/modules/user"
+	"chat-server/internal/transport/kafka"
+	"chat-server/internal/transport/websocket"
 	"chat-server/internal/utils"
 	"context"
 	"fmt"
@@ -23,18 +24,45 @@ type Service struct {
 	userCache     *userModule.CacheService
 	db            *gorm.DB
 	kafkaProducer *kafka.Producer
+	presence      *websocket.PresenceService
 	logger        *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, cache *CacheService, userCache *userModule.CacheService, db *gorm.DB, kafkaProducer *kafka.Producer, logger *zap.SugaredLogger) *Service {
+func NewService(
+	repo *Repository,
+	cache *CacheService,
+	userCache *userModule.CacheService,
+	db *gorm.DB,
+	kafkaProducer *kafka.Producer,
+	presence *websocket.PresenceService,
+	logger *zap.SugaredLogger,
+) *Service {
 	return &Service{
 		repo:          repo,
 		cache:         cache,
 		userCache:     userCache,
 		db:            db,
 		kafkaProducer: kafkaProducer,
+		presence:      presence,
 		logger:        logger.Named("[conversation_service]"),
 	}
+}
+
+func applyOnlineGrace(rawOnline bool, lastActive string) (bool, string) {
+	if rawOnline {
+		return true, ""
+	}
+	if lastActive == "" {
+		return false, ""
+	}
+	t, err := time.Parse(time.RFC3339, lastActive)
+	if err != nil {
+		return false, lastActive
+	}
+	if time.Since(t) <= time.Duration(constants.OnlineGraceWindowSecs)*time.Second {
+		return true, ""
+	}
+	return false, lastActive
 }
 
 func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*ConversationResponse, error) {
@@ -544,6 +572,13 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 					}
 					resp.Name = displayName
 					resp.Avatar = cachedUser.Avatar
+					resp.OtherUser = &OtherUserBrief{
+						ID:       otherUserID.String(),
+						Username: cachedUser.Username,
+						FullName: cachedUser.FullName,
+						Avatar:   cachedUser.Avatar,
+						Bio:      cachedUser.Bio,
+					}
 				}
 			}
 		}
@@ -586,6 +621,30 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 		resp.LastMessageAt = t.Format(time.RFC3339)
 
 		responses = append(responses, resp)
+	}
+
+	if s.presence != nil {
+		otherIDs := make([]string, 0, len(responses))
+		seen := make(map[string]bool, len(responses))
+		for _, r := range responses {
+			if r.OtherUser != nil && !seen[r.OtherUser.ID] {
+				otherIDs = append(otherIDs, r.OtherUser.ID)
+				seen[r.OtherUser.ID] = true
+			}
+		}
+		if len(otherIDs) > 0 {
+			online := s.presence.GetOnlineUsers(otherIDs)
+			lastActive := s.presence.GetLastActiveBatch(otherIDs)
+			for i := range responses {
+				if responses[i].OtherUser == nil {
+					continue
+				}
+				oid := responses[i].OtherUser.ID
+				isOnline, lastActiveOut := applyOnlineGrace(online[oid], lastActive[oid])
+				responses[i].IsOnline = isOnline
+				responses[i].LastActiveAt = lastActiveOut
+			}
+		}
 	}
 
 	return &ConversationsListResponse{
@@ -1009,4 +1068,90 @@ func (s *Service) SendTypingIndicator(userID, conversationID uuid.UUID, isTyping
 
 	s.logger.Debugw("Typing indicator sent", "user_id", userID, "conversation_id", conversationID, "is_typing", isTyping)
 	return nil
+}
+
+func (s *Service) GetConversationDetail(userID, conversationID uuid.UUID) (*ConversationResponse, error) {
+	conv, err := s.repo.GetUserConversationByID(userID, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get conversation: %w", err)
+	}
+	if conv == nil {
+		return nil, fmt.Errorf("conversation not found")
+	}
+
+	resp := ConversationResponse{
+		ID:               conv.ConversationID.String(),
+		Type:             conv.ConversationType,
+		Name:             conv.DisplayName,
+		Avatar:           conv.DisplayAvatar,
+		LastMessageText:  conv.LastMessagePreview,
+		UnreadCount:      conv.UnreadCount,
+		ParticipantCount: 0,
+	}
+
+	if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
+		otherUserID, perr := uuid.Parse(conv.OtherUserID.String())
+		if perr == nil {
+			if cachedUser, cerr := s.userCache.GetUserCache(otherUserID, true); cerr == nil && cachedUser != nil {
+				displayName := cachedUser.FullName
+				if displayName == "" {
+					displayName = cachedUser.Username
+				}
+				resp.Name = displayName
+				resp.Avatar = cachedUser.Avatar
+				resp.OtherUser = &OtherUserBrief{
+					ID:       otherUserID.String(),
+					Username: cachedUser.Username,
+					FullName: cachedUser.FullName,
+					Avatar:   cachedUser.Avatar,
+					Bio:      cachedUser.Bio,
+				}
+			}
+			if s.presence != nil {
+				rawOnline := s.presence.IsUserOnline(otherUserID.String())
+				rawLastActive := s.presence.GetLastActive(otherUserID.String())
+				resp.IsOnline, resp.LastActiveAt = applyOnlineGrace(rawOnline, rawLastActive)
+			}
+		}
+	}
+
+	if conv.LastMessageSender != nil {
+		senderIDStr := conv.LastMessageSender.String()
+		resp.LastMessageSenderID = senderIDStr
+		resp.IsLastMessageFromMe = senderIDStr == userID.String()
+		if senderUUID, perr := uuid.Parse(senderIDStr); perr == nil {
+			if u, cerr := s.userCache.GetUserCache(senderUUID, false); cerr == nil && u != nil {
+				name := u.FullName
+				if name == "" {
+					name = u.Username
+				}
+				resp.LastMessageSenderName = name
+			}
+		}
+	}
+
+	if conv.LastMessageID == nil {
+		resp.Seen = true
+	} else if resp.IsLastMessageFromMe {
+		if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
+			otherUUID, perr := uuid.Parse(conv.OtherUserID.String())
+			if perr == nil {
+				if otherLastRead, _, rerr := s.repo.GetReadStatus(conversationID, otherUUID); rerr == nil && otherLastRead != nil {
+					resp.Seen = *otherLastRead == *conv.LastMessageID
+				}
+			}
+		}
+	} else {
+		if conv.LastReadMessageID != nil && *conv.LastReadMessageID == *conv.LastMessageID {
+			resp.Seen = true
+		}
+	}
+
+	resp.LastMessageAt = conv.LastMessageAt.Time().Format(time.RFC3339)
+
+	if members, merr := s.GetMembersCached(conversationID); merr == nil {
+		resp.ParticipantCount = len(members)
+	}
+
+	return &resp, nil
 }

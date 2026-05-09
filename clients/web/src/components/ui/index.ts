@@ -7,3 +7,5 @@ export type { InputProps } from './Input'
 export { Avatar } from './Avatar'
 
 export { Card } from './Card'
+
+export { Modal, ModalHeader, ModalBody, ModalFooter } from './Modal'

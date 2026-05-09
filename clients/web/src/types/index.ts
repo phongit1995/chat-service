@@ -102,6 +102,14 @@ export interface MessagesListResponse {
   total: number
 }
 
+export interface OtherUserBrief {
+  id: string
+  username: string
+  fullName?: string
+  avatar?: string
+  bio?: string
+}
+
 export interface Conversation {
   id: string
   type: string
@@ -115,6 +123,9 @@ export interface Conversation {
   seen?: boolean
   unreadCount?: number
   participantCount?: number
+  otherUser?: OtherUserBrief
+  isOnline?: boolean
+  lastActiveAt?: string
 }
 
 export interface ConversationsListResponse {
@@ -187,11 +198,6 @@ export interface UserTypingData {
   time: string
 }
 
-export interface UserStatusData {
-  userId: string
-  status: string
-}
-
 export interface ConversationParticipant {
   userId: string
   username: string
@@ -222,8 +228,6 @@ export const WebSocketEventType = {
   CONVERSATION_DELETED: 'CONVERSATION_DELETED',
   
   // User events
-  USER_ONLINE: 'USER_ONLINE',
-  USER_OFFLINE: 'USER_OFFLINE',
   USER_TYPING: 'USER_TYPING',
   USER_STOP_TYPING: 'USER_STOP_TYPING',
 } as const

@@ -105,21 +105,8 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
         final list = state.value ?? [];
         final idx = list.indexWhere((c) => c.id == id);
         if (idx >= 0) {
-          final old = list[idx];
-          final updated = Conversation(
-            id: old.id,
-            type: old.type,
-            name: old.name,
-            avatar: old.avatar,
-            lastMessageText: old.lastMessageText,
-            lastMessageAt: old.lastMessageAt,
-            unreadCount: old.unreadCount,
-            participantCount: old.participantCount,
-            isLastMessageFromMe: old.isLastMessageFromMe,
-            seen: seen,
-          );
           final newList = [...list];
-          newList[idx] = updated;
+          newList[idx] = list[idx].copyWith(seen: seen);
           state = AsyncValue.data(newList);
           return;
         }
@@ -145,29 +132,29 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
       final activeId = ref.read(activeConversationProvider);
       final isActive = activeId == msg.conversationId;
       final old = list[idx];
+      final isFromMe = msg.senderId == me;
 
       int unread = old.unreadCount;
       if (isActive) {
         unread = 0;
-      } else if (msg.senderId != me) {
+      } else if (!isFromMe) {
         unread = old.unreadCount + 1;
       }
 
-      final updated = Conversation(
-        id: old.id,
-        type: old.type,
-        name: old.name,
-        avatar: old.avatar,
+      final updated = old.copyWith(
         lastMessageText: msg.content,
         lastMessageAt: msg.createdAt,
+        lastMessageSenderId: msg.senderId,
+        lastMessageSenderName: msg.senderName,
+        isLastMessageFromMe: isFromMe,
+        seen: isFromMe ? false : isActive,
         unreadCount: unread,
-        participantCount: event.conversation?.participantCount ?? old.participantCount,
       );
 
       final newList = [updated, ...list.where((c) => c.id != msg.conversationId)];
       state = AsyncValue.data(newList);
 
-      if (isActive && msg.senderId != me) {
+      if (isActive && !isFromMe) {
         ref.read(apiProvider).markAsRead(msg.conversationId).catchError((_) {});
       }
     });
@@ -190,18 +177,8 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     if (idx < 0) return;
     final old = list[idx];
     if (old.unreadCount == 0) return;
-    final updated = Conversation(
-      id: old.id,
-      type: old.type,
-      name: old.name,
-      avatar: old.avatar,
-      lastMessageText: old.lastMessageText,
-      lastMessageAt: old.lastMessageAt,
-      unreadCount: 0,
-      participantCount: old.participantCount,
-    );
     final newList = [...list];
-    newList[idx] = updated;
+    newList[idx] = old.copyWith(unreadCount: 0);
     state = AsyncValue.data(newList);
   }
 }

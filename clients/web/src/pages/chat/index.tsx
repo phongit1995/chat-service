@@ -1,14 +1,25 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
 import { socketService } from '../../services/socket'
 import { ProfileEditModal } from '../../components/ProfileEditModal'
+import { ProfileViewModal } from '../../components/ProfileViewModal'
+import { SearchModal } from '../../components/search/SearchModal'
 import { ChatSidebar } from './ChatSidebar'
-import { UserSearch } from './UserSearch'
 import { ChatArea } from './ChatArea'
 import { NewChatView } from './NewChatView'
 import { EmptyState } from './EmptyState'
+import type { UserSearchResult } from '../../types'
+
+interface ViewProfileUser {
+  id: string
+  username?: string
+  fullName?: string
+  avatar?: string
+  bio?: string
+  email?: string
+}
 
 export const Chat = () => {
   const navigate = useNavigate()
@@ -32,14 +43,37 @@ export const Chat = () => {
     initialize,
   } = useChatStore()
 
+  const [viewProfile, setViewProfile] = useState<ViewProfileUser | null>(null)
+
   useEffect(() => {
     initialize()
   }, [initialize])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().includes('MAC')
+      const cmd = isMac ? e.metaKey : e.ctrlKey
+      if (cmd && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setShowSearch(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [setShowSearch])
 
   const handleLogout = () => {
     socketService.disconnect()
     logout()
     navigate('/login', { replace: true })
+  }
+
+  const handleSearchSelectUser = (result: UserSearchResult) => {
+    handleSelectUser(result)
+  }
+
+  const handleSearchSelectConversation = (conversationId: string) => {
+    handleConversationClick(conversationId)
   }
 
   return (
@@ -50,11 +84,10 @@ export const Chat = () => {
           conversations={conversations}
           currentConversation={currentConversation}
           onProfileClick={() => setShowProfileEdit(true)}
-          onNewChatClick={() => setShowSearch(!showSearch)}
+          onNewChatClick={() => setShowSearch(true)}
           onLogout={handleLogout}
           onConversationClick={handleConversationClick}
         />
-        <UserSearch show={showSearch} onSelectUser={handleSelectUser} />
       </div>
 
       <div className="flex-1 flex flex-col bg-surface-base">
@@ -81,9 +114,23 @@ export const Chat = () => {
         )}
       </div>
 
+      <SearchModal
+        isOpen={showSearch}
+        onClose={() => setShowSearch(false)}
+        conversations={conversations}
+        onSelectUser={handleSearchSelectUser}
+        onSelectConversation={handleSearchSelectConversation}
+      />
+
       <ProfileEditModal
         isOpen={showProfileEdit}
         onClose={() => setShowProfileEdit(false)}
+      />
+
+      <ProfileViewModal
+        isOpen={!!viewProfile}
+        onClose={() => setViewProfile(null)}
+        user={viewProfile}
       />
     </div>
   )
