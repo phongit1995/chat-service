@@ -156,9 +156,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final conv = liveConv ?? widget.conversation;
     final title = conv?.displayName ?? 'Chat';
     final isDirect = conv?.type == 'direct';
-    final isOnline = isDirect && (conv?.isOnline ?? false);
+    final isOnline = isDirect && (conv?.otherUser?.isOnline ?? false);
     final subtitle = isDirect
-        ? (isOnline ? 'Active now' : formatLastActive(conv?.lastActiveAt))
+        ? (isOnline ? 'Active now' : formatLastActive(conv?.otherUser?.lastActiveAt))
         : '${conv?.participantCount ?? 0} members';
     final subtitleColor = isOnline
         ? AppColors.success

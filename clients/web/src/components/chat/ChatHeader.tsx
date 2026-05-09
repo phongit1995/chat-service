@@ -38,11 +38,11 @@ export const ChatHeader = ({ conversation, onBack }: ChatHeaderProps) => {
 
         {(() => {
           const isDirect = conversation.type === 'direct'
-          const isOnline = isDirect && !!conversation.isOnline
+          const isOnline = isDirect && !!conversation.otherUser?.isOnline
           const subtitle = isDirect
             ? isOnline
               ? 'Active now'
-              : formatLastActive(conversation.lastActiveAt)
+              : formatLastActive(conversation.otherUser?.lastActiveAt)
             : `${conversation.participantCount || 0} members`
           const subtitleColor = isOnline
             ? 'text-status-success'

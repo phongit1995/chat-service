@@ -641,8 +641,8 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 				}
 				oid := responses[i].OtherUser.ID
 				isOnline, lastActiveOut := applyOnlineGrace(online[oid], lastActive[oid])
-				responses[i].IsOnline = isOnline
-				responses[i].LastActiveAt = lastActiveOut
+				responses[i].OtherUser.IsOnline = isOnline
+				responses[i].OtherUser.LastActiveAt = lastActiveOut
 			}
 		}
 	}
@@ -1107,10 +1107,10 @@ func (s *Service) GetConversationDetail(userID, conversationID uuid.UUID) (*Conv
 					Bio:      cachedUser.Bio,
 				}
 			}
-			if s.presence != nil {
+			if s.presence != nil && resp.OtherUser != nil {
 				rawOnline := s.presence.IsUserOnline(otherUserID.String())
 				rawLastActive := s.presence.GetLastActive(otherUserID.String())
-				resp.IsOnline, resp.LastActiveAt = applyOnlineGrace(rawOnline, rawLastActive)
+				resp.OtherUser.IsOnline, resp.OtherUser.LastActiveAt = applyOnlineGrace(rawOnline, rawLastActive)
 			}
 		}
 	}

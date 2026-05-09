@@ -39,6 +39,8 @@ class OtherUserBrief {
   final String? fullName;
   final String? avatar;
   final String? bio;
+  final bool isOnline;
+  final String? lastActiveAt;
 
   OtherUserBrief({
     required this.id,
@@ -46,6 +48,8 @@ class OtherUserBrief {
     this.fullName,
     this.avatar,
     this.bio,
+    this.isOnline = false,
+    this.lastActiveAt,
   });
 
   factory OtherUserBrief.fromJson(Map<String, dynamic> json) => OtherUserBrief(
@@ -54,6 +58,8 @@ class OtherUserBrief {
         fullName: json['fullName'] as String?,
         avatar: json['avatar'] as String?,
         bio: json['bio'] as String?,
+        isOnline: (json['isOnline'] as bool?) ?? false,
+        lastActiveAt: json['lastActiveAt'] as String?,
       );
 }
 
@@ -71,8 +77,6 @@ class Conversation {
   final int unreadCount;
   final int participantCount;
   final OtherUserBrief? otherUser;
-  final bool isOnline;
-  final String? lastActiveAt;
 
   Conversation({
     required this.id,
@@ -88,8 +92,6 @@ class Conversation {
     this.unreadCount = 0,
     this.participantCount = 0,
     this.otherUser,
-    this.isOnline = false,
-    this.lastActiveAt,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
@@ -108,8 +110,6 @@ class Conversation {
         otherUser: json['otherUser'] is Map<String, dynamic>
             ? OtherUserBrief.fromJson(json['otherUser'] as Map<String, dynamic>)
             : null,
-        isOnline: (json['isOnline'] as bool?) ?? false,
-        lastActiveAt: json['lastActiveAt'] as String?,
       );
 
   Conversation copyWith({
@@ -120,8 +120,6 @@ class Conversation {
     bool? isLastMessageFromMe,
     bool? seen,
     int? unreadCount,
-    bool? isOnline,
-    String? lastActiveAt,
   }) =>
       Conversation(
         id: id,
@@ -137,8 +135,6 @@ class Conversation {
         unreadCount: unreadCount ?? this.unreadCount,
         participantCount: participantCount,
         otherUser: otherUser,
-        isOnline: isOnline ?? this.isOnline,
-        lastActiveAt: lastActiveAt ?? this.lastActiveAt,
       );
 
   String get displayName =>

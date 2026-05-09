@@ -355,8 +355,6 @@ export const useChatStore = create<ChatState>((set, get) => {
         const updates: Partial<Conversation> = { unreadCount: 0 }
         if (detail) {
           updates.otherUser = detail.otherUser
-          updates.isOnline = detail.isOnline
-          updates.lastActiveAt = detail.lastActiveAt
         }
 
         set({

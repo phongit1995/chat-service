@@ -108,6 +108,8 @@ export interface OtherUserBrief {
   fullName?: string
   avatar?: string
   bio?: string
+  isOnline?: boolean
+  lastActiveAt?: string
 }
 
 export interface Conversation {
@@ -124,8 +126,6 @@ export interface Conversation {
   unreadCount?: number
   participantCount?: number
   otherUser?: OtherUserBrief
-  isOnline?: boolean
-  lastActiveAt?: string
 }
 
 export interface ConversationsListResponse {

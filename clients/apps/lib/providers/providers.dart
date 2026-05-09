@@ -148,8 +148,6 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
           unreadCount: isFromMe ? 0 : (isActive ? 0 : 1),
           participantCount: base.participantCount,
           otherUser: base.otherUser,
-          isOnline: base.isOnline,
-          lastActiveAt: base.lastActiveAt,
         );
         state = AsyncValue.data([newConv, ...list]);
         return;

@@ -46,7 +46,7 @@ export const ConversationItem = ({ conversation, isActive, onClick }: Conversati
           storyRing={hasUnread}
           storyRingSeen={!hasUnread}
           status={
-            conversation.type === 'direct' && conversation.isOnline
+            conversation.type === 'direct' && conversation.otherUser?.isOnline
               ? 'online'
               : undefined
           }

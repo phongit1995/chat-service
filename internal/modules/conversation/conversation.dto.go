@@ -10,11 +10,13 @@ type CreateGroupConversationRequest struct {
 }
 
 type OtherUserBrief struct {
-	ID       string `json:"id" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb"`
-	Username string `json:"username" example:"johndoe"`
-	FullName string `json:"fullName,omitempty" example:"John Doe"`
-	Avatar   string `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
-	Bio      string `json:"bio,omitempty" example:"Software developer"`
+	ID           string `json:"id" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb"`
+	Username     string `json:"username" example:"johndoe"`
+	FullName     string `json:"fullName,omitempty" example:"John Doe"`
+	Avatar       string `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
+	Bio          string `json:"bio,omitempty" example:"Software developer"`
+	IsOnline     bool   `json:"isOnline" example:"true"`
+	LastActiveAt string `json:"lastActiveAt,omitempty" example:"2024-01-15T15:45:00Z"`
 }
 
 type ConversationResponse struct {
@@ -34,8 +36,6 @@ type ConversationResponse struct {
 	UnreadCount           int             `json:"unreadCount" example:"5"`
 	IsNew                 bool            `json:"isNew,omitempty" example:"true"`
 	OtherUser             *OtherUserBrief `json:"otherUser,omitempty"`
-	IsOnline              bool            `json:"isOnline" example:"true"`
-	LastActiveAt          string          `json:"lastActiveAt,omitempty" example:"2024-01-15T15:45:00Z"`
 }
 
 type ConversationsListResponse struct {
