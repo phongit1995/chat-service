@@ -123,16 +123,39 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
       final list = state.value ?? [];
       final idx = list.indexWhere((c) => c.id == msg.conversationId);
 
-      if (idx < 0) {
-        reload();
-        return;
-      }
-
       final me = ref.read(authProvider).user?.id;
       final activeId = ref.read(activeConversationProvider);
       final isActive = activeId == msg.conversationId;
-      final old = list[idx];
       final isFromMe = msg.senderId == me;
+
+      if (idx < 0) {
+        final base = event.conversation;
+        if (base == null) {
+          reload();
+          return;
+        }
+        final newConv = Conversation(
+          id: base.id,
+          type: base.type,
+          name: base.name,
+          avatar: base.avatar,
+          lastMessageText: msg.content,
+          lastMessageAt: msg.createdAt,
+          lastMessageSenderId: msg.senderId,
+          lastMessageSenderName: msg.senderName,
+          isLastMessageFromMe: isFromMe,
+          seen: isFromMe ? false : isActive,
+          unreadCount: isFromMe ? 0 : (isActive ? 0 : 1),
+          participantCount: base.participantCount,
+          otherUser: base.otherUser,
+          isOnline: base.isOnline,
+          lastActiveAt: base.lastActiveAt,
+        );
+        state = AsyncValue.data([newConv, ...list]);
+        return;
+      }
+
+      final old = list[idx];
 
       int unread = old.unreadCount;
       if (isActive) {
