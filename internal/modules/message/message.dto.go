@@ -1,24 +1,24 @@
 package message
 
 type SendMessageRequest struct {
-	ConversationID string  `json:"conversationId" validate:"required,uuid" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`
-	Type           string  `json:"type" validate:"required,oneof=text image file video audio" example:"text"`
-	Content        string  `json:"content" validate:"required,min=1" example:"Hello, how are you?"`
+	ConversationID string  `json:"conversationId" binding:"required,uuid" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`
+	Type           string  `json:"type" binding:"required,oneof=text image file video audio" example:"text"`
+	Content        string  `json:"content" binding:"required,min=1,max=4000" example:"Hello, how are you?"`
 	Metadata       string  `json:"metadata,omitempty" example:"{\"fileName\":\"image.png\"}"`
-	ReplyToID      *string `json:"replyToId,omitempty" validate:"omitempty,uuid" example:"fa7f9g87-ba3f-7a68-e2d9-ffh38d37dhge"`
-	ClientMsgID    string  `json:"clientMsgId,omitempty" validate:"omitempty,max=64" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ReplyToID      *string `json:"replyToId,omitempty" binding:"omitempty,uuid" example:"fa7f9g87-ba3f-7a68-e2d9-ffh38d37dhge"`
+	ClientMsgID    string  `json:"clientMsgId,omitempty" binding:"omitempty,max=64" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
 type SendDirectMessageRequest struct {
-	RecipientID string `json:"recipientId" validate:"required,uuid" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb"`
-	Type        string `json:"type" validate:"required,oneof=text image file video audio" example:"text"`
-	Content     string `json:"content" validate:"required,min=1" example:"Hello, how are you?"`
+	RecipientID string `json:"recipientId" binding:"required,uuid" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb"`
+	Type        string `json:"type" binding:"required,oneof=text image file video audio" example:"text"`
+	Content     string `json:"content" binding:"required,min=1,max=4000" example:"Hello, how are you?"`
 	Metadata    string `json:"metadata,omitempty" example:"{\"fileName\":\"image.png\"}"`
-	ClientMsgID string `json:"clientMsgId,omitempty" validate:"omitempty,max=64" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ClientMsgID string `json:"clientMsgId,omitempty" binding:"omitempty,max=64" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
 type UpdateMessageRequest struct {
-	Content string `json:"content" validate:"required,min=1" example:"Updated message content"`
+	Content string `json:"content" binding:"required,min=1,max=4000" example:"Updated message content"`
 }
 
 type MessageResponse struct {

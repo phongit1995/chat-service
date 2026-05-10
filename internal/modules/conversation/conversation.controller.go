@@ -4,7 +4,6 @@ import (
 	"chat-server/internal/middleware"
 	"chat-server/internal/utils"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -154,12 +153,7 @@ func (ctrl *Controller) GetUserConversations(c *gin.Context) (interface{}, error
 		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
 	}
 
-	limit := 50
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
+	limit := utils.ParseLimit(c, 50, 200)
 
 	conversations, err := ctrl.service.GetUserConversations(userID, limit)
 	if err != nil {

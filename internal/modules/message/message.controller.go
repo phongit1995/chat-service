@@ -4,7 +4,6 @@ import (
 	"chat-server/internal/middleware"
 	"chat-server/internal/utils"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -139,12 +138,7 @@ func (ctrl *Controller) GetMessages(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid conversation ID")
 	}
 
-	limit := 50
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
+	limit := utils.ParseLimit(c, 50, 200)
 
 	var beforeMessageID *string
 	if before := c.Query("before"); before != "" {

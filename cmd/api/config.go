@@ -2,8 +2,7 @@ package main
 
 import (
 	"chat-server/internal/config"
-	"fmt"
-	"strings"
+	"chat-server/internal/utils"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -54,41 +53,8 @@ func validateAPIConfig(cfg *config.Config) error {
 
 	validate := validator.New()
 	if err := validate.Struct(v); err != nil {
-		return formatValidationError("API", err)
+		return utils.FormatValidationError("API", err)
 	}
 
 	return nil
-}
-
-func formatValidationError(service string, err error) error {
-	if validationErrs, ok := err.(validator.ValidationErrors); ok {
-		var errMessages []string
-
-		for _, e := range validationErrs {
-			var message string
-
-			field := e.Field()
-			tag := e.Tag()
-			param := e.Param()
-
-			switch tag {
-			case "required":
-				message = fmt.Sprintf("'%s' is required", field)
-			case "min":
-				if e.Kind().String() == "slice" {
-					message = fmt.Sprintf("'%s' must have at least %s items", field, param)
-				} else {
-					message = fmt.Sprintf("'%s' must be at least %s characters", field, param)
-				}
-			default:
-				message = fmt.Sprintf("'%s' failed validation '%s'", field, tag)
-			}
-
-			errMessages = append(errMessages, message)
-		}
-
-		return fmt.Errorf("%s Service config validation failed:\n  - %s", service, strings.Join(errMessages, "\n  - "))
-	}
-
-	return fmt.Errorf("%s Service config validation failed: %w", service, err)
 }

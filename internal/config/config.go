@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"chat-server/internal/utils"
+
 	"github.com/caarlos0/env/v11"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -68,45 +70,8 @@ func LoadConfig() (*Config, error) {
 
 	validate := validator.New()
 	if err := validate.Struct(cfg); err != nil {
-		return nil, formatValidationError(err)
+		return nil, utils.FormatValidationError("", err)
 	}
 
 	return cfg, nil
-}
-
-func formatValidationError(err error) error {
-	if validationErrs, ok := err.(validator.ValidationErrors); ok {
-		var errMessages []string
-
-		for _, e := range validationErrs {
-			var message string
-
-			field := e.Field()
-			tag := e.Tag()
-			param := e.Param()
-
-			switch tag {
-			case "required":
-				message = fmt.Sprintf("Field '%s' is required", field)
-			case "min":
-				if e.Type().Kind() == 17 {
-					message = fmt.Sprintf("Field '%s' must have at least %s items", field, param)
-				} else {
-					message = fmt.Sprintf("Field '%s' must be at least %s", field, param)
-				}
-			case "max":
-				message = fmt.Sprintf("Field '%s' must be at most %s", field, param)
-			case "oneof":
-				message = fmt.Sprintf("Field '%s' must be one of: %s", field, param)
-			default:
-				message = fmt.Sprintf("Field '%s' failed validation '%s'", field, tag)
-			}
-
-			errMessages = append(errMessages, message)
-		}
-
-		return fmt.Errorf("config validation failed:\n  - %s", strings.Join(errMessages, "\n  - "))
-	}
-
-	return fmt.Errorf("config validation failed: %w", err)
 }

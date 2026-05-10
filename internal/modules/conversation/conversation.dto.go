@@ -1,12 +1,12 @@
 package conversation
 
 type CreateDirectConversationRequest struct {
-	RecipientID string `json:"recipientId" validate:"required,uuid" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb"`
+	RecipientID string `json:"recipientId" binding:"required,uuid" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb"`
 }
 
 type CreateGroupConversationRequest struct {
-	Name           string   `json:"name" validate:"required,min=1,max=100" example:"Project Team"`
-	ParticipantIDs []string `json:"participantIds" validate:"required,min=1,dive,uuid" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb,da5d7e65-981d-5846-c0b7-ddf16b15bfec"`
+	Name           string   `json:"name" binding:"required,min=1,max=100" example:"Project Team"`
+	ParticipantIDs []string `json:"participantIds" binding:"required,min=1,dive,uuid" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb,da5d7e65-981d-5846-c0b7-ddf16b15bfec"`
 }
 
 type OtherUserBrief struct {
@@ -71,7 +71,7 @@ type UnhideConversationResponse struct {
 }
 
 type TypingIndicatorRequest struct {
-	ConversationID string `json:"conversationId" validate:"required,uuid" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`
+	ConversationID string `json:"conversationId" binding:"required,uuid" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`
 }
 
 type TypingIndicatorResponse struct {

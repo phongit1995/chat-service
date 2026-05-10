@@ -3,7 +3,6 @@ package user
 import (
 	"chat-server/internal/middleware"
 	"chat-server/internal/utils"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -143,30 +142,25 @@ func (ctrl *Controller) SearchUsers(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
 	}
 
-	query := c.Query("q")
-	if query == "" {
-		return nil, utils.NewHTTPError(http.StatusBadRequest, "search query is required")
+	var q SearchUsersQuery
+	if err := c.ShouldBindQuery(&q); err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-
-	limit := 20
-	if limitStr := c.Query("limit"); limitStr != "" {
-		var parsedLimit int
-		if _, err := fmt.Sscanf(limitStr, "%d", &parsedLimit); err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
+	if q.Limit == 0 {
+		q.Limit = 20
 	}
 
 	ctrl.logger.Infow("Searching users",
 		"user_id", userID,
-		"query", query,
-		"limit", limit,
+		"query", q.Q,
+		"limit", q.Limit,
 	)
 
-	results, err := ctrl.service.SearchUsers(query, limit, userID)
+	results, err := ctrl.service.SearchUsers(q.Q, q.Limit, userID)
 	if err != nil {
 		ctrl.logger.Errorw("Failed to search users",
 			"user_id", userID,
-			"query", query,
+			"query", q.Q,
 			"error", err.Error(),
 		)
 		statusCode := utils.HTTPStatusFromError(err)
@@ -175,7 +169,7 @@ func (ctrl *Controller) SearchUsers(c *gin.Context) (interface{}, error) {
 
 	ctrl.logger.Infow("User search completed",
 		"user_id", userID,
-		"query", query,
+		"query", q.Q,
 		"results_count", results.Total,
 	)
 
