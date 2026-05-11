@@ -22,7 +22,7 @@ async function main() {
   r = await req('GET', '/conversations', undefined, a.token)
   const convA = data(r).conversations.find(c => c.id === cid)
   ok('a unreadCount = 0', convA?.unreadCount === 0)
-  ok('a seen = true (own)', convA?.seen === true)
+  ok('a seen = false (b has not read yet)', convA?.seen === false)
 
   await req('PUT', `/conversations/${cid}/read`, {}, b.token)
   await sleep(300)

@@ -742,69 +742,15 @@ func (s *Service) MarkConversationAsRead(userID, conversationID uuid.UUID) error
 }
 
 func (s *Service) GetMembersCached(conversationID uuid.UUID) ([]ConversationMember, error) {
-	if cached, err := s.cache.GetConversationMembers(conversationID); err == nil && len(cached) > 0 {
-		s.logger.Debugw("Cache HIT for conversation members", "conversation_id", conversationID)
-		return cached, nil
-	}
-
-	s.logger.Debugw("Cache MISS for conversation members", "conversation_id", conversationID)
-	members, err := s.repo.GetMembers(conversationID)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		if err := s.cache.SetConversationMembers(conversationID, members); err != nil {
-			s.logger.Warnw("Failed to cache conversation members", "conversation_id", conversationID, "error", err)
-		}
-	}()
-
-	return members, nil
+	return s.cache.GetMembersCached(conversationID)
 }
 
 func (s *Service) GetConversationByIDCached(conversationID uuid.UUID) (*Conversation, error) {
-	if cached, err := s.cache.GetConversation(conversationID); err == nil && cached != nil {
-		s.logger.Debugw("Cache HIT for conversation", "conversation_id", conversationID)
-		return cached, nil
-	}
-
-	s.logger.Debugw("Cache MISS for conversation", "conversation_id", conversationID)
-	conv, err := s.repo.GetConversationByID(conversationID)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		if err := s.cache.SetConversation(conv); err != nil {
-			s.logger.Warnw("Failed to cache conversation", "conversation_id", conversationID, "error", err)
-		}
-	}()
-
-	return conv, nil
+	return s.cache.GetConversationByIDCached(conversationID)
 }
 
 func (s *Service) GetUserConversationsCached(userID uuid.UUID, limit int) ([]ConversationByUser, error) {
-	if cached, err := s.cache.GetUserConversations(userID); err == nil && len(cached) > 0 {
-		s.logger.Debugw("Cache HIT for user conversations", "user_id", userID)
-		if len(cached) > limit {
-			return cached[:limit], nil
-		}
-		return cached, nil
-	}
-
-	s.logger.Debugw("Cache MISS for user conversations", "user_id", userID)
-	conversations, err := s.repo.GetUserConversations(userID, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		if err := s.cache.SetUserConversations(userID, conversations); err != nil {
-			s.logger.Warnw("Failed to cache user conversations", "user_id", userID, "error", err)
-		}
-	}()
-
-	return conversations, nil
+	return s.cache.GetUserConversationsCached(userID, limit)
 }
 
 func (s *Service) InvalidateMembersCache(conversationID uuid.UUID) {
@@ -919,27 +865,7 @@ func (s *Service) UnhideConversation(userID, conversationID uuid.UUID) error {
 }
 
 func (s *Service) CheckIfHidden(userID, conversationID uuid.UUID) (bool, error) {
-	isHidden, err := s.cache.IsConversationHidden(userID, conversationID)
-	if err == nil {
-		s.logger.Debugw("Cache HIT for hidden status", "user_id", userID, "conversation_id", conversationID, "hidden", isHidden)
-		return isHidden, nil
-	}
-
-	s.logger.Debugw("Cache MISS for hidden status", "user_id", userID, "conversation_id", conversationID)
-	isHidden, err = s.repo.CheckIfHidden(userID, conversationID)
-	if err != nil {
-		return false, fmt.Errorf("failed to check hidden status: %w", err)
-	}
-
-	go func() {
-		if isHidden {
-			if err := s.cache.AddHiddenConversation(userID, conversationID); err != nil {
-				s.logger.Warnw("Failed to cache hidden status", "user_id", userID, "conversation_id", conversationID, "error", err)
-			}
-		}
-	}()
-
-	return isHidden, nil
+	return s.cache.CheckIfHiddenCached(userID, conversationID)
 }
 
 func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messageID gocql.UUID,
@@ -1014,19 +940,12 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 }
 
 func (s *Service) SendTypingIndicator(userID, conversationID uuid.UUID, isTyping bool) error {
-	rateLimitKey := fmt.Sprintf(constants.CacheKeyTypingRateLimit, userID.String(), conversationID.String())
-
 	if isTyping {
-		var dummy string
-		err := s.cache.cache.Get(rateLimitKey, &dummy)
-		if err == nil {
+		if s.cache.IsTypingRateLimited(userID, conversationID) {
 			s.logger.Debugw("Typing indicator rate limited", "user_id", userID, "conversation_id", conversationID)
 			return nil
 		}
-
-		if err := s.cache.cache.Set(rateLimitKey, "1", 5*time.Second); err != nil {
-			s.logger.Warnw("Failed to set rate limit", "error", err)
-		}
+		s.cache.SetTypingRateLimit(userID, conversationID)
 	}
 
 	members, err := s.GetMembersCached(conversationID)

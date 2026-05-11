@@ -1,97 +1,143 @@
 {
   "dashboard": {
+    "id": null,
+    "uid": "chat-app-logs",
     "title": "Chat Application Logs",
     "tags": ["chat", "logs"],
     "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 2,
+    "refresh": "10s",
+    "time": {"from": "now-1h", "to": "now"},
     "panels": [
       {
         "id": 1,
-        "title": "API & Chat Logs",
+        "title": "All Logs (API + Chat)",
         "type": "logs",
-        "gridPos": {"h": 12, "w": 24, "x": 0, "y": 0},
+        "gridPos": {"h": 14, "w": 24, "x": 0, "y": 0},
+        "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
         "targets": [
           {
-            "expr": "{container_name=~\"chat-server-api|chat-server-chat\"}",
+            "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
+            "expr": "{container=~\"/chat-server-api|/chat-server-chat\"}",
             "refId": "A"
           }
         ],
         "options": {
           "showTime": true,
           "showLabels": true,
-          "sortOrder": "Descending"
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "sortOrder": "Descending",
+          "dedupStrategy": "none",
+          "enableLogDetails": true
         }
       },
       {
         "id": 2,
         "title": "Error Logs",
         "type": "logs",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "gridPos": {"h": 10, "w": 12, "x": 0, "y": 14},
+        "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
         "targets": [
           {
-            "expr": "{container_name=~\"chat-server-api|chat-server-chat\"} |~ \"(?i)error\"",
+            "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
+            "expr": "{container=~\"/chat-server-api|/chat-server-chat\", level=\"error\"}",
             "refId": "A"
           }
         ],
         "options": {
           "showTime": true,
           "showLabels": true,
-          "sortOrder": "Descending"
+          "sortOrder": "Descending",
+          "enableLogDetails": true
         }
       },
       {
         "id": 3,
-        "title": "WebSocket Events",
+        "title": "Warn Logs",
         "type": "logs",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "gridPos": {"h": 10, "w": 12, "x": 12, "y": 14},
+        "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
         "targets": [
           {
-            "expr": "{container_name=\"chat-server-chat\"} |~ \"(?i)websocket\"",
+            "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
+            "expr": "{container=~\"/chat-server-api|/chat-server-chat\", level=\"warn\"}",
             "refId": "A"
           }
         ],
         "options": {
           "showTime": true,
           "showLabels": true,
-          "sortOrder": "Descending"
+          "sortOrder": "Descending",
+          "enableLogDetails": true
         }
       },
       {
         "id": 4,
         "title": "API Service Logs",
         "type": "logs",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "gridPos": {"h": 10, "w": 12, "x": 0, "y": 24},
+        "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
         "targets": [
           {
-            "expr": "{container_name=\"chat-server-api\"}",
+            "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
+            "expr": "{container=\"/chat-server-api\"}",
             "refId": "A"
           }
         ],
         "options": {
           "showTime": true,
           "showLabels": true,
-          "sortOrder": "Descending"
+          "sortOrder": "Descending",
+          "enableLogDetails": true
         }
       },
       {
         "id": 5,
         "title": "Chat Service Logs",
         "type": "logs",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+        "gridPos": {"h": 10, "w": 12, "x": 12, "y": 24},
+        "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
         "targets": [
           {
-            "expr": "{container_name=\"chat-server-chat\"}",
+            "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
+            "expr": "{container=\"/chat-server-chat\"}",
             "refId": "A"
           }
         ],
         "options": {
           "showTime": true,
           "showLabels": true,
-          "sortOrder": "Descending"
+          "sortOrder": "Descending",
+          "enableLogDetails": true
+        }
+      },
+      {
+        "id": 6,
+        "title": "Log Rate (lines/min)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 34},
+        "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
+        "targets": [
+          {
+            "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
+            "expr": "sum by (container) (rate({container=~\"/chat-server-api|/chat-server-chat\"}[1m]))",
+            "refId": "A",
+            "legendFormat": "{{container}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "color": {"mode": "palette-classic"}
+          }
+        },
+        "options": {
+          "legend": {"calcs": [], "displayMode": "list", "placement": "bottom"}
         }
       }
-    ],
-    "schemaVersion": 38,
-    "version": 1,
-    "refresh": "10s"
-  }
+    ]
+  },
+  "overwrite": true
 }

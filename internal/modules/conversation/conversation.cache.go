@@ -13,11 +13,13 @@ import (
 type CacheService struct {
 	cache  *services.CacheService
 	logger *zap.SugaredLogger
+	repo   *Repository
 }
 
-func NewCacheService(cache *services.CacheService, logger *zap.SugaredLogger) *CacheService {
+func NewCacheService(cache *services.CacheService, repo *Repository, logger *zap.SugaredLogger) *CacheService {
 	return &CacheService{
 		cache:  cache,
+		repo:   repo,
 		logger: logger.Named("[conversation_cache]"),
 	}
 }
@@ -226,4 +228,99 @@ func (c *CacheService) SetLastRead(conversationID, userID uuid.UUID, messageID s
 func (c *CacheService) DeleteLastRead(conversationID, userID uuid.UUID) error {
 	key := fmt.Sprintf(constants.CacheKeyLastRead, conversationID.String(), userID.String())
 	return c.cache.Delete(key)
+}
+
+func (c *CacheService) GetMembersCached(conversationID uuid.UUID) ([]ConversationMember, error) {
+	if cached, err := c.GetConversationMembers(conversationID); err == nil && len(cached) > 0 {
+		return cached, nil
+	}
+
+	members, err := c.repo.GetMembers(conversationID)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		if err := c.SetConversationMembers(conversationID, members); err != nil {
+			c.logger.Warnw("Failed to cache conversation members", "conversation_id", conversationID, "error", err)
+		}
+	}()
+
+	return members, nil
+}
+
+func (c *CacheService) GetConversationByIDCached(conversationID uuid.UUID) (*Conversation, error) {
+	if cached, err := c.GetConversation(conversationID); err == nil && cached != nil {
+		return cached, nil
+	}
+
+	conv, err := c.repo.GetConversationByID(conversationID)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		if err := c.SetConversation(conv); err != nil {
+			c.logger.Warnw("Failed to cache conversation", "conversation_id", conversationID, "error", err)
+		}
+	}()
+
+	return conv, nil
+}
+
+func (c *CacheService) GetUserConversationsCached(userID uuid.UUID, limit int) ([]ConversationByUser, error) {
+	if cached, err := c.GetUserConversations(userID); err == nil && len(cached) > 0 {
+		if len(cached) > limit {
+			return cached[:limit], nil
+		}
+		return cached, nil
+	}
+
+	conversations, err := c.repo.GetUserConversations(userID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		if err := c.SetUserConversations(userID, conversations); err != nil {
+			c.logger.Warnw("Failed to cache user conversations", "user_id", userID, "error", err)
+		}
+	}()
+
+	return conversations, nil
+}
+
+func (c *CacheService) CheckIfHiddenCached(userID, conversationID uuid.UUID) (bool, error) {
+	isHidden, err := c.IsConversationHidden(userID, conversationID)
+	if err == nil {
+		return isHidden, nil
+	}
+
+	isHidden, err = c.repo.CheckIfHidden(userID, conversationID)
+	if err != nil {
+		return false, fmt.Errorf("failed to check hidden status: %w", err)
+	}
+
+	if isHidden {
+		go func() {
+			if err := c.AddHiddenConversation(userID, conversationID); err != nil {
+				c.logger.Warnw("Failed to cache hidden status", "user_id", userID, "conversation_id", conversationID, "error", err)
+			}
+		}()
+	}
+
+	return isHidden, nil
+}
+
+func (c *CacheService) IsTypingRateLimited(userID, conversationID uuid.UUID) bool {
+	key := fmt.Sprintf(constants.CacheKeyTypingRateLimit, userID.String(), conversationID.String())
+	var dummy string
+	return c.cache.Get(key, &dummy) == nil
+}
+
+func (c *CacheService) SetTypingRateLimit(userID, conversationID uuid.UUID) {
+	key := fmt.Sprintf(constants.CacheKeyTypingRateLimit, userID.String(), conversationID.String())
+	if err := c.cache.Set(key, "1", 5*time.Second); err != nil {
+		c.logger.Warnw("Failed to set typing rate limit", "error", err)
+	}
 }

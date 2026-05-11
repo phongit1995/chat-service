@@ -799,45 +799,11 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 }
 
 func (s *Service) getMembersCached(conversationID uuid.UUID) ([]conversation.ConversationMember, error) {
-	if cached, err := s.convCache.GetConversationMembers(conversationID); err == nil && len(cached) > 0 {
-		s.logger.Debugw("Cache HIT for conversation members", "conversation_id", conversationID)
-		return cached, nil
-	}
-
-	s.logger.Debugw("Cache MISS for conversation members", "conversation_id", conversationID)
-	members, err := s.convRepo.GetMembers(conversationID)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		if err := s.convCache.SetConversationMembers(conversationID, members); err != nil {
-			s.logger.Warnw("Failed to cache conversation members", "conversation_id", conversationID, "error", err)
-		}
-	}()
-
-	return members, nil
+	return s.convCache.GetMembersCached(conversationID)
 }
 
 func (s *Service) getConversationByIDCached(conversationID uuid.UUID) (*conversation.Conversation, error) {
-	if cached, err := s.convCache.GetConversation(conversationID); err == nil && cached != nil {
-		s.logger.Debugw("Cache HIT for conversation", "conversation_id", conversationID)
-		return cached, nil
-	}
-
-	s.logger.Debugw("Cache MISS for conversation", "conversation_id", conversationID)
-	conv, err := s.convRepo.GetConversationByID(conversationID)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		if err := s.convCache.SetConversation(conv); err != nil {
-			s.logger.Warnw("Failed to cache conversation", "conversation_id", conversationID, "error", err)
-		}
-	}()
-
-	return conv, nil
+	return s.convCache.GetConversationByIDCached(conversationID)
 }
 
 func (s *Service) invalidateCachesAfterSend(conversationID uuid.UUID, memberIDs []uuid.UUID) {
