@@ -7,8 +7,6 @@ const (
 	KafkaTopicConversationCreated = "CHAT.CONVERSATION.CREATED"
 	KafkaTopicConversationUpdated = "CHAT.CONVERSATION.UPDATED"
 	KafkaTopicConversationDeleted = "CHAT.CONVERSATION.DELETED"
-	KafkaTopicUserOnline          = "CHAT.USER.ONLINE"
-	KafkaTopicUserOffline         = "CHAT.USER.OFFLINE"
 	KafkaTopicUserTyping          = "CHAT.USER.TYPING"
 )
 
@@ -20,8 +18,6 @@ func AllKafkaTopics() []string {
 		KafkaTopicConversationCreated,
 		KafkaTopicConversationUpdated,
 		KafkaTopicConversationDeleted,
-		KafkaTopicUserOnline,
-		KafkaTopicUserOffline,
 		KafkaTopicUserTyping,
 	}
 }
@@ -32,7 +28,6 @@ const (
 
 const (
 	CacheKeyUserProfile         = "USER:%s:PROFILE"
-	CacheKeyUserOnlineStatus    = "USER:%s:ONLINE"
 	CacheKeyUserSession         = "USER:%s:SESSION"
 	CacheKeyUserRefreshToken    = "USER:%s:REFRESH_TOKEN"
 	CacheKeyConversation        = "CONVERSATION:%s:DETAIL"
@@ -64,8 +59,6 @@ const (
 	WebSocketEventConversationCreated = "CONVERSATION_CREATED"
 	WebSocketEventConversationUpdated = "CONVERSATION_UPDATED"
 	WebSocketEventConversationDeleted = "CONVERSATION_DELETED"
-	WebSocketEventUserOnline          = "USER_ONLINE"
-	WebSocketEventUserOffline         = "USER_OFFLINE"
 	WebSocketEventUserTyping          = "USER_TYPING"
 	WebSocketEventUserStopTyping      = "USER_STOP_TYPING"
 	WebSocketEventError               = "ERROR"
@@ -85,7 +78,6 @@ const (
 
 const (
 	CacheTTLUserProfile         = 3600
-	CacheTTLUserOnlineStatus    = 300
 	CacheTTLUserSession         = 86400
 	CacheTTLConversation        = 1800
 	CacheTTLConversationList    = 600

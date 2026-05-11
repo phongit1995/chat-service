@@ -5,7 +5,6 @@ import (
 	"chat-server/internal/constants"
 	conversationEvents "chat-server/internal/domain/conversation"
 	messageEvents "chat-server/internal/domain/message"
-	userEvents "chat-server/internal/domain/user"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -63,18 +62,6 @@ func (p *Producer) PublishConversationUpdated(ctx context.Context, event *conver
 
 func (p *Producer) PublishConversationDeleted(ctx context.Context, event *conversationEvents.DeletedEvent) error {
 	return p.publishKeyed(ctx, constants.KafkaTopicConversationDeleted, event.ConversationID, event)
-}
-
-func (p *Producer) PublishUserOnline(ctx context.Context, event *userEvents.OnlineEvent) error {
-	return p.publishKeyed(ctx, constants.KafkaTopicUserOnline, event.UserID, event)
-}
-
-func (p *Producer) PublishUserOffline(ctx context.Context, event *userEvents.OfflineEvent) error {
-	return p.publishKeyed(ctx, constants.KafkaTopicUserOffline, event.UserID, event)
-}
-
-func (p *Producer) PublishUserTyping(ctx context.Context, event *userEvents.TypingEvent) error {
-	return p.publishKeyed(ctx, constants.KafkaTopicUserTyping, event.ConversationID, event)
 }
 
 func (p *Producer) PublishConversationTyping(ctx context.Context, event *conversationEvents.TypingEvent) error {

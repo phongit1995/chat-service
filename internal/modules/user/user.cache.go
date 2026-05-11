@@ -60,27 +60,6 @@ func (c *CacheService) DeleteAllUserSessions(userID uuid.UUID) error {
 	return c.cache.DeletePattern(pattern)
 }
 
-func (c *CacheService) SetUserOnlineStatus(userID uuid.UUID, isOnline bool) error {
-	key := fmt.Sprintf(constants.CacheKeyUserOnlineStatus, userID.String())
-	status := map[string]interface{}{
-		"online":    isOnline,
-		"timestamp": time.Now().Unix(),
-	}
-	return c.cache.Set(key, status, constants.CacheTTLUserOnlineStatus*time.Second)
-}
-
-func (c *CacheService) GetUserOnlineStatus(userID uuid.UUID) (bool, error) {
-	key := fmt.Sprintf(constants.CacheKeyUserOnlineStatus, userID.String())
-	var status map[string]interface{}
-	if err := c.cache.Get(key, &status); err != nil {
-		return false, err
-	}
-	if online, ok := status["online"].(bool); ok {
-		return online, nil
-	}
-	return false, nil
-}
-
 func (c *CacheService) InvalidateUser(userID uuid.UUID) error {
 	if err := c.DeleteUser(userID); err != nil {
 		c.logger.Warnw("Failed to delete user cache", "user_id", userID, "error", err)

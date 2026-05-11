@@ -3,7 +3,6 @@ package kafka
 import (
 	conversationEvents "chat-server/internal/domain/conversation"
 	messageEvents "chat-server/internal/domain/message"
-	userEvents "chat-server/internal/domain/user"
 
 	"go.uber.org/dig"
 )
@@ -24,7 +23,6 @@ func ProvideConsumer(c *dig.Container) error {
 	modules := []func(*dig.Container) error{
 		messageEvents.Provider,
 		conversationEvents.Provider,
-		userEvents.Provider,
 	}
 
 	for _, module := range modules {

@@ -63,6 +63,13 @@ func (h *EventHandler) registerClientEvents(client *socket.Socket, userID string
 	client.On("stop_typing", func(args ...any) {
 		h.handleStopTyping(client, userID, args)
 	})
+
+	// Heartbeat ping to refresh presence TTL
+	client.On("ping", func(args ...any) {
+		if err := h.presenceService.RefreshPresence(userID); err != nil {
+			h.server.logger.Warnw("Failed to refresh presence on ping", "user_id", userID, "error", err)
+		}
+	})
 }
 
 func (h *EventHandler) handleDisconnect(client *socket.Socket, userID string) {

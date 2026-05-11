@@ -15,10 +15,6 @@ func (b *CacheKeyBuilder) UserProfile(userID string) string {
 	return fmt.Sprintf(constants.CacheKeyUserProfile, userID)
 }
 
-func (b *CacheKeyBuilder) UserOnlineStatus(userID string) string {
-	return fmt.Sprintf(constants.CacheKeyUserOnlineStatus, userID)
-}
-
 func (b *CacheKeyBuilder) UserSession(userID string) string {
 	return fmt.Sprintf(constants.CacheKeyUserSession, userID)
 }

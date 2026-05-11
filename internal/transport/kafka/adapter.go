@@ -4,25 +4,21 @@ import (
 	"chat-server/internal/constants"
 	conversationEvents "chat-server/internal/domain/conversation"
 	messageEvents "chat-server/internal/domain/message"
-	userEvents "chat-server/internal/domain/user"
 	"context"
 )
 
 type KafkaEventAdapter struct {
 	messageHandler      *messageEvents.EventHandler
 	conversationHandler *conversationEvents.EventHandler
-	userHandler         *userEvents.EventHandler
 }
 
 func NewKafkaEventAdapter(
 	messageHandler *messageEvents.EventHandler,
 	conversationHandler *conversationEvents.EventHandler,
-	userHandler *userEvents.EventHandler,
 ) *KafkaEventAdapter {
 	return &KafkaEventAdapter{
 		messageHandler:      messageHandler,
 		conversationHandler: conversationHandler,
-		userHandler:         userHandler,
 	}
 }
 
@@ -50,14 +46,6 @@ func (a *KafkaEventAdapter) HandleConversationDeleted(ctx context.Context, messa
 	return a.conversationHandler.OnDeleted(ctx, message)
 }
 
-func (a *KafkaEventAdapter) HandleUserOnline(ctx context.Context, message []byte) error {
-	return a.userHandler.OnOnline(ctx, message)
-}
-
-func (a *KafkaEventAdapter) HandleUserOffline(ctx context.Context, message []byte) error {
-	return a.userHandler.OnOffline(ctx, message)
-}
-
 func (a *KafkaEventAdapter) HandleUserTyping(ctx context.Context, message []byte) error {
 	return a.conversationHandler.OnTyping(ctx, message)
 }
@@ -69,7 +57,5 @@ func RegisterEventHandlers(consumer *Consumer, adapter *KafkaEventAdapter) {
 	consumer.RegisterHandler(constants.KafkaTopicConversationCreated, adapter.HandleConversationCreated)
 	consumer.RegisterHandler(constants.KafkaTopicConversationUpdated, adapter.HandleConversationUpdated)
 	consumer.RegisterHandler(constants.KafkaTopicConversationDeleted, adapter.HandleConversationDeleted)
-	consumer.RegisterHandler(constants.KafkaTopicUserOnline, adapter.HandleUserOnline)
-	consumer.RegisterHandler(constants.KafkaTopicUserOffline, adapter.HandleUserOffline)
 	consumer.RegisterHandler(constants.KafkaTopicUserTyping, adapter.HandleUserTyping)
 }

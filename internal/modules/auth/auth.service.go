@@ -179,13 +179,6 @@ func (s *Service) Login(req *LoginRequest, clientIP string) (*AuthResponse, erro
 		)
 	}
 
-	if err := s.userCache.SetUserOnlineStatus(user.ID, true); err != nil {
-		s.logger.Warnw("Failed to set user online status",
-			"user_id", user.ID,
-			"error", err.Error(),
-		)
-	}
-
 	s.logger.Infow("User logged in successfully",
 		"user_id", user.ID,
 		"email", user.Email,
