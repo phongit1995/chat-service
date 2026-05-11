@@ -33,7 +33,9 @@ class _ChatAppState extends ConsumerState<ChatApp> {
       refreshListenable: _authListenable,
       redirect: (ctx, state) {
         final loggedIn = ref.read(authProvider).user != null;
-        final atAuth = state.matchedLocation == '/login' || state.matchedLocation == '/register';
+        final atAuth =
+            state.matchedLocation == '/login' ||
+            state.matchedLocation == '/register';
         if (!loggedIn && !atAuth) return '/login';
         if (loggedIn && atAuth) return '/';
         return null;
@@ -64,7 +66,7 @@ class _ChatAppState extends ConsumerState<ChatApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Chat Server',
+      title: 'Chat App',
       theme: AppTheme.light(),
       routerConfig: _router,
       debugShowCheckedModeBanner: false,

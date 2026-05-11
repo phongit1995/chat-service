@@ -15,12 +15,14 @@ class SocketService {
 
   final _newMessageCtrl = StreamController<NewMessageEvent>.broadcast();
   final _conversationCreatedCtrl = StreamController<String>.broadcast();
-  final _conversationUpdatedCtrl = StreamController<Map<String, dynamic>>.broadcast();
+  final _conversationUpdatedCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
   final _conversationDeletedCtrl = StreamController<String>.broadcast();
 
   Stream<NewMessageEvent> get onNewMessage => _newMessageCtrl.stream;
   Stream<String> get onConversationCreated => _conversationCreatedCtrl.stream;
-  Stream<Map<String, dynamic>> get onConversationUpdated => _conversationUpdatedCtrl.stream;
+  Stream<Map<String, dynamic>> get onConversationUpdated =>
+      _conversationUpdatedCtrl.stream;
   Stream<String> get onConversationDeleted => _conversationDeletedCtrl.stream;
 
   bool get isConnected => _socket?.connected ?? false;
@@ -52,10 +54,14 @@ class SocketService {
             final msgRaw = payload['message'];
             final convRaw = payload['conversation'];
             if (msgRaw is Map) {
-              final message = Message.fromJson(Map<String, dynamic>.from(msgRaw));
+              final message = Message.fromJson(
+                Map<String, dynamic>.from(msgRaw),
+              );
               Conversation? conv;
               if (convRaw is Map) {
-                conv = Conversation.fromJson(Map<String, dynamic>.from(convRaw));
+                conv = Conversation.fromJson(
+                  Map<String, dynamic>.from(convRaw),
+                );
               }
               _newMessageCtrl.add(NewMessageEvent(message, conv));
             }

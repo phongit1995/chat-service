@@ -29,7 +29,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
-    final ok = await ref.read(authProvider.notifier).register(
+    final ok = await ref
+        .read(authProvider.notifier)
+        .register(
           _username.text.trim(),
           _email.text.trim(),
           _password.text,
@@ -45,7 +47,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       body: Stack(
         children: [
           const Positioned.fill(
-            child: DecoratedBox(decoration: BoxDecoration(gradient: AppGradients.soft)),
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: AppGradients.soft),
+            ),
           ),
           Center(
             child: SingleChildScrollView(
@@ -63,7 +67,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: AppShadows.glowGradient,
                         ),
-                        child: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 32),
+                        child: const Icon(
+                          Icons.person_add_alt_1_rounded,
+                          color: Colors.white,
+                          size: 32,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       GradientText('Join the vibe', style: AppTypography.h1),
@@ -118,7 +126,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                             if (auth.error != null) ...[
                               const SizedBox(height: 12),
-                              Text(auth.error!, style: const TextStyle(color: AppColors.danger)),
+                              Text(
+                                auth.error!,
+                                style: const TextStyle(color: AppColors.danger),
+                              ),
                             ],
                             const SizedBox(height: 16),
                             GradientButton(

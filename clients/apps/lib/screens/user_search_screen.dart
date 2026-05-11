@@ -54,7 +54,9 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
       context.push('/chat/${conv.id}', extra: conv);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     }
   }
@@ -86,8 +88,9 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
                 final u = _results[i];
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundImage:
-                        u.avatar != null && u.avatar!.isNotEmpty ? NetworkImage(u.avatar!) : null,
+                    backgroundImage: u.avatar != null && u.avatar!.isNotEmpty
+                        ? NetworkImage(u.avatar!)
+                        : null,
                     child: (u.avatar == null || u.avatar!.isEmpty)
                         ? Text(u.displayName[0].toUpperCase())
                         : null,

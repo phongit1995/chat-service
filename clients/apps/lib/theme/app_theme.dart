@@ -23,7 +23,10 @@ class AppTheme {
       canvasColor: AppColors.bgSurface,
       dividerColor: AppColors.lineSubtle,
       textTheme: GoogleFonts.dmSansTextTheme(base.textTheme)
-          .apply(bodyColor: AppColors.textPrimary, displayColor: AppColors.textPrimary)
+          .apply(
+            bodyColor: AppColors.textPrimary,
+            displayColor: AppColors.textPrimary,
+          )
           .copyWith(
             displayLarge: AppTypography.h1,
             headlineMedium: AppTypography.h2,
@@ -44,7 +47,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.bgOverlay,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 14,
+        ),
         hintStyle: const TextStyle(color: AppColors.textTertiary),
         labelStyle: AppTypography.caption,
         border: OutlineInputBorder(

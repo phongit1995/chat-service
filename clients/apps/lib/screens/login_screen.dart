@@ -25,7 +25,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    final ok = await ref.read(authProvider.notifier).login(_email.text.trim(), _password.text);
+    final ok = await ref
+        .read(authProvider.notifier)
+        .login(_email.text.trim(), _password.text);
     if (ok && mounted) context.go('/');
   }
 
@@ -36,7 +38,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       body: Stack(
         children: [
           const Positioned.fill(
-            child: DecoratedBox(decoration: BoxDecoration(gradient: AppGradients.soft)),
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: AppGradients.soft),
+            ),
           ),
           Positioned(
             top: -120,
@@ -65,7 +69,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: AppShadows.glowGradient,
                         ),
-                        child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 32),
+                        child: const Icon(
+                          Icons.chat_bubble_rounded,
+                          color: Colors.white,
+                          size: 32,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       GradientText('Welcome back', style: AppTypography.h1),
@@ -97,7 +105,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             if (auth.error != null) ...[
                               const SizedBox(height: 12),
-                              Text(auth.error!, style: const TextStyle(color: AppColors.danger)),
+                              Text(
+                                auth.error!,
+                                style: const TextStyle(color: AppColors.danger),
+                              ),
                             ],
                             const SizedBox(height: 18),
                             GradientButton(
@@ -117,7 +128,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 16),
                       const Text(
                         '© 2026 Chat App',
-                        style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+                        style: TextStyle(
+                          color: AppColors.textTertiary,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -154,7 +168,11 @@ class _Blob extends StatelessWidget {
   final double size;
   final Gradient gradient;
   final double opacity;
-  const _Blob({required this.size, required this.gradient, required this.opacity});
+  const _Blob({
+    required this.size,
+    required this.gradient,
+    required this.opacity,
+  });
 
   @override
   Widget build(BuildContext context) {

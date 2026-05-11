@@ -1,4 +1,4 @@
-# chat_app — Flutter Mobile Client
+# Chat App — Flutter Mobile Client
 
 Flutter mobile client for the **Chat Server** microservices backend. Talks to the API service over HTTP for REST and Socket.IO for real-time messaging.
 

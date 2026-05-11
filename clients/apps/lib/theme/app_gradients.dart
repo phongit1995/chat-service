@@ -39,17 +39,17 @@ class AppShadows {
   AppShadows._();
 
   static List<BoxShadow> soft(double opacity) => [
-        BoxShadow(
-          color: const Color(0xFFDD2A7B).withValues(alpha: opacity * 0.5),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
-          blurRadius: 4,
-          offset: const Offset(0, 2),
-        ),
-      ];
+    BoxShadow(
+      color: const Color(0xFFDD2A7B).withValues(alpha: opacity * 0.5),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.04),
+      blurRadius: 4,
+      offset: const Offset(0, 2),
+    ),
+  ];
 
   static const List<BoxShadow> sm = [
     BoxShadow(color: Color(0x0FDD2A7B), blurRadius: 3, offset: Offset(0, 1)),
