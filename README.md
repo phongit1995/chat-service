@@ -10,9 +10,9 @@ A real-time chat platform built in Go with a microservices architecture, using K
 - Idempotent message send with client-minted `clientMsgId` + optimistic UI
 - Async per-member fanout on send; typing routed via user rooms
 - Multi-database:
-  - **PostgreSQL** — users, relationships, conversations, members
-  - **ScyllaDB** — message storage (high-throughput, time-series)
-  - **Redis** — cache + WebSocket adapter + presence
+  - **PostgreSQL** — users, auth metadata, refresh tokens, relationships
+  - **ScyllaDB** — conversations, members, messages, per-user inboxes, read/hidden state
+  - **Redis** — cache + WebSocket adapter + presence + typing rate limits
 - JWT authentication (shared secret across both services)
 - Dedicated migration service for both PostgreSQL and ScyllaDB
 - Auto-generated Swagger / OpenAPI docs
@@ -62,14 +62,15 @@ A real-time chat platform built in Go with a microservices architecture, using K
                     │
        ┌────────────┼────────────┐
        ▼            ▼            ▼
-  PostgreSQL    ScyllaDB       Redis
-  (metadata)   (messages)   (cache+WS)
+  PostgreSQL    ScyllaDB          Redis
+  (users +      (chat data +      (cache +
+ relations)      inboxes)        WS/presence)
 ```
 
 ### Service Responsibilities
 
-- **API Service (`:8080`)** — Auth, user, relationships, conversations, message API; WebSocket; produces Kafka events.
-- **Chat Service (`:8081`)** — WebSocket only; consumes Kafka events and broadcasts to user rooms / conversation rooms.
+- **API Service (`:8080`)** — Auth, user, relationships, conversations, and message APIs; WebSocket; produces Kafka events.
+- **Chat Service (`:8081`)** — WebSocket only; consumes Kafka events and broadcasts to user rooms.
 - **Migration Service** — Run-once: applies migrations for both PostgreSQL and ScyllaDB.
 
 ### Project Structure
@@ -135,7 +136,7 @@ Each module exposes a `Provider` in `{module}.dig.go`. The container is built in
 #### 4. Event-Driven
 
 ```text
-API → produce → Kafka topic → Chat consume → WS broadcast to user / conversation rooms
+API → produce → Kafka topic → Chat consume → WS broadcast to user rooms
 ```
 
 #### 5. Distributed WebSocket
@@ -148,7 +149,15 @@ Controller (thin) → Service (business logic) → Repository (data access).
 
 #### 7. Generic typed HTTP response
 
-All REST responses use `utils.Response[T]` with `traceId`, `path`, `timestamp`.
+All REST responses use the shared response envelope in `internal/utils/http.go` with `success`, `status`, `traceId`, `timestamp`, `path`, and either `data` or `error`.
+
+#### 8. Storage ownership
+
+The current schema separates account data from chat data:
+
+- **PostgreSQL** owns users and relationships (`cmd/migrations/postgres`).
+- **ScyllaDB** owns conversations, conversation members, direct conversation pairs, messages, per-user conversation inboxes, read markers, and hidden conversations (`cmd/migrations/scylla`).
+- **Redis** owns cache entries, Socket.IO fanout state, presence counters, last-active timestamps, and short-lived typing/idempotency keys.
 
 ## Getting Started
 
@@ -285,34 +294,36 @@ Defined in [internal/constants/constant.go](internal/constants/constant.go):
 - `CHAT.CONVERSATION.CREATED` — conversation created
 - `CHAT.CONVERSATION.UPDATED` — conversation updated
 - `CHAT.CONVERSATION.DELETED` — conversation deleted
-- `CHAT.USER.ONLINE` / `CHAT.USER.OFFLINE` — presence
 - `CHAT.USER.TYPING` — typing indicator
 
 Consumer group: `CHAT-SERVICE-CONSUMERS`.
 
 ## WebSocket Events (server → client)
 
+- All events arrive on the `message` channel as `{ type, data }`.
 - `NEW_MESSAGE` — new message
 - `MESSAGE_UPDATED` / `MESSAGE_DELETED` — message edits / deletions
 - `CONVERSATION_CREATED` / `CONVERSATION_UPDATED` / `CONVERSATION_DELETED` — conversation lifecycle
-- `USER_ONLINE` / `USER_OFFLINE` — presence
 - `USER_TYPING` / `USER_STOP_TYPING` — typing
-- `ERROR` — server-side error
 
 Client connection with JWT:
 
 ```js
 const socket = io('http://localhost:8080', { auth: { token: jwt } });
-socket.on('NEW_MESSAGE', (msg) => { /* ... */ });
+socket.on('message', ({ type, data }) => {
+  if (type === 'NEW_MESSAGE') {
+    // ...
+  }
+});
 ```
 
 ## REST API (main endpoints)
 
 - `POST /api/auth/register`, `POST /api/auth/login`
-- `GET|PUT /api/user/profile`
-- `POST /api/relationships/...` (friend request, accept, block, list)
-- `GET|POST /api/conversations`, `GET /api/conversations/:id/messages`
-- `POST /api/messages` (server-side idempotency by `clientMsgId`), `PUT /api/messages/:id/read`
+- `GET|PUT /api/user/me`, `POST /api/user/upload`, `GET /api/user/search`
+- `POST /api/relationships/request`, `PUT /api/relationships/:id/respond`, `DELETE /api/relationships/:id/cancel`, `DELETE /api/relationships/:id/unfriend`, `POST /api/relationships/block`
+- `GET /api/conversations`, `GET /api/conversations/direct/check`, `POST /api/conversations/direct`, `POST /api/conversations/group`, `GET /api/conversations/:id`, `PUT /api/conversations/:id/read`, `POST /api/conversations/:id/hide`, `POST /api/conversations/:id/unhide`, `POST /api/conversations/typing`
+- `POST /api/messages`, `POST /api/messages/direct`, `GET /api/messages/:conversationId`, `PATCH /api/messages/:conversationId/:messageId`, `DELETE /api/messages/:conversationId/:messageId`
 - `GET /api/health`
 
 See Swagger UI for the full reference.
