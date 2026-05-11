@@ -1,20 +1,21 @@
 import { io, Socket } from 'socket.io-client'
 import type {
-  WebSocketMessage,
-  MessageCreatedEventData,
-  MessageUpdatedEventData,
-  MessageDeletedEventData,
-  UserTypingData,
+  ConversationDeletedData,
   ConversationCreatedData,
   ConversationUpdatedData,
-  ConversationDeletedData
-} from '../types'
-import { WebSocketEventType } from '../types'
+  MessageCreatedEventData,
+  MessageDeletedEventData,
+  MessageUpdatedEventData,
+  UserTypingData,
+  WebSocketEventPayloadMap,
+  WebSocketMessage,
+} from '../types/realtime'
+import { WebSocketClientEvent, WebSocketEventType, WebSocketTransportEvent } from '../types/realtime'
 import env from '../config/env'
 
 class SocketService {
   private socket: Socket | null = null
-  private listeners: Map<string, Set<Function>> = new Map()
+  private listeners = new Map<string, Set<(data: unknown) => void>>()
 
   connect(token: string) {
     if (this.socket) {
@@ -38,7 +39,7 @@ class SocketService {
       console.error('Socket error:', error)
     })
 
-    this.socket.on('message', (wrapper: WebSocketMessage) => {
+    this.socket.on(WebSocketTransportEvent.MESSAGE, (wrapper: WebSocketMessage) => {
       console.log('WebSocket event received:', wrapper.type, wrapper.data)
       
       switch (wrapper.type) {
@@ -99,23 +100,28 @@ class SocketService {
   }
 
   sendTyping(conversationId: string, isTyping: boolean) {
-    const event = isTyping ? 'typing' : 'stop_typing'
+    const event = isTyping
+      ? WebSocketClientEvent.TYPING
+      : WebSocketClientEvent.STOP_TYPING
     this.socket?.emit(event, { conversation_id: conversationId })
   }
 
-  on(event: string, callback: Function) {
+  on<K extends keyof WebSocketEventPayloadMap>(
+    event: K,
+    callback: (data: WebSocketEventPayloadMap[K]) => void,
+  ) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set())
     }
-    this.listeners.get(event)?.add(callback)
+    this.listeners.get(event)?.add(callback as (data: unknown) => void)
 
     return () => {
-      this.listeners.get(event)?.delete(callback)
+      this.listeners.get(event)?.delete(callback as (data: unknown) => void)
     }
   }
 
-  private emit(event: string, data: any) {
-    this.listeners.get(event)?.forEach(callback => callback(data))
+  private emit<K extends keyof WebSocketEventPayloadMap>(event: K, data: WebSocketEventPayloadMap[K]) {
+    this.listeners.get(event)?.forEach((callback) => callback(data))
   }
 
   isConnected() {

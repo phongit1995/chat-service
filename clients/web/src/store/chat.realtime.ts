@@ -1,6 +1,5 @@
 import type { StoreApi } from 'zustand'
 import type {
-  Conversation,
   ConversationCreatedData,
   ConversationDeletedData,
   ConversationUpdatedData,
@@ -8,8 +7,11 @@ import type {
   MessageDeletedEventData,
   MessageUpdatedEventData,
   UserTypingData,
+} from '../types/realtime'
+import type {
+  Conversation,
 } from '../types'
-import { WebSocketEventType } from '../types'
+import { WebSocketEventType } from '../types/realtime'
 import { apiService } from '../services/api'
 import { socketService } from '../services/socket'
 import { useAuthStore } from './authStore'
