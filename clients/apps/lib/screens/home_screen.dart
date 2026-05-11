@@ -23,7 +23,12 @@ class HomeScreen extends ConsumerWidget {
         children: [
           Container(
             decoration: const BoxDecoration(gradient: AppGradients.signature),
-            padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 12, 12, 16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              MediaQuery.of(context).padding.top + 12,
+              12,
+              16,
+            ),
             child: Row(
               children: [
                 GradientAvatar(
@@ -48,14 +53,18 @@ class HomeScreen extends ConsumerWidget {
                       ),
                       Text(
                         'Online',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                  onPressed: () => ref.read(conversationsProvider.notifier).reload(),
+                  onPressed: () =>
+                      ref.read(conversationsProvider.notifier).reload(),
                 ),
                 IconButton(
                   icon: const Icon(Icons.logout_rounded, color: Colors.white),
@@ -75,9 +84,13 @@ class HomeScreen extends ConsumerWidget {
                 if (list.isEmpty) return const _EmptyConversations();
                 return RefreshIndicator(
                   color: AppColors.primary,
-                  onRefresh: () => ref.read(conversationsProvider.notifier).reload(),
+                  onRefresh: () =>
+                      ref.read(conversationsProvider.notifier).reload(),
                   child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 12,
+                    ),
                     itemCount: list.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 4),
                     itemBuilder: (_, i) => _ConversationTile(conv: list[i]),
@@ -97,9 +110,9 @@ class HomeScreen extends ConsumerWidget {
         child: FloatingActionButton(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const UserSearchScreen()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const UserSearchScreen())),
           child: const Icon(Icons.add_comment_rounded, color: Colors.white),
         ),
       ),
@@ -123,7 +136,11 @@ class _EmptyConversations extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: AppShadows.glowGradient,
             ),
-            child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 44),
+            child: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: Colors.white,
+              size: 44,
+            ),
           ),
           const SizedBox(height: 16),
           Text('No conversations yet', style: AppTypography.h3),
@@ -164,7 +181,9 @@ class _ConversationTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
           child: Row(
             children: [
               GradientAvatar(
@@ -173,6 +192,10 @@ class _ConversationTile extends StatelessWidget {
                 size: 48,
                 storyRing: unread,
                 seen: !unread,
+                status:
+                    conv.type == 'direct' && conv.otherUser?.isOnline == true
+                    ? 'online'
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -198,8 +221,12 @@ class _ConversationTile extends StatelessWidget {
                           _formatTime(conv.lastMessageAt),
                           style: TextStyle(
                             fontSize: 11,
-                            color: unread ? AppColors.primary : AppColors.textTertiary,
-                            fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
+                            color: unread
+                                ? AppColors.primary
+                                : AppColors.textTertiary,
+                            fontWeight: unread
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
                       ],
@@ -207,20 +234,25 @@ class _ConversationTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Expanded(
-                          child: _buildPreviewText(conv, unread),
-                        ),
+                        Expanded(child: _buildPreviewText(conv, unread)),
                         if (unread) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               gradient: AppGradients.signature,
-                              borderRadius: BorderRadius.circular(AppRadius.full),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.full,
+                              ),
                               boxShadow: AppShadows.md,
                             ),
                             child: Text(
-                              conv.unreadCount > 99 ? '99+' : '${conv.unreadCount}',
+                              conv.unreadCount > 99
+                                  ? '99+'
+                                  : '${conv.unreadCount}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -234,7 +266,9 @@ class _ConversationTile extends StatelessWidget {
                             conv.seen ? '✓✓' : '✓',
                             style: TextStyle(
                               fontSize: 13,
-                              color: conv.seen ? AppColors.primary : AppColors.textTertiary,
+                              color: conv.seen
+                                  ? AppColors.primary
+                                  : AppColors.textTertiary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -252,7 +286,8 @@ class _ConversationTile extends StatelessWidget {
   }
 
   Widget _buildPreviewText(Conversation conv, bool unread) {
-    final hasText = conv.lastMessageText != null && conv.lastMessageText!.isNotEmpty;
+    final hasText =
+        conv.lastMessageText != null && conv.lastMessageText!.isNotEmpty;
     if (!hasText) {
       return Text(
         'No messages yet',

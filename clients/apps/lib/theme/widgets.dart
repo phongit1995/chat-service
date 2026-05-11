@@ -68,14 +68,24 @@ class GradientText extends StatelessWidget {
   final String text;
   final TextStyle? style;
   final Gradient gradient;
-  const GradientText(this.text, {super.key, this.style, this.gradient = AppGradients.signature});
+  const GradientText(
+    this.text, {
+    super.key,
+    this.style,
+    this.gradient = AppGradients.signature,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ShaderMask(
       blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => gradient.createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-      child: Text(text, style: (style ?? AppTypography.h1).copyWith(color: Colors.white)),
+      shaderCallback: (bounds) => gradient.createShader(
+        Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+      ),
+      child: Text(
+        text,
+        style: (style ?? AppTypography.h1).copyWith(color: Colors.white),
+      ),
     );
   }
 }
@@ -86,6 +96,7 @@ class GradientAvatar extends StatelessWidget {
   final double size;
   final bool storyRing;
   final bool seen;
+  final String? status;
 
   const GradientAvatar({
     super.key,
@@ -94,6 +105,7 @@ class GradientAvatar extends StatelessWidget {
     this.size = 40,
     this.storyRing = false,
     this.seen = false,
+    this.status,
   });
 
   String get _initials {
@@ -109,13 +121,39 @@ class GradientAvatar extends StatelessWidget {
   Gradient get _fallback {
     final code = name.isEmpty ? 0 : name.codeUnitAt(0);
     final palette = [
-      const LinearGradient(colors: [AppColors.accentYellow, AppColors.accentOrange]),
+      const LinearGradient(
+        colors: [AppColors.accentYellow, AppColors.accentOrange],
+      ),
       const LinearGradient(colors: [AppColors.accentOrange, AppColors.primary]),
       const LinearGradient(colors: [AppColors.primary, AppColors.accentPurple]),
-      const LinearGradient(colors: [AppColors.accentPurple, AppColors.accentBlue]),
+      const LinearGradient(
+        colors: [AppColors.accentPurple, AppColors.accentBlue],
+      ),
       const LinearGradient(colors: [AppColors.accentCoral, AppColors.primary]),
     ];
     return palette[code % palette.length];
+  }
+
+  Color? get _statusColor {
+    switch (status) {
+      case 'online':
+        return AppColors.success;
+      case 'away':
+        return AppColors.warning;
+      case 'busy':
+        return AppColors.danger;
+      case 'offline':
+        return AppColors.textTertiary;
+      default:
+        return null;
+    }
+  }
+
+  double get _statusDotSize {
+    if (size <= 32) return 8;
+    if (size <= 40) return 10;
+    if (size <= 48) return 12;
+    return 16;
   }
 
   @override
@@ -134,39 +172,63 @@ class GradientAvatar extends StatelessWidget {
       ),
     );
 
-    if (!storyRing) return core;
+    Widget avatar = core;
 
-    return Container(
-      padding: const EdgeInsets.all(2.5),
-      decoration: BoxDecoration(
-        gradient: seen ? null : AppGradients.signature,
-        color: seen ? AppColors.line : null,
-        shape: BoxShape.circle,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: const BoxDecoration(
-          color: AppColors.bgBase,
+    if (storyRing) {
+      avatar = Container(
+        padding: const EdgeInsets.all(2.5),
+        decoration: BoxDecoration(
+          gradient: seen ? null : AppGradients.signature,
+          color: seen ? AppColors.line : null,
           shape: BoxShape.circle,
         ),
-        child: core,
-      ),
-    );
+        child: Container(
+          padding: const EdgeInsets.all(2),
+          decoration: const BoxDecoration(
+            color: AppColors.bgBase,
+            shape: BoxShape.circle,
+          ),
+          child: core,
+        ),
+      );
+    }
+
+    final statusDot = _statusColor == null
+        ? null
+        : Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: _statusDotSize,
+              height: _statusDotSize,
+              decoration: BoxDecoration(
+                color: _statusColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.bgBase, width: 2),
+              ),
+            ),
+          );
+
+    if (statusDot == null) {
+      return avatar;
+    }
+
+    return Stack(clipBehavior: Clip.none, children: [avatar, statusDot]);
   }
 
   Widget _fallbackBox() => Container(
-        decoration: BoxDecoration(gradient: _fallback),
-        alignment: Alignment.center,
-        child: Text(
-          _initials,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            fontSize: size * 0.35,
-            fontFamily: AppTypography.body,
-          ),
-        ),
-      );
+    decoration: BoxDecoration(gradient: _fallback),
+    alignment: Alignment.center,
+    child: Text(
+      _initials,
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w600,
+        fontSize: size * 0.35,
+        fontFamily: AppTypography.body,
+      ),
+    ),
+  );
 }
 
 class MessageBubble extends StatelessWidget {
@@ -206,20 +268,34 @@ class MessageBubble extends StatelessWidget {
       return SizedBox(
         width: 12,
         height: 12,
-        child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.textTertiary),
+        child: CircularProgressIndicator(
+          strokeWidth: 1.5,
+          color: AppColors.textTertiary,
+        ),
       );
     }
     if (status == 'failed') {
-      return Icon(Icons.error_outline, size: 14, color: Colors.redAccent.shade100);
+      return Icon(
+        Icons.error_outline,
+        size: 14,
+        color: Colors.redAccent.shade100,
+      );
     }
     if (!isLastOwnMessage) return null;
     if (conversationSeen) {
       return const Text(
         '✓✓',
-        style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700),
+        style: TextStyle(
+          color: AppColors.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
       );
     }
-    return const Text('✓', style: TextStyle(color: AppColors.textTertiary, fontSize: 12));
+    return const Text(
+      '✓',
+      style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+    );
   }
 
   @override
@@ -242,7 +318,11 @@ class MessageBubble extends StatelessWidget {
 
     final statusIcon = _buildStatusIcon();
     final isFailed = status == 'failed';
-    final showName = !isMine && isGroup && isFirstInStreak && (senderName?.isNotEmpty ?? false);
+    final showName =
+        !isMine &&
+        isGroup &&
+        isFirstInStreak &&
+        (senderName?.isNotEmpty ?? false);
     final showAvatar = !isMine && isLastInStreak;
 
     final bubble = Container(
@@ -264,7 +344,9 @@ class MessageBubble extends StatelessWidget {
     );
 
     final column = Column(
-      crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: isMine
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         if (showName)
@@ -288,7 +370,10 @@ class MessageBubble extends StatelessWidget {
               children: [
                 Text(
                   time,
-                  style: const TextStyle(color: AppColors.textTertiary, fontSize: 11),
+                  style: const TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: 11,
+                  ),
                 ),
                 if (statusIcon != null) ...[
                   const SizedBox(width: 6),
@@ -303,20 +388,28 @@ class MessageBubble extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(top: isFirstInStreak ? 12 : 4),
       child: Row(
-        mainAxisAlignment: isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMine
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMine)
             SizedBox(
               width: 32,
               child: showAvatar
-                  ? GradientAvatar(name: senderName ?? '', imageUrl: senderAvatar, size: 28)
+                  ? GradientAvatar(
+                      name: senderName ?? '',
+                      imageUrl: senderAvatar,
+                      size: 28,
+                    )
                   : null,
             ),
           if (!isMine) const SizedBox(width: 6),
           Flexible(
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.72,
+              ),
               child: Opacity(opacity: isFailed ? 0.7 : 1.0, child: column),
             ),
           ),
