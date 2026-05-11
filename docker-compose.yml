@@ -62,6 +62,7 @@ services:
       - KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
       - CLOUDINARY_URL=${CLOUDINARY_URL}
       - SWAGGER_HOST=${SWAGGER_HOST:-api:8080}
+      - SERVICE_NAME=api
     depends_on:
       - postgres
       - redis
@@ -91,6 +92,7 @@ services:
       - KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
       - CLOUDINARY_URL=${CLOUDINARY_URL}
       - CHAT_PORT=${CHAT_PORT:-8081}
+      - SERVICE_NAME=chat
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
       - DB_NAME=${DB_NAME:-chat_server}

@@ -12,9 +12,10 @@ import (
 )
 
 type Config struct {
-	ServerHost string `env:"SERVER_HOST" envDefault:"0.0.0.0"`
-	ServerPort int    `env:"SERVER_PORT" envDefault:"8080" validate:"min=1,max=65535"`
-	Env        string `env:"GIN_MODE" envDefault:"debug" validate:"oneof=debug release test"`
+	ServerHost  string `env:"SERVER_HOST" envDefault:"0.0.0.0"`
+	ServerPort  int    `env:"SERVER_PORT" envDefault:"8080" validate:"min=1,max=65535"`
+	Env         string `env:"GIN_MODE" envDefault:"debug" validate:"oneof=debug release test"`
+	ServiceName string `env:"SERVICE_NAME" envDefault:"chat-service"`
 
 	ChatPort int `env:"CHAT_PORT" envDefault:"8081" validate:"min=1,max=65535"`
 
