@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
-import { socketService } from '../../services/socket'
 import { ProfileEditModal } from '../../components/ProfileEditModal'
 import { ProfileViewModal } from '../../components/ProfileViewModal'
 import { SearchModal } from '../../components/search/SearchModal'
@@ -63,7 +62,7 @@ export const Chat = () => {
   }, [setShowSearch])
 
   const handleLogout = () => {
-    socketService.disconnect()
+    useChatStore.getState().reset()
     logout()
     navigate('/login', { replace: true })
   }

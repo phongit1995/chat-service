@@ -27,7 +27,6 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  final _bottomAnchor = GlobalKey();
   List<Message> _messages = [];
   bool _loading = true;
   StreamSubscription<NewMessageEvent>? _sub;
@@ -94,28 +93,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollBottomAnchor(animated: animated);
+      _scrollToMaxExtent(animated: animated);
     });
   }
 
-  void _scrollBottomAnchor({required bool animated, int attempt = 0}) {
+  void _scrollToMaxExtent({required bool animated, int attempt = 0}) {
     if (!mounted) return;
-    final anchorContext = _bottomAnchor.currentContext;
-    if (anchorContext == null) {
+    if (!_scroll.hasClients) {
       if (attempt < 6) {
         Future<void>.delayed(const Duration(milliseconds: 16), () {
-          _scrollBottomAnchor(animated: animated, attempt: attempt + 1);
+          _scrollToMaxExtent(animated: animated, attempt: attempt + 1);
         });
       }
       return;
     }
 
-    Scrollable.ensureVisible(
-      anchorContext,
-      alignment: 1.0,
-      duration: animated ? const Duration(milliseconds: 200) : Duration.zero,
-      curve: Curves.easeOut,
-    );
+    final target = _scroll.position.maxScrollExtent;
+    if (animated) {
+      _scroll.animateTo(
+        target,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    } else {
+      _scroll.jumpTo(target);
+    }
   }
 
   Future<void> _send() async {
@@ -308,7 +310,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             break;
                           }
                         }
-                        final convSeen = (conv?.isLastMessageFromMe ?? false) && (conv?.seen ?? false);
+                        final convSeen =
+                            (conv?.isLastMessageFromMe ?? false) &&
+                            (conv?.seen ?? false);
                         final isGroup = conv?.type == 'group';
                         const streakGapMs = 5 * 60 * 1000;
                         return ListView.builder(
@@ -317,11 +321,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             horizontal: 12,
                             vertical: 8,
                           ),
-                          itemCount: _messages.length + 1,
+                          itemCount: _messages.length,
                           itemBuilder: (_, i) {
-                            if (i == _messages.length) {
-                              return SizedBox(key: _bottomAnchor, height: 1);
-                            }
                             final m = _messages[i];
                             final isMine = m.senderId == me?.id;
                             final tCur =

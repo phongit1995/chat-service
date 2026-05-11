@@ -87,7 +87,6 @@ class SocketService {
     if (this.socket) {
       this.socket.disconnect()
       this.socket = null
-      this.listeners.clear()
     }
   }
 

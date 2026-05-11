@@ -1,4 +1,5 @@
 export { ConversationItem } from './ConversationItem'
 export { MessageBubble } from './MessageBubble'
+export { MessageList } from './MessageList'
 export { TypingIndicator } from './TypingIndicator'
 export { ChatHeader } from './ChatHeader'

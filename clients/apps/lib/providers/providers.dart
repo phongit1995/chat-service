@@ -17,12 +17,17 @@ class AuthState {
   final String? error;
   AuthState({this.user, this.loading = false, this.error});
 
-  AuthState copyWith({User? user, bool? loading, String? error, bool clearUser = false, bool clearError = false}) =>
-      AuthState(
-        user: clearUser ? null : (user ?? this.user),
-        loading: loading ?? this.loading,
-        error: clearError ? null : (error ?? this.error),
-      );
+  AuthState copyWith({
+    User? user,
+    bool? loading,
+    String? error,
+    bool clearUser = false,
+    bool clearError = false,
+  }) => AuthState(
+    user: clearUser ? null : (user ?? this.user),
+    loading: loading ?? this.loading,
+    error: clearError ? null : (error ?? this.error),
+  );
 }
 
 class AuthNotifier extends Notifier<AuthState> {
@@ -37,6 +42,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = await api.getProfile();
       state = state.copyWith(user: user);
       ref.read(socketProvider).connect(token);
+      ref.invalidate(conversationsProvider);
     } catch (_) {
       await api.logout();
     }
@@ -50,6 +56,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = User.fromJson(data['user'] as Map<String, dynamic>);
       state = state.copyWith(user: user, loading: false);
       ref.read(socketProvider).connect(data['token'] as String);
+      ref.invalidate(conversationsProvider);
       return true;
     } catch (e) {
       state = state.copyWith(loading: false, error: _extractError(e));
@@ -57,7 +64,12 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  Future<bool> register(String username, String email, String password, String fullName) async {
+  Future<bool> register(
+    String username,
+    String email,
+    String password,
+    String fullName,
+  ) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
       final api = ref.read(apiProvider);
@@ -72,6 +84,7 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> logout() async {
     await ref.read(apiProvider).logout();
     ref.read(socketProvider).disconnect();
+    ref.read(activeConversationProvider.notifier).set(null);
     state = AuthState();
   }
 
@@ -81,7 +94,9 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 }
 
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
 class ActiveConversationNotifier extends Notifier<String?> {
   @override
@@ -90,15 +105,17 @@ class ActiveConversationNotifier extends Notifier<String?> {
 }
 
 final activeConversationProvider =
-    NotifierProvider<ActiveConversationNotifier, String?>(ActiveConversationNotifier.new);
+    NotifierProvider<ActiveConversationNotifier, String?>(
+      ActiveConversationNotifier.new,
+    );
 
 class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
   @override
   Future<List<Conversation>> build() async {
     final socket = ref.read(socketProvider);
 
-    socket.onConversationCreated.listen((_) => reload());
-    socket.onConversationUpdated.listen((data) {
+    final createdSub = socket.onConversationCreated.listen((_) => reload());
+    final updatedSub = socket.onConversationUpdated.listen((data) {
       final id = data['id'] as String?;
       final seen = data['seen'];
       if (id != null && seen is bool) {
@@ -113,12 +130,12 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
       }
       reload();
     });
-    socket.onConversationDeleted.listen((id) {
+    final deletedSub = socket.onConversationDeleted.listen((id) {
       final list = state.value ?? [];
       state = AsyncValue.data(list.where((c) => c.id != id).toList());
     });
 
-    socket.onNewMessage.listen((event) {
+    final newMessageSub = socket.onNewMessage.listen((event) {
       final msg = event.message;
       final list = state.value ?? [];
       final idx = list.indexWhere((c) => c.id == msg.conversationId);
@@ -172,12 +189,22 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
         unreadCount: unread,
       );
 
-      final newList = [updated, ...list.where((c) => c.id != msg.conversationId)];
+      final newList = [
+        updated,
+        ...list.where((c) => c.id != msg.conversationId),
+      ];
       state = AsyncValue.data(newList);
 
       if (isActive && !isFromMe) {
         ref.read(apiProvider).markAsRead(msg.conversationId).catchError((_) {});
       }
+    });
+
+    ref.onDispose(() {
+      createdSub.cancel();
+      updatedSub.cancel();
+      deletedSub.cancel();
+      newMessageSub.cancel();
     });
 
     return ref.read(apiProvider).getConversations();
@@ -205,4 +232,6 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
 }
 
 final conversationsProvider =
-    AsyncNotifierProvider<ConversationsNotifier, List<Conversation>>(ConversationsNotifier.new);
+    AsyncNotifierProvider<ConversationsNotifier, List<Conversation>>(
+      ConversationsNotifier.new,
+    );

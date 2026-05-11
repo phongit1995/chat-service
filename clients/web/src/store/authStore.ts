@@ -100,7 +100,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       })
 
       socketService.connect(token)
-    } catch (error) {
+    } catch (_error) {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('user')
       set({
