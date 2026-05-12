@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config/env.dart';
 import '../models/models.dart';
+import '../models/ws_events.dart';
 
 class NewMessageEvent {
   final Message message;
@@ -14,16 +15,26 @@ class SocketService {
   IO.Socket? _socket;
 
   final _newMessageCtrl = StreamController<NewMessageEvent>.broadcast();
+  final _messageUpdatedCtrl = StreamController<NewMessageEvent>.broadcast();
+  final _messageDeletedCtrl =
+      StreamController<MessageDeletedPayload>.broadcast();
   final _conversationCreatedCtrl = StreamController<String>.broadcast();
   final _conversationUpdatedCtrl =
-      StreamController<Map<String, dynamic>>.broadcast();
+      StreamController<ConversationUpdatedPayload>.broadcast();
   final _conversationDeletedCtrl = StreamController<String>.broadcast();
+  final _typingCtrl = StreamController<TypingPayload>.broadcast();
+  final _stopTypingCtrl = StreamController<TypingPayload>.broadcast();
 
   Stream<NewMessageEvent> get onNewMessage => _newMessageCtrl.stream;
+  Stream<NewMessageEvent> get onMessageUpdated => _messageUpdatedCtrl.stream;
+  Stream<MessageDeletedPayload> get onMessageDeleted =>
+      _messageDeletedCtrl.stream;
   Stream<String> get onConversationCreated => _conversationCreatedCtrl.stream;
-  Stream<Map<String, dynamic>> get onConversationUpdated =>
+  Stream<ConversationUpdatedPayload> get onConversationUpdated =>
       _conversationUpdatedCtrl.stream;
   Stream<String> get onConversationDeleted => _conversationDeletedCtrl.stream;
+  Stream<TypingPayload> get onUserTyping => _typingCtrl.stream;
+  Stream<TypingPayload> get onUserStopTyping => _stopTypingCtrl.stream;
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -48,40 +59,46 @@ class SocketService {
         final data = wrapper['data'];
         if (type == null || data is! Map) return;
         final payload = Map<String, dynamic>.from(data);
-
-        switch (type) {
-          case 'NEW_MESSAGE':
-            final msgRaw = payload['message'];
-            final convRaw = payload['conversation'];
-            if (msgRaw is Map) {
-              final message = Message.fromJson(
-                Map<String, dynamic>.from(msgRaw),
-              );
-              Conversation? conv;
-              if (convRaw is Map) {
-                conv = Conversation.fromJson(
-                  Map<String, dynamic>.from(convRaw),
-                );
-              }
-              _newMessageCtrl.add(NewMessageEvent(message, conv));
-            }
-            break;
-          case 'CONVERSATION_CREATED':
-            final id = payload['id'] as String?;
-            if (id != null) _conversationCreatedCtrl.add(id);
-            break;
-          case 'CONVERSATION_UPDATED':
-            _conversationUpdatedCtrl.add(payload);
-            break;
-          case 'CONVERSATION_DELETED':
-            final id = payload['conversationId'] as String?;
-            if (id != null) _conversationDeletedCtrl.add(id);
-            break;
-        }
+        _dispatch(type, payload);
       } catch (_) {}
     });
 
     _socket!.connect();
+  }
+
+  void _dispatch(String type, Map<String, dynamic> payload) {
+    switch (type) {
+      case WsEventType.newMessage:
+        final p = NewMessagePayload.fromJson(payload);
+        _newMessageCtrl.add(NewMessageEvent(p.message, p.conversation));
+        break;
+      case WsEventType.messageUpdated:
+        final p = NewMessagePayload.fromJson(payload);
+        _messageUpdatedCtrl.add(NewMessageEvent(p.message, p.conversation));
+        break;
+      case WsEventType.messageDeleted:
+        _messageDeletedCtrl.add(MessageDeletedPayload.fromJson(payload));
+        break;
+      case WsEventType.conversationCreated:
+        final id = payload['id'] as String?;
+        if (id != null) _conversationCreatedCtrl.add(id);
+        break;
+      case WsEventType.conversationUpdated:
+        _conversationUpdatedCtrl.add(
+          ConversationUpdatedPayload.fromJson(payload),
+        );
+        break;
+      case WsEventType.conversationDeleted:
+        final id = payload['conversationId'] as String?;
+        if (id != null) _conversationDeletedCtrl.add(id);
+        break;
+      case WsEventType.userTyping:
+        _typingCtrl.add(TypingPayload.fromJson(payload));
+        break;
+      case WsEventType.userStopTyping:
+        _stopTypingCtrl.add(TypingPayload.fromJson(payload));
+        break;
+    }
   }
 
   void disconnect() {
@@ -92,8 +109,12 @@ class SocketService {
   void dispose() {
     disconnect();
     _newMessageCtrl.close();
+    _messageUpdatedCtrl.close();
+    _messageDeletedCtrl.close();
     _conversationCreatedCtrl.close();
     _conversationUpdatedCtrl.close();
     _conversationDeletedCtrl.close();
+    _typingCtrl.close();
+    _stopTypingCtrl.close();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
+import '../models/ws_events.dart';
 import '../services/socket_service.dart';
 import 'active_conversation_provider.dart';
 import 'auth_provider.dart';
@@ -56,16 +57,15 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     state = AsyncValue.data(newList);
   }
 
-  void _handleConversationUpdated(Map<String, dynamic> data) {
-    final id = data['id'] as String?;
-    final seen = data['seen'];
-    if (id == null || seen is! bool) {
+  void _handleConversationUpdated(ConversationUpdatedPayload data) {
+    final seen = data.seen;
+    if (seen == null) {
       reload();
       return;
     }
 
     final list = state.value ?? [];
-    final idx = list.indexWhere((conversation) => conversation.id == id);
+    final idx = list.indexWhere((conversation) => conversation.id == data.id);
     if (idx < 0) {
       reload();
       return;
