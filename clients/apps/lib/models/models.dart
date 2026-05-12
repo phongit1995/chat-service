@@ -1,3 +1,8 @@
+import 'package:json_annotation/json_annotation.dart';
+
+part 'models.g.dart';
+
+@JsonSerializable()
 class User {
   final String id;
   final String username;
@@ -6,6 +11,7 @@ class User {
   final String? avatar;
   final String? avatarURL;
   final String? bio;
+  @JsonKey(defaultValue: 'offline')
   final String status;
 
   User({
@@ -19,26 +25,20 @@ class User {
     this.status = 'offline',
   });
 
-  factory User.fromJson(Map<String, dynamic> json) => User(
-    id: json['id'] as String,
-    username: json['username'] as String,
-    email: json['email'] as String,
-    fullName: json['fullName'] as String?,
-    avatar: json['avatar'] as String?,
-    avatarURL: json['avatarURL'] as String?,
-    bio: json['bio'] as String?,
-    status: (json['status'] as String?) ?? 'offline',
-  );
+  factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+  Map<String, dynamic> toJson() => _$UserToJson(this);
 
   String get displayName => fullName?.isNotEmpty == true ? fullName! : username;
 }
 
+@JsonSerializable()
 class OtherUserBrief {
   final String id;
   final String username;
   final String? fullName;
   final String? avatar;
   final String? bio;
+  @JsonKey(defaultValue: false)
   final bool isOnline;
   final String? lastActiveAt;
 
@@ -52,19 +52,15 @@ class OtherUserBrief {
     this.lastActiveAt,
   });
 
-  factory OtherUserBrief.fromJson(Map<String, dynamic> json) => OtherUserBrief(
-    id: json['id'] as String,
-    username: (json['username'] as String?) ?? '',
-    fullName: json['fullName'] as String?,
-    avatar: json['avatar'] as String?,
-    bio: json['bio'] as String?,
-    isOnline: (json['isOnline'] as bool?) ?? false,
-    lastActiveAt: json['lastActiveAt'] as String?,
-  );
+  factory OtherUserBrief.fromJson(Map<String, dynamic> json) =>
+      _$OtherUserBriefFromJson(json);
+  Map<String, dynamic> toJson() => _$OtherUserBriefToJson(this);
 }
 
+@JsonSerializable()
 class Conversation {
   final String id;
+  @JsonKey(defaultValue: 'direct')
   final String type;
   final String? name;
   final String? avatar;
@@ -72,9 +68,13 @@ class Conversation {
   final String? lastMessageAt;
   final String? lastMessageSenderId;
   final String? lastMessageSenderName;
+  @JsonKey(defaultValue: false)
   final bool isLastMessageFromMe;
+  @JsonKey(defaultValue: false)
   final bool seen;
+  @JsonKey(defaultValue: 0)
   final int unreadCount;
+  @JsonKey(defaultValue: 0)
   final int participantCount;
   final OtherUserBrief? otherUser;
 
@@ -94,23 +94,9 @@ class Conversation {
     this.otherUser,
   });
 
-  factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
-    id: json['id'] as String,
-    type: (json['type'] as String?) ?? 'direct',
-    name: json['name'] as String?,
-    avatar: json['avatar'] as String?,
-    lastMessageText: json['lastMessageText'] as String?,
-    lastMessageAt: json['lastMessageAt'] as String?,
-    lastMessageSenderId: json['lastMessageSenderId'] as String?,
-    lastMessageSenderName: json['lastMessageSenderName'] as String?,
-    isLastMessageFromMe: (json['isLastMessageFromMe'] as bool?) ?? false,
-    seen: (json['seen'] as bool?) ?? false,
-    unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
-    participantCount: (json['participantCount'] as num?)?.toInt() ?? 0,
-    otherUser: json['otherUser'] is Map<String, dynamic>
-        ? OtherUserBrief.fromJson(json['otherUser'] as Map<String, dynamic>)
-        : null,
-  );
+  factory Conversation.fromJson(Map<String, dynamic> json) =>
+      _$ConversationFromJson(json);
+  Map<String, dynamic> toJson() => _$ConversationToJson(this);
 
   Conversation copyWith({
     String? lastMessageText,
@@ -141,15 +127,20 @@ class Conversation {
       : (type == 'group' ? 'Group Chat' : 'Unknown');
 }
 
+@JsonSerializable()
 class Message {
   final String id;
   final String conversationId;
   final String senderId;
   final String? senderName;
   final String? senderAvatar;
+  @JsonKey(defaultValue: '')
   final String content;
+  @JsonKey(defaultValue: 'text')
   final String type;
+  @JsonKey(defaultValue: 'sent')
   final String status;
+  @JsonKey(defaultValue: '')
   final String createdAt;
   final String? clientMsgId;
 
@@ -179,20 +170,12 @@ class Message {
     clientMsgId: clientMsgId,
   );
 
-  factory Message.fromJson(Map<String, dynamic> json) => Message(
-    id: json['id'] as String,
-    conversationId: json['conversationId'] as String,
-    senderId: json['senderId'] as String,
-    senderName: json['senderName'] as String?,
-    senderAvatar: json['senderAvatar'] as String?,
-    content: (json['content'] as String?) ?? '',
-    type: (json['type'] as String?) ?? 'text',
-    status: (json['status'] as String?) ?? 'sent',
-    createdAt: (json['createdAt'] as String?) ?? '',
-    clientMsgId: json['clientMsgId'] as String?,
-  );
+  factory Message.fromJson(Map<String, dynamic> json) =>
+      _$MessageFromJson(json);
+  Map<String, dynamic> toJson() => _$MessageToJson(this);
 }
 
+@JsonSerializable()
 class UserSearchResult {
   final String id;
   final String username;
@@ -209,13 +192,75 @@ class UserSearchResult {
   });
 
   factory UserSearchResult.fromJson(Map<String, dynamic> json) =>
-      UserSearchResult(
-        id: json['id'] as String,
-        username: json['username'] as String,
-        email: json['email'] as String,
-        fullName: json['fullName'] as String?,
-        avatar: json['avatar'] as String?,
-      );
+      _$UserSearchResultFromJson(json);
+  Map<String, dynamic> toJson() => _$UserSearchResultToJson(this);
 
   String get displayName => fullName?.isNotEmpty == true ? fullName! : username;
+}
+
+@JsonSerializable()
+class ConversationsResponse {
+  final List<Conversation> conversations;
+
+  ConversationsResponse({required this.conversations});
+
+  factory ConversationsResponse.fromJson(Map<String, dynamic> json) =>
+      _$ConversationsResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$ConversationsResponseToJson(this);
+}
+
+@JsonSerializable()
+class MessagesResponse {
+  final List<Message> messages;
+
+  MessagesResponse({required this.messages});
+
+  factory MessagesResponse.fromJson(Map<String, dynamic> json) =>
+      _$MessagesResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$MessagesResponseToJson(this);
+}
+
+@JsonSerializable()
+class UsersResponse {
+  final List<UserSearchResult> users;
+
+  UsersResponse({required this.users});
+
+  factory UsersResponse.fromJson(Map<String, dynamic> json) =>
+      _$UsersResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$UsersResponseToJson(this);
+}
+
+@JsonSerializable(genericArgumentFactories: true)
+class ApiResponse<T> {
+  final bool success;
+  final int status;
+  final T? data;
+  final String? error;
+
+  ApiResponse({
+    required this.success,
+    required this.status,
+    this.data,
+    this.error,
+  });
+
+  factory ApiResponse.fromJson(
+    Map<String, dynamic> json,
+    T Function(Object? json) fromJsonT,
+  ) => _$ApiResponseFromJson(json, fromJsonT);
+  Map<String, dynamic> toJson(Object Function(T value) toJsonT) =>
+      _$ApiResponseToJson(this, toJsonT);
+}
+
+@JsonSerializable()
+class LoginData {
+  final String token;
+  final User user;
+
+  LoginData({required this.token, required this.user});
+
+  factory LoginData.fromJson(Map<String, dynamic> json) =>
+      _$LoginDataFromJson(json);
+  Map<String, dynamic> toJson() => _$LoginDataToJson(this);
 }
