@@ -27,12 +27,14 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
       newMessageSub.cancel();
     });
 
-    return ref.read(apiProvider).getConversations();
+    return ref.read(conversationServiceProvider).getConversations();
   }
 
   Future<void> reload() async {
     try {
-      final list = await ref.read(apiProvider).getConversations();
+      final list = await ref
+          .read(conversationServiceProvider)
+          .getConversations();
       state = AsyncValue.data(list);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -127,7 +129,10 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     ]);
 
     if (isActive && !isFromMe) {
-      ref.read(apiProvider).markAsRead(msg.conversationId).catchError((_) {});
+      ref
+          .read(conversationServiceProvider)
+          .markAsRead(msg.conversationId)
+          .catchError((_) {});
     }
   }
 

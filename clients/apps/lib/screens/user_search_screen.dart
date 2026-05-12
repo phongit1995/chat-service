@@ -36,7 +36,7 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
     }
     setState(() => _loading = true);
     try {
-      final res = await ref.read(apiProvider).searchUsers(q.trim());
+      final res = await ref.read(userServiceProvider).searchUsers(q.trim());
       if (mounted) setState(() => _results = res);
     } catch (_) {
       if (mounted) setState(() => _results = []);
@@ -47,7 +47,9 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
 
   Future<void> _startChat(UserSearchResult u) async {
     try {
-      final conv = await ref.read(apiProvider).createDirectConversation(u.id);
+      final conv = await ref
+          .read(conversationServiceProvider)
+          .createDirectConversation(u.id);
       await ref.read(conversationsProvider.notifier).reload();
       if (!mounted) return;
       Navigator.of(context).pop();

@@ -68,7 +68,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _activeConversationNotifier.set(null);
       context.go('/');
     });
-    ref.read(apiProvider).markAsRead(widget.conversationId).catchError((_) {});
+    ref
+        .read(conversationServiceProvider)
+        .markAsRead(widget.conversationId)
+        .catchError((_) {});
     Future.microtask(() {
       ref.read(conversationsProvider.notifier).markRead(widget.conversationId);
     });
@@ -86,7 +89,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _load() async {
     try {
       final list = await ref
-          .read(apiProvider)
+          .read(messageServiceProvider)
           .getMessages(widget.conversationId);
       list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       if (mounted) {
@@ -155,7 +158,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     try {
       await ref
-          .read(apiProvider)
+          .read(messageServiceProvider)
           .sendMessage(widget.conversationId, text, clientMsgId: clientMsgId);
     } catch (e) {
       if (mounted) {

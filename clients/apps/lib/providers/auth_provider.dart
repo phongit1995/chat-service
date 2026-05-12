@@ -30,28 +30,26 @@ class AuthNotifier extends Notifier<AuthState> {
   AuthState build() => AuthState();
 
   Future<void> tryRestoreSession() async {
-    final api = ref.read(apiProvider);
-    final token = await api.getToken();
+    final auth = ref.read(authServiceProvider);
+    final token = await auth.getToken();
     if (token == null) return;
 
     try {
-      final user = await api.getProfile();
+      final user = await ref.read(userServiceProvider).getProfile();
       state = state.copyWith(user: user);
       ref.read(socketProvider).connect(token);
       ref.invalidate(conversationsProvider);
     } catch (_) {
-      await api.logout();
+      await auth.logout();
     }
   }
 
   Future<bool> login(String email, String password) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final api = ref.read(apiProvider);
-      final data = await api.login(email, password);
-      final user = User.fromJson(data['user'] as Map<String, dynamic>);
-      state = state.copyWith(user: user, loading: false);
-      ref.read(socketProvider).connect(data['token'] as String);
+      final result = await ref.read(authServiceProvider).login(email, password);
+      state = state.copyWith(user: result.user, loading: false);
+      ref.read(socketProvider).connect(result.token);
       ref.invalidate(conversationsProvider);
       return true;
     } catch (e) {
@@ -68,8 +66,9 @@ class AuthNotifier extends Notifier<AuthState> {
   ) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final api = ref.read(apiProvider);
-      await api.register(username, email, password, fullName);
+      await ref
+          .read(authServiceProvider)
+          .register(username, email, password, fullName);
       return await login(email, password);
     } catch (e) {
       state = state.copyWith(loading: false, error: _extractError(e));
@@ -78,7 +77,7 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
-    await ref.read(apiProvider).logout();
+    await ref.read(authServiceProvider).logout();
     ref.read(socketProvider).disconnect();
     ref.read(activeConversationProvider.notifier).set(null);
     state = AuthState();
