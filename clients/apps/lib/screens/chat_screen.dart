@@ -2,10 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 import '../providers/providers.dart';
+import '../providers/messages_provider.dart';
 import '../models/models.dart';
-import '../services/socket_service.dart';
 import '../theme/app_colors.dart';
 import 'chat/chat_app_bar.dart';
 import 'chat/message_composer.dart';
@@ -27,81 +26,40 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  List<Message> _messages = [];
-  bool _loading = true;
-  StreamSubscription<NewMessageEvent>? _newMessageSub;
   StreamSubscription<String>? _conversationDeletedSub;
-  bool _sending = false;
   late final ActiveConversationNotifier _activeConversationNotifier;
+  int _lastMessageCount = 0;
 
   @override
   void initState() {
     super.initState();
     _activeConversationNotifier = ref.read(activeConversationProvider.notifier);
-    _load();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+
+    Future.microtask(() {
       if (!mounted) return;
+      ref.read(messagesProvider.notifier).load(widget.conversationId);
       _activeConversationNotifier.set(widget.conversationId);
+      ref
+          .read(conversationServiceProvider)
+          .markAsRead(widget.conversationId)
+          .catchError((_) {});
+      ref.read(conversationsProvider.notifier).markRead(widget.conversationId);
     });
+
     final socket = ref.read(socketProvider);
-    _newMessageSub = socket.onNewMessage.listen((event) {
-      final m = event.message;
-      if (m.conversationId != widget.conversationId) return;
-      final idx = _messages.indexWhere(
-        (e) =>
-            e.id == m.id ||
-            (m.clientMsgId != null && e.clientMsgId == m.clientMsgId),
-      );
-      if (idx >= 0) {
-        final updated = [..._messages];
-        updated[idx] = m;
-        setState(() => _messages = updated);
-      } else {
-        setState(() => _messages = [..._messages, m]);
-        _scrollToBottom();
-      }
-    });
-    _conversationDeletedSub = socket.onConversationDeleted.listen((
-      conversationId,
-    ) {
-      if (conversationId != widget.conversationId || !mounted) return;
+    _conversationDeletedSub = socket.onConversationDeleted.listen((id) {
+      if (id != widget.conversationId || !mounted) return;
       _activeConversationNotifier.set(null);
       context.go('/');
-    });
-    ref
-        .read(conversationServiceProvider)
-        .markAsRead(widget.conversationId)
-        .catchError((_) {});
-    Future.microtask(() {
-      ref.read(conversationsProvider.notifier).markRead(widget.conversationId);
     });
   }
 
   @override
   void dispose() {
-    _newMessageSub?.cancel();
     _conversationDeletedSub?.cancel();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
-  }
-
-  Future<void> _load() async {
-    try {
-      final list = await ref
-          .read(messageServiceProvider)
-          .getMessages(widget.conversationId);
-      list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      if (mounted) {
-        setState(() {
-          _messages = list;
-          _loading = false;
-        });
-        _scrollToBottom(animated: false);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
   }
 
   void _scrollToBottom({bool animated = true}) {
@@ -135,48 +93,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty || _sending) return;
-    setState(() => _sending = true);
+    if (text.isEmpty) return;
     _input.clear();
-
-    final clientMsgId = const Uuid().v4();
-    final me = ref.read(authProvider).user;
-    final optimistic = Message(
-      id: clientMsgId,
-      conversationId: widget.conversationId,
-      senderId: me?.id ?? '',
-      senderName: me?.displayName,
-      senderAvatar: me?.avatar ?? me?.avatarURL,
-      content: text,
-      type: 'text',
-      status: 'sending',
-      createdAt: DateTime.now().toIso8601String(),
-      clientMsgId: clientMsgId,
-    );
-    setState(() => _messages = [..._messages, optimistic]);
     _scrollToBottom();
-
-    try {
-      await ref
-          .read(messageServiceProvider)
-          .sendMessage(widget.conversationId, text, clientMsgId: clientMsgId);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _messages = _messages
-              .map(
-                (m) => m.clientMsgId == clientMsgId
-                    ? m.copyWith(status: 'failed')
-                    : m,
-              )
-              .toList();
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Send failed: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _sending = false);
+    final ok = await ref.read(messagesProvider.notifier).send(text);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Send failed')),
+      );
     }
   }
 
@@ -184,6 +108,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final me = ref.watch(authProvider).user;
     final convsState = ref.watch(conversationsProvider);
+    final messagesState = ref.watch(messagesProvider);
+
     final liveConv = convsState.value?.firstWhere(
       (c) => c.id == widget.conversationId,
       orElse: () =>
@@ -194,6 +120,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         liveConv ??
         widget.conversation ??
         Conversation(id: widget.conversationId, type: 'direct');
+
+    if (messagesState.messages.length != _lastMessageCount) {
+      _lastMessageCount = messagesState.messages.length;
+      _scrollToBottom(animated: !messagesState.loading);
+    }
 
     return PopScope(
       canPop: true,
@@ -211,7 +142,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         body: Column(
           children: [
             Expanded(
-              child: _loading
+              child: messagesState.loading
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
@@ -219,14 +150,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     )
                   : MessageList(
                       conversation: conversation,
-                      messages: _messages,
+                      messages: messagesState.messages,
                       user: me,
                       scrollController: _scroll,
                     ),
             ),
             MessageComposer(
               controller: _input,
-              sending: _sending,
+              sending: messagesState.sending,
               onSend: _send,
             ),
           ],

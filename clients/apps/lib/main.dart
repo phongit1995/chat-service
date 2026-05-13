@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'providers/providers.dart';
+import 'providers/socket_listener_provider.dart';
 import 'models/models.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -55,6 +56,12 @@ class _ChatAppState extends ConsumerState<ChatApp> {
     );
 
     Future.microtask(() => ref.read(authProvider.notifier).tryRestoreSession());
+
+    ref.listenManual<AuthState>(authProvider, (prev, next) {
+      if (next.user != null) {
+        ref.read(socketListenerProvider);
+      }
+    }, fireImmediately: true);
   }
 
   @override

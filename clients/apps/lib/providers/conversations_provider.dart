@@ -10,24 +10,6 @@ import 'core_providers.dart';
 class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
   @override
   Future<List<Conversation>> build() async {
-    final socket = ref.read(socketProvider);
-
-    final createdSub = socket.onConversationCreated.listen((_) => reload());
-    final updatedSub = socket.onConversationUpdated.listen(
-      _handleConversationUpdated,
-    );
-    final deletedSub = socket.onConversationDeleted.listen(
-      _handleConversationDeleted,
-    );
-    final newMessageSub = socket.onNewMessage.listen(_handleNewMessage);
-
-    ref.onDispose(() {
-      createdSub.cancel();
-      updatedSub.cancel();
-      deletedSub.cancel();
-      newMessageSub.cancel();
-    });
-
     return ref.read(conversationServiceProvider).getConversations();
   }
 
@@ -57,7 +39,7 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     state = AsyncValue.data(newList);
   }
 
-  void _handleConversationUpdated(ConversationUpdatedPayload data) {
+  void handleConversationUpdated(ConversationUpdatedPayload data) {
     final seen = data.seen;
     if (seen == null) {
       reload();
@@ -76,7 +58,7 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     state = AsyncValue.data(newList);
   }
 
-  void _handleConversationDeleted(String id) {
+  void handleConversationDeleted(String id) {
     final list = state.value ?? [];
     state = AsyncValue.data(
       list.where((conversation) => conversation.id != id).toList(),
@@ -87,7 +69,7 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     }
   }
 
-  void _handleNewMessage(NewMessageEvent event) {
+  void handleNewMessage(NewMessageEvent event) {
     final msg = event.message;
     final list = state.value ?? [];
     final idx = list.indexWhere(
