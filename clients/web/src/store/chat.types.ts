@@ -21,12 +21,6 @@ export interface ChatState {
   typingTimeouts: Map<string, ReturnType<typeof setTimeout>>
   isLoading: boolean
   error: string | null
-  messageInput: string
-  isTyping: boolean
-  showSearch: boolean
-  tempChatUser: TempChatUser | null
-  isCreatingConversation: boolean
-  showProfileEdit: boolean
 
   loadConversations: () => Promise<void>
   selectConversation: (conversationId: string | null) => Promise<void>
@@ -36,12 +30,6 @@ export interface ChatState {
   addMessage: (message: Message) => void
   setTyping: (userId: string, isTyping: boolean, username?: string) => void
   markAsRead: (conversationId: string) => Promise<void>
-  setMessageInput: (input: string) => void
-  setIsTyping: (typing: boolean) => void
-  setShowSearch: (show: boolean) => void
-  setTempChatUser: (user: TempChatUser | null) => void
-  setIsCreatingConversation: (creating: boolean) => void
-  setShowProfileEdit: (show: boolean) => void
   handleConversationClick: (conversationId: string) => void
   handleSendMessage: () => Promise<void>
   handleInputChange: (value: string) => void

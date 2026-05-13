@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
+import { useChatUIStore } from '../../store/chatUIStore'
 import { ProfileEditModal } from '../../components/ProfileEditModal'
 import { ProfileViewModal } from '../../components/ProfileViewModal'
 import { SearchModal } from '../../components/search/SearchModal'
@@ -28,6 +29,14 @@ export const Chat = () => {
     currentConversation,
     messages,
     typingUsers,
+    handleConversationClick,
+    handleSendMessage,
+    handleInputChange,
+    handleSelectUser,
+    initialize,
+  } = useChatStore()
+
+  const {
     messageInput,
     showSearch,
     tempChatUser,
@@ -35,12 +44,8 @@ export const Chat = () => {
     showProfileEdit,
     setShowSearch,
     setShowProfileEdit,
-    handleConversationClick,
-    handleSendMessage,
-    handleInputChange,
-    handleSelectUser,
-    initialize,
-  } = useChatStore()
+    setMessageInput,
+  } = useChatUIStore()
 
   const [viewProfile, setViewProfile] = useState<ViewProfileUser | null>(null)
 
@@ -95,7 +100,7 @@ export const Chat = () => {
             tempChatUser={tempChatUser}
             messageInput={messageInput}
             isCreatingConversation={isCreatingConversation}
-            onMessageChange={(val) => useChatStore.setState({ messageInput: val })}
+            onMessageChange={(val) => setMessageInput(val)}
             onSendMessage={(e) => { e.preventDefault(); handleSendMessage(); }}
           />
         ) : currentConversation ? (

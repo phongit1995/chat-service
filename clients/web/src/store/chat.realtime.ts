@@ -12,7 +12,7 @@ import type {
   Conversation,
 } from '../types'
 import { WebSocketEventType } from '../types/realtime'
-import { apiService } from '../services/api'
+import { conversationService } from '../services/conversation.service'
 import { socketService } from '../services/socket'
 import { useAuthStore } from './authStore'
 import type { ChatState } from './chat.types'
@@ -88,7 +88,7 @@ export const registerChatRealtimeListeners = (set: ChatSetState, get: ChatGetSta
     })
 
     if (isCurrentConversation && !isFromMe) {
-      apiService.markConversationAsRead(message.conversationId).catch(() => {})
+      conversationService.markAsRead(message.conversationId).catch(() => {})
     }
   })
 

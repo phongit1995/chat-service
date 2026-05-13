@@ -1,9 +1,8 @@
 import { useState, useRef } from 'react'
 import { Button, Input, Modal, ModalHeader, ModalBody, ModalFooter } from './ui'
-import { apiService } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
-import type { UpdateProfileDTO, User } from '../types'
+import type { UpdateProfileDTO } from '../types'
 
 interface ProfileEditModalProps {
   isOpen: boolean
@@ -11,7 +10,7 @@ interface ProfileEditModalProps {
 }
 
 export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => {
-  const { user, setUser } = useAuthStore()
+  const { user, updateProfile, uploadAvatar } = useAuthStore()
   const [formData, setFormData] = useState<UpdateProfileDTO>({
     fullName: user?.fullName || '',
     bio: user?.bio || '',
@@ -50,7 +49,7 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
 
     try {
       setIsUploading(true)
-      const response = await apiService.uploadImage(file)
+      const response = await uploadAvatar(file)
       const imageUrl = response.data?.secureUrl || response.data?.url
 
       if (imageUrl) {
@@ -71,10 +70,9 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
 
     try {
       setIsLoading(true)
-      const response = await apiService.updateProfile(formData)
+      const response = await updateProfile(formData)
 
       if (response.success && response.data) {
-        setUser(response.data as User)
         toast.success('Profile updated successfully')
         onClose()
       }

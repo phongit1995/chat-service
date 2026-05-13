@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import toast from 'react-hot-toast'
-import type { User } from '../types'
-import { apiService } from '../services/api'
+import type { ApiResponse, UpdateProfileDTO, UploadImageResponse, User } from '../types'
+import { authService } from '../services/auth.service'
+import { userService } from '../services/user.service'
 import { socketService } from '../services/socket'
 
 interface AuthState {
@@ -16,6 +17,8 @@ interface AuthState {
   logout: () => void
   loadUser: () => Promise<void>
   setUser: (user: User) => void
+  updateProfile: (data: UpdateProfileDTO) => Promise<ApiResponse<User>>
+  uploadAvatar: (file: File) => Promise<ApiResponse<UploadImageResponse>>
   clearError: () => void
 }
 
@@ -29,7 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email, password) => {
     set({ isLoading: true, error: null })
     try {
-      const response = await apiService.login({ email, password })
+      const response = await authService.login({ email, password })
       const { token, user } = response.data
 
       localStorage.setItem('accessToken', token)
@@ -39,7 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         user,
         accessToken: token,
         isAuthenticated: true,
-        isLoading: false
+        isLoading: false,
       })
 
       socketService.connect(token)
@@ -55,7 +58,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (username, email, password, fullName) => {
     set({ isLoading: true, error: null })
     try {
-      const response = await apiService.register({
+      const response = await authService.register({
         username,
         email,
         password,
@@ -79,7 +82,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({
       user: null,
       accessToken: null,
-      isAuthenticated: false
+      isAuthenticated: false,
     })
     toast.success('Logged out successfully')
   },
@@ -92,11 +95,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      const response = await apiService.getProfile()
+      const response = await userService.getProfile()
       set({
         user: response.data!,
         isAuthenticated: true,
-        accessToken: token
+        accessToken: token,
       })
 
       socketService.connect(token)
@@ -106,7 +109,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         user: null,
         accessToken: null,
-        isAuthenticated: false
+        isAuthenticated: false,
       })
     }
   },
@@ -114,6 +117,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => {
     localStorage.setItem('user', JSON.stringify(user))
     set({ user })
+  },
+
+  updateProfile: async (data) => {
+    const response = await userService.updateProfile(data)
+    if (response.success && response.data) {
+      localStorage.setItem('user', JSON.stringify(response.data))
+      set({ user: response.data })
+    }
+    return response
+  },
+
+  uploadAvatar: async (file) => {
+    return await userService.uploadImage(file)
   },
 
   clearError: () => set({ error: null }),

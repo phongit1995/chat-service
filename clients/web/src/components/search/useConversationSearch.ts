@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import { apiService } from '../../services/api'
+import { userService } from '../../services/user.service'
 import type { Conversation, UserSearchResult } from '../../types'
 
 export type SearchResultRow =
@@ -78,7 +78,7 @@ export const useConversationSearch = ({ isOpen, conversations }: UseConversation
       const controller = new AbortController()
       abortRef.current = controller
       try {
-        const response = await apiService.searchUsers(q, 20, controller.signal)
+        const response = await userService.searchUsers(q, 20, controller.signal)
         if (!controller.signal.aborted) {
           setUsers(response.data?.users || [])
         }
