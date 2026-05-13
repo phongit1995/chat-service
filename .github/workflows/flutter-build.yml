@@ -135,6 +135,42 @@ jobs:
           path: ${{ env.APP_DIR }}/chat_app-windows.zip
           retention-days: 14
 
+  build-macos:
+    name: Build macOS
+    needs: analyze
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter pub get
+
+      - name: Generate code
+        working-directory: ${{ env.APP_DIR }}
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build macOS (release, unsigned)
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build macos --release
+
+      - name: Zip macOS app
+        working-directory: ${{ env.APP_DIR }}/build/macos/Build/Products/Release
+        run: zip -r ../../../../../chat_app-macos.zip *.app
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: ${{ env.APP_DIR }}/chat_app-macos.zip
+          retention-days: 14
+
   build-linux:
     name: Build Linux
     needs: analyze
@@ -178,7 +214,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build-android, build-windows, build-linux]
+    needs: [build-android, build-windows, build-linux, build-macos]
     if: inputs.release == true
     runs-on: ubuntu-latest
     permissions:
@@ -209,6 +245,7 @@ jobs:
             artifacts/android-aab/*.aab
             artifacts/windows-build/*.zip
             artifacts/linux-build/*.tar.gz
+            artifacts/macos-build/*.zip
           generate_release_notes: true
           draft: false
           prerelease: false
