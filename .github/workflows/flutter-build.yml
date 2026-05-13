@@ -1,0 +1,214 @@
+name: Flutter Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create GitHub Release with artifacts'
+        type: boolean
+        default: false
+      tag:
+        description: 'Release tag (e.g. v1.0.0). Required when release=true'
+        type: string
+        required: false
+
+env:
+  FLUTTER_VERSION: '3.35.6'
+  APP_DIR: clients/apps
+
+jobs:
+  analyze:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter pub get
+
+      - name: Generate code
+        working-directory: ${{ env.APP_DIR }}
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter analyze
+
+      - name: Test
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter test || true
+
+  build-android:
+    name: Build Android
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter pub get
+
+      - name: Generate code
+        working-directory: ${{ env.APP_DIR }}
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build APK split-per-abi (release, unsigned)
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build apk --release --split-per-abi
+
+      - name: Build APK universal (release, unsigned)
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build apk --release
+
+      - name: Build AAB (release, unsigned)
+        if: inputs.release == true
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build appbundle --release
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: ${{ env.APP_DIR }}/build/app/outputs/flutter-apk/*.apk
+          retention-days: 14
+
+      - name: Upload AAB artifact
+        if: inputs.release == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: ${{ env.APP_DIR }}/build/app/outputs/bundle/release/*.aab
+          retention-days: 14
+
+  build-windows:
+    name: Build Windows
+    needs: analyze
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter pub get
+
+      - name: Generate code
+        working-directory: ${{ env.APP_DIR }}
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Windows
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build windows --release
+
+      - name: Zip Windows build
+        working-directory: ${{ env.APP_DIR }}/build/windows/x64/runner/Release
+        run: 7z a -tzip ../../../../../chat_app-windows.zip *
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: ${{ env.APP_DIR }}/chat_app-windows.zip
+          retention-days: 14
+
+  build-linux:
+    name: Build Linux
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libblkid-dev liblzma-dev
+
+      - name: Get dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter pub get
+
+      - name: Generate code
+        working-directory: ${{ env.APP_DIR }}
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Linux
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build linux --release
+
+      - name: Tar Linux build
+        working-directory: ${{ env.APP_DIR }}/build/linux/x64/release/bundle
+        run: tar -czf ../../../../../chat_app-linux.tar.gz .
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: ${{ env.APP_DIR }}/chat_app-linux.tar.gz
+          retention-days: 14
+
+  release:
+    name: Create GitHub Release
+    needs: [build-android, build-windows, build-linux]
+    if: inputs.release == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Validate tag input
+        run: |
+          if [ -z "${{ inputs.tag }}" ]; then
+            echo "::error::release=true requires a tag input"
+            exit 1
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          files: |
+            artifacts/android-apk/*.apk
+            artifacts/android-aab/*.aab
+            artifacts/windows-build/*.zip
+            artifacts/linux-build/*.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false
