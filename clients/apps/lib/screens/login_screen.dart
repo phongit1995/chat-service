@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_gradients.dart';
 import '../theme/app_typography.dart';
 import '../theme/widgets.dart';
+import '../utils/toast.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -28,7 +29,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final ok = await ref
         .read(authProvider.notifier)
         .login(_email.text.trim(), _password.text);
-    if (ok && mounted) context.go('/');
+    if (!mounted) return;
+    if (ok) {
+      context.go('/');
+    } else {
+      final error = ref.read(authProvider).error;
+      showErrorToast(error ?? 'Login failed');
+    }
   }
 
   @override
@@ -103,13 +110,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                               obscureText: true,
                             ),
-                            if (auth.error != null) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                auth.error!,
-                                style: const TextStyle(color: AppColors.danger),
-                              ),
-                            ],
                             const SizedBox(height: 18),
                             GradientButton(
                               onPressed: auth.loading ? null : _submit,

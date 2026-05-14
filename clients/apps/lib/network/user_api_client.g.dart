@@ -103,6 +103,45 @@ class _UserApiClient implements UserApiClient {
   }
 
   @override
+  Future<HttpResponse<ApiResponse<UserPublicProfile>>> getUserInfo(
+      String id) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{};
+    const Map<String, dynamic>? _data = null;
+    final _options =
+        _setStreamType<HttpResponse<ApiResponse<UserPublicProfile>>>(Options(
+      method: 'GET',
+      headers: _headers,
+      extra: _extra,
+    )
+            .compose(
+              _dio.options,
+              '/user/${id}',
+              queryParameters: queryParameters,
+              data: _data,
+            )
+            .copyWith(
+                baseUrl: _combineBaseUrls(
+              _dio.options.baseUrl,
+              baseUrl,
+            )));
+    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
+    late ApiResponse<UserPublicProfile> _value;
+    try {
+      _value = ApiResponse<UserPublicProfile>.fromJson(
+        _result.data!,
+        (json) => UserPublicProfile.fromJson(json as Map<String, dynamic>),
+      );
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options);
+      rethrow;
+    }
+    final httpResponse = HttpResponse(_value, _result);
+    return httpResponse;
+  }
+
+  @override
   Future<HttpResponse<ApiResponse<User>>> updateProfile(
       UpdateProfileRequest request) async {
     final _extra = <String, dynamic>{};

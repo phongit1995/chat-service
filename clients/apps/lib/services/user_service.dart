@@ -15,6 +15,11 @@ class UserService {
     return res.data.data!;
   }
 
+  Future<UserPublicProfile> getUserInfo(String userId) async {
+    final res = await _client.getUserInfo(userId);
+    return res.data.data!;
+  }
+
   Future<List<UserSearchResult>> searchUsers(String query) async {
     final res = await _client.searchUsers(query);
     return res.data.data?.users ?? [];

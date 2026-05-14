@@ -733,6 +733,50 @@ definitions:
     type: object
   internal_modules_user.UserProfileSuccessResponse:
     type: object
+  internal_modules_user.UserPublicProfileResponse:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      bio:
+        example: Software developer
+        type: string
+      createdAt:
+        example: "2024-01-01T00:00:00Z"
+        type: string
+      fullName:
+        example: John Doe
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      isOnline:
+        example: true
+        type: boolean
+      lastActiveAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      username:
+        example: john_doe
+        type: string
+    type: object
+  internal_modules_user.UserPublicProfileSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_user.UserPublicProfileResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
   internal_modules_user.UserSearchResult:
     properties:
       avatar:
@@ -1629,6 +1673,40 @@ paths:
       summary: Get sent friend requests
       tags:
       - relationships
+  /user/{id}:
+    get:
+      description: Get public profile information of a user by ID, including online
+        status and last active time
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_user.UserPublicProfileSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get user public info
+      tags:
+      - user
   /user/me:
     get:
       description: Get authenticated user's profile information

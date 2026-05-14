@@ -4,22 +4,13 @@ import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
 import { useChatUIStore } from '../../store/chatUIStore'
 import { ProfileEditModal } from '../../components/ProfileEditModal'
-import { ProfileViewModal } from '../../components/ProfileViewModal'
 import { SearchModal } from '../../components/search/SearchModal'
 import { ChatSidebar } from './ChatSidebar'
 import { ChatArea } from './ChatArea'
 import { NewChatView } from './NewChatView'
 import { EmptyState } from './EmptyState'
+import { UserProfilePage } from '../user-profile/UserProfilePage'
 import type { UserSearchResult } from '../../types'
-
-interface ViewProfileUser {
-  id: string
-  username?: string
-  fullName?: string
-  avatar?: string
-  bio?: string
-  email?: string
-}
 
 export const Chat = () => {
   const navigate = useNavigate()
@@ -47,7 +38,7 @@ export const Chat = () => {
     setMessageInput,
   } = useChatUIStore()
 
-  const [viewProfile, setViewProfile] = useState<ViewProfileUser | null>(null)
+  const [viewProfileUserId, setViewProfileUserId] = useState<string | null>(null)
 
   useEffect(() => {
     initialize()
@@ -73,6 +64,13 @@ export const Chat = () => {
   }
 
   const handleSearchSelectUser = (result: UserSearchResult) => {
+    setShowSearch(false)
+    setViewProfileUserId(result.id)
+  }
+
+  const handleProfileStartChat = (userId: string) => {
+    setViewProfileUserId(null)
+    const result = { id: userId } as UserSearchResult
     handleSelectUser(result)
   }
 
@@ -95,7 +93,13 @@ export const Chat = () => {
       </div>
 
       <div className="flex-1 flex flex-col bg-surface-base">
-        {tempChatUser && !currentConversation ? (
+        {viewProfileUserId ? (
+          <UserProfilePage
+            userId={viewProfileUserId}
+            onBack={() => setViewProfileUserId(null)}
+            onStartChat={handleProfileStartChat}
+          />
+        ) : tempChatUser && !currentConversation ? (
           <NewChatView
             tempChatUser={tempChatUser}
             messageInput={messageInput}
@@ -131,11 +135,6 @@ export const Chat = () => {
         onClose={() => setShowProfileEdit(false)}
       />
 
-      <ProfileViewModal
-        isOpen={!!viewProfile}
-        onClose={() => setViewProfile(null)}
-        user={viewProfile}
-      />
     </div>
   )
 }

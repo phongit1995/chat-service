@@ -8,6 +8,7 @@ import '../providers/providers.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_gradients.dart';
 import '../theme/app_typography.dart';
+import '../utils/toast.dart';
 import '../theme/widgets.dart';
 
 class ProfileEditScreen extends ConsumerStatefulWidget {
@@ -26,7 +27,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   String? _uploadedAvatarUrl;
   bool _uploading = false;
   bool _saving = false;
-  String? _error;
 
   @override
   void initState() {
@@ -62,7 +62,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     setState(() {
       _pickedImage = picked;
       _uploading = true;
-      _error = null;
     });
 
     try {
@@ -74,10 +73,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         _uploading = false;
       });
     } catch (e) {
+      showErrorToast('Failed to upload image. Please try again.');
       setState(() {
         _pickedImage = null;
         _uploading = false;
-        _error = 'Failed to upload image. Please try again.';
       });
     }
   }
@@ -88,14 +87,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final phone = _phone.text.trim();
 
     if (fullName.isEmpty && bio.isEmpty && phone.isEmpty && _uploadedAvatarUrl == null) {
-      setState(() => _error = 'No changes to save.');
+      showInfoToast('No changes to save.');
       return;
     }
 
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
+    setState(() => _saving = true);
 
     try {
       final req = UpdateProfileRequest(
@@ -107,15 +103,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       final updatedUser = await ref.read(userServiceProvider).updateProfile(req);
       ref.read(authProvider.notifier).updateUser(updatedUser);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!')),
-        );
+        showSuccessToast('Profile updated successfully!');
         Navigator.of(context).pop();
       }
     } catch (e) {
+      final msg = e is Exception ? e.toString().replaceFirst('Exception: ', '') : 'Failed to save profile. Please try again.';
+      showErrorToast(msg);
       setState(() {
         _saving = false;
-        _error = 'Failed to save profile. Please try again.';
       });
     }
   }
@@ -213,14 +208,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 ),
               ],
             ),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                _error!,
-                style: const TextStyle(color: AppColors.danger, fontSize: 13),
-                textAlign: TextAlign.center,
-              ),
-            ],
             const SizedBox(height: 24),
             GradientButton(
               onPressed: (_saving || _uploading) ? null : _save,

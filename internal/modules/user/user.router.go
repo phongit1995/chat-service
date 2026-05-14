@@ -24,5 +24,6 @@ func (r *Router) Setup(api *utils.AppGroup) {
 		user.PUT("/me", r.controller.UpdateProfile)
 		user.POST("/upload", r.controller.Upload)
 		user.GET("/search", r.controller.SearchUsers)
+		user.GET("/:id", r.controller.GetUserInfo)
 	}
 }

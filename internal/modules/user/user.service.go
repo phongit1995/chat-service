@@ -222,6 +222,31 @@ func (s *Service) SearchUsers(query string, limit int, currentUserID uuid.UUID) 
 	}, nil
 }
 
+func (s *Service) GetPublicProfile(targetUserID uuid.UUID) (*UserPublicProfileResponse, error) {
+	user, err := s.repo.FindByID(targetUserID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	idStr := targetUserID.String()
+	isOnline := s.presence.IsUserOnline(idStr)
+	lastActiveAt := s.presence.GetLastActive(idStr)
+
+	return &UserPublicProfileResponse{
+		ID:           user.ID.String(),
+		Username:     user.Username,
+		FullName:     user.FullName,
+		Avatar:       user.Avatar,
+		Bio:          user.Bio,
+		IsOnline:     isOnline,
+		LastActiveAt: lastActiveAt,
+		CreatedAt:    user.CreatedAt.Format(time.RFC3339),
+	}, nil
+}
+
 func (s *Service) buildProfileResponse(user *models.User) *UserProfileResponse {
 	response := &UserProfileResponse{
 		ID:         user.ID.String(),

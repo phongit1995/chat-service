@@ -10,6 +10,7 @@ import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/chat_screen.dart';
 import 'theme/app_theme.dart';
+import 'utils/toast.dart' show navigatorKey;
 
 void main() {
   runApp(const ProviderScope(child: ChatApp()));
@@ -30,6 +31,7 @@ class _ChatAppState extends ConsumerState<ChatApp> {
     super.initState();
     _authListenable = _AuthListenable(ref);
     _router = GoRouter(
+      navigatorKey: navigatorKey,
       initialLocation: '/login',
       refreshListenable: _authListenable,
       redirect: (ctx, state) {

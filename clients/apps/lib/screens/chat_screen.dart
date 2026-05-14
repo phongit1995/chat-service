@@ -6,6 +6,7 @@ import '../providers/providers.dart';
 import '../providers/messages_provider.dart';
 import '../models/models.dart';
 import '../theme/app_colors.dart';
+import '../utils/toast.dart';
 import 'chat/chat_app_bar.dart';
 import 'chat/message_composer.dart';
 import 'chat/message_list.dart';
@@ -98,9 +99,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollToBottom();
     final ok = await ref.read(messagesProvider.notifier).send(text);
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Send failed')),
-      );
+      showErrorToast('Failed to send message');
     }
   }
 

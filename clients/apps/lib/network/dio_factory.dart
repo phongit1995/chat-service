@@ -22,6 +22,24 @@ Dio createDio() {
         }
         return handler.next(options);
       },
+      onError: (DioException e, handler) {
+        final data = e.response?.data;
+        if (data is Map<String, dynamic>) {
+          final apiMessage = data['error'];
+          if (apiMessage is String && apiMessage.isNotEmpty) {
+            return handler.reject(
+              DioException(
+                requestOptions: e.requestOptions,
+                response: e.response,
+                type: e.type,
+                error: e.error,
+                message: apiMessage,
+              ),
+            );
+          }
+        }
+        return handler.next(e);
+      },
     ),
   );
 

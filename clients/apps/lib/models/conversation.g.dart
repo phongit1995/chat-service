@@ -1,34 +1,10 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'models.dart';
+part of 'conversation.dart';
 
 // **************************************************************************
 // JsonSerializableGenerator
 // **************************************************************************
-
-User _$UserFromJson(Map<String, dynamic> json) => User(
-      id: json['id'] as String,
-      username: json['username'] as String,
-      email: json['email'] as String,
-      fullName: json['fullName'] as String?,
-      avatar: json['avatar'] as String?,
-      avatarURL: json['avatarURL'] as String?,
-      bio: json['bio'] as String?,
-      phone: json['phone'] as String?,
-      status: json['status'] as String? ?? 'offline',
-    );
-
-Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
-      'id': instance.id,
-      'username': instance.username,
-      'email': instance.email,
-      'fullName': instance.fullName,
-      'avatar': instance.avatar,
-      'avatarURL': instance.avatarURL,
-      'bio': instance.bio,
-      'phone': instance.phone,
-      'status': instance.status,
-    };
 
 OtherUserBrief _$OtherUserBriefFromJson(Map<String, dynamic> json) =>
     OtherUserBrief(
@@ -85,50 +61,4 @@ Map<String, dynamic> _$ConversationToJson(Conversation instance) =>
       'unreadCount': instance.unreadCount,
       'participantCount': instance.participantCount,
       'otherUser': instance.otherUser,
-    };
-
-Message _$MessageFromJson(Map<String, dynamic> json) => Message(
-      id: json['id'] as String,
-      conversationId: json['conversationId'] as String,
-      senderId: json['senderId'] as String,
-      senderName: json['senderName'] as String?,
-      senderAvatar: json['senderAvatar'] as String?,
-      content: json['content'] as String? ?? '',
-      type: json['type'] as String? ?? 'text',
-      status: json['status'] as String? ?? 'sent',
-      createdAt: json['createdAt'] as String? ?? '',
-      clientMsgId: json['clientMsgId'] as String?,
-    );
-
-Map<String, dynamic> _$MessageToJson(Message instance) => <String, dynamic>{
-      'id': instance.id,
-      'conversationId': instance.conversationId,
-      'senderId': instance.senderId,
-      'senderName': instance.senderName,
-      'senderAvatar': instance.senderAvatar,
-      'content': instance.content,
-      'type': instance.type,
-      'status': instance.status,
-      'createdAt': instance.createdAt,
-      'clientMsgId': instance.clientMsgId,
-    };
-
-UserSearchResult _$UserSearchResultFromJson(Map<String, dynamic> json) =>
-    UserSearchResult(
-      id: json['id'] as String,
-      username: json['username'] as String,
-      fullName: json['fullName'] as String?,
-      avatar: json['avatar'] as String?,
-      bio: json['bio'] as String?,
-      isOnline: json['isOnline'] as bool? ?? false,
-    );
-
-Map<String, dynamic> _$UserSearchResultToJson(UserSearchResult instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'username': instance.username,
-      'fullName': instance.fullName,
-      'avatar': instance.avatar,
-      'bio': instance.bio,
-      'isOnline': instance.isOnline,
     };

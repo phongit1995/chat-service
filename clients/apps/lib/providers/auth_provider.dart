@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
+import '../utils/toast.dart';
 import 'active_conversation_provider.dart';
 import 'conversations_provider.dart';
 import 'core_providers.dart';
@@ -51,6 +53,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(user: result.user, loading: false);
       ref.read(socketProvider).connect(result.token);
       ref.invalidate(conversationsProvider);
+      showSuccessToast('Welcome back, ${result.user.displayName}!');
       return true;
     } catch (e) {
       state = state.copyWith(loading: false, error: _extractError(e));
@@ -88,6 +91,14 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   String _extractError(Object e) {
+    if (e is DioException) {
+      if (e.message != null && e.message!.isNotEmpty) return e.message!;
+      final data = e.response?.data;
+      if (data is Map<String, dynamic>) {
+        final msg = data['error'];
+        if (msg is String && msg.isNotEmpty) return msg;
+      }
+    }
     final s = e.toString();
     return s.length > 200 ? s.substring(0, 200) : s;
   }

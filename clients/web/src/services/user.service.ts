@@ -4,6 +4,7 @@ import type {
   UpdateProfileDTO,
   UploadImageResponse,
   User,
+  UserPublicProfile,
 } from '../types'
 import { http } from './http'
 
@@ -27,6 +28,11 @@ export const userService = {
       params: { q: query, limit },
       signal,
     })
+    return res.data
+  },
+
+  async getUserInfo(userId: string): Promise<ApiResponse<UserPublicProfile>> {
+    const res = await http.get<ApiResponse<UserPublicProfile>>(`/user/${userId}`)
     return res.data
   },
 

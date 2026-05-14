@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect } from 'react'
+import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { Button, Input, Card } from '../../components/ui'
@@ -8,20 +8,15 @@ export const Register = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const { register, isLoading, isAuthenticated } = useAuthStore()
+  const { register, isLoading } = useAuthStore()
   const navigate = useNavigate()
-
-  useEffect(() => {
-    if (isAuthenticated) navigate('/chat', { replace: true })
-  }, [isAuthenticated, navigate])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     try {
       await register(username, email, password, fullName)
       navigate('/login', { replace: true })
-    } catch (error) {
-      console.error('Registration failed:', error)
+    } catch {
     }
   }
 

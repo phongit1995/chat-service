@@ -19,6 +19,11 @@ abstract class UserApiClient {
     @Query('limit') int limit = 20,
   });
 
+  @GET('/user/{id}')
+  Future<HttpResponse<ApiResponse<UserPublicProfile>>> getUserInfo(
+    @Path('id') String id,
+  );
+
   @PUT('/user/me')
   Future<HttpResponse<ApiResponse<User>>> updateProfile(
     @Body() UpdateProfileRequest request,

@@ -53,6 +53,19 @@ type UploadAvatarResponse struct {
 	Height    int    `json:"height" example:"0"`
 }
 
+type UserPublicProfileResponse struct {
+	ID           string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Username     string `json:"username" example:"john_doe"`
+	FullName     string `json:"fullName,omitempty" example:"John Doe"`
+	Avatar       string `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
+	Bio          string `json:"bio,omitempty" example:"Software developer"`
+	IsOnline     bool   `json:"isOnline" example:"true"`
+	LastActiveAt string `json:"lastActiveAt,omitempty" example:"2024-01-15T10:30:00Z"`
+	CreatedAt    string `json:"createdAt" example:"2024-01-01T00:00:00Z"`
+}
+
+type UserPublicProfileSuccessResponse = utils.BaseResponse[UserPublicProfileResponse]
+
 type UserProfileSuccessResponse = utils.BaseResponse[UserProfileResponse]
 type SearchUsersSuccessResponse = utils.BaseResponse[SearchUsersResponse]
 type UploadAvatarSuccessResponse = utils.BaseResponse[UploadAvatarResponse]

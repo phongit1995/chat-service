@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -19,6 +20,38 @@ func NewController(service *Service, logger *zap.SugaredLogger) *Controller {
 		service: service,
 		logger:  logger.Named("[user_controller]"),
 	}
+}
+
+// GetUserInfo godoc
+// @Summary      Get user public info
+// @Description  Get public profile information of a user by ID, including online status and last active time
+// @Tags         user
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "User ID (UUID)"
+// @Success      200  {object}  UserPublicProfileSuccessResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Failure      404  {object}  utils.APIError
+// @Router       /user/{id} [get]
+func (ctrl *Controller) GetUserInfo(c *gin.Context) (interface{}, error) {
+	_, ok := middleware.GetUserID(c)
+	if !ok {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	targetID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid user ID")
+	}
+
+	profile, err := ctrl.service.GetPublicProfile(targetID)
+	if err != nil {
+		statusCode := utils.HTTPStatusFromError(err)
+		return nil, utils.NewHTTPError(statusCode, err.Error())
+	}
+
+	return profile, nil
 }
 
 // GetProfile godoc

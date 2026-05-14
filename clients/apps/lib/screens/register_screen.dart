@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_gradients.dart';
 import '../theme/app_typography.dart';
 import '../theme/widgets.dart';
+import '../utils/toast.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -37,7 +38,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           _password.text,
           _fullName.text.trim(),
         );
-    if (ok && mounted) context.go('/');
+    if (!mounted) return;
+    if (ok) {
+      context.go('/');
+    } else {
+      final error = ref.read(authProvider).error;
+      showErrorToast(error ?? 'Registration failed');
+    }
   }
 
   @override
@@ -124,13 +131,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               ),
                               obscureText: true,
                             ),
-                            if (auth.error != null) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                auth.error!,
-                                style: const TextStyle(color: AppColors.danger),
-                              ),
-                            ],
                             const SizedBox(height: 16),
                             GradientButton(
                               onPressed: auth.loading ? null : _submit,

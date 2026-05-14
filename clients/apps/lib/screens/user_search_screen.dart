@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
 import '../theme/app_colors.dart';
+import 'user_profile_screen.dart';
 
 class UserSearchScreen extends ConsumerStatefulWidget {
   const UserSearchScreen({super.key});
@@ -46,22 +46,16 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
     }
   }
 
-  Future<void> _startChat(UserSearchResult u) async {
-    try {
-      final conv = await ref
-          .read(conversationServiceProvider)
-          .createDirectConversation(u.id);
-      await ref.read(conversationsProvider.notifier).reload();
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      context.push('/chat/${conv.id}', extra: conv);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
-    }
+  void _openProfile(UserSearchResult u) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(
+          userId: u.id,
+          initialDisplayName: u.displayName,
+          initialAvatar: u.avatar,
+        ),
+      ),
+    );
   }
 
   @override
@@ -123,7 +117,7 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
                   subtitle: Text(
                     u.isOnline ? '@${u.username} · Online' : '@${u.username}',
                   ),
-                  onTap: () => _startChat(u),
+                  onTap: () => _openProfile(u),
                 );
               },
             ),
