@@ -344,8 +344,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     initialize: async () => {
-      const loadUser = useAuthStore.getState().loadUser
-      await Promise.all([get().loadConversations(), loadUser()])
+      await get().loadConversations()
     },
 
     clearError: () => set({ error: null }),
