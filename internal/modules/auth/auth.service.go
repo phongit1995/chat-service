@@ -204,12 +204,7 @@ func (s *Service) ChangePassword(userID uuid.UUID, req *ChangePasswordRequest) e
 		return err
 	}
 
-	if err := s.repo.UpdatePassword(userID, string(hashed)); err != nil {
-		return err
-	}
-
-	s.userCache.DeleteUser(userID)
-	return nil
+	return s.repo.UpdatePassword(userID, string(hashed))
 }
 
 func (s *Service) buildAuthResponse(user *models.User, token, refreshToken string) *AuthResponse {
