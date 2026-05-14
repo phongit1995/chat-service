@@ -76,7 +76,7 @@ func (ctrl *Controller) Register(c *gin.Context) (interface{}, error) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        request body ChangePasswordRequest true "Change Password Request"
-// @Success      200  {object}  utils.APISuccess
+// @Success      200  {object}  ChangePasswordSuccessResponse
 // @Failure      400  {object}  utils.APIError
 // @Failure      401  {object}  utils.APIError
 // @Router       /auth/change-password [post]
@@ -96,7 +96,7 @@ func (ctrl *Controller) ChangePassword(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(statusCode, err.Error())
 	}
 
-	return gin.H{"message": "Password changed successfully"}, nil
+	return &ChangePasswordResponse{Message: "Password changed successfully"}, nil
 }
 
 // Login godoc

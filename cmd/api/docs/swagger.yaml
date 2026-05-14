@@ -49,6 +49,42 @@ definitions:
       traceId:
         type: string
     type: object
+  internal_modules_auth.ChangePasswordRequest:
+    properties:
+      currentPassword:
+        example: oldpassword123
+        type: string
+      newPassword:
+        example: newpassword123
+        minLength: 6
+        type: string
+    required:
+    - currentPassword
+    - newPassword
+    type: object
+  internal_modules_auth.ChangePasswordResponse:
+    properties:
+      message:
+        example: Password changed successfully
+        type: string
+    type: object
+  internal_modules_auth.ChangePasswordSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_auth.ChangePasswordResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
   internal_modules_auth.LoginRequest:
     properties:
       email:
@@ -642,6 +678,43 @@ definitions:
         example: john_doe
         type: string
     type: object
+  internal_modules_user.PresenceBatchRequest:
+    properties:
+      userIds:
+        example:
+        - 550e8400-e29b-41d4-a716-446655440000
+        items:
+          type: string
+        maxItems: 200
+        minItems: 1
+        type: array
+    required:
+    - userIds
+    type: object
+  internal_modules_user.PresenceBatchResponse:
+    properties:
+      users:
+        items:
+          $ref: '#/definitions/internal_modules_user.UserPresence'
+        type: array
+    type: object
+  internal_modules_user.PresenceBatchSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_user.PresenceBatchResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
   internal_modules_user.SearchUsersResponse:
     properties:
       total:
@@ -731,6 +804,18 @@ definitions:
       traceId:
         type: string
     type: object
+  internal_modules_user.UserPresence:
+    properties:
+      isOnline:
+        example: true
+        type: boolean
+      lastActiveAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      userId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
   internal_modules_user.UserProfileSuccessResponse:
     type: object
   internal_modules_user.UserPublicProfileResponse:
@@ -810,6 +895,38 @@ info:
   title: Chat Server API
   version: "1.0"
 paths:
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the authenticated user's password
+      parameters:
+      - description: Change Password Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_auth.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_auth.ChangePasswordSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - auth
   /auth/login:
     post:
       consumes:
@@ -1763,6 +1880,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Update user profile
+      tags:
+      - user
+  /user/presence:
+    post:
+      consumes:
+      - application/json
+      description: Returns online status and last active time for the given user IDs
+        (reads from Redis cache, no DB hit)
+      parameters:
+      - description: User IDs
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_user.PresenceBatchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_user.PresenceBatchSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get presence status for multiple users
       tags:
       - user
   /user/search:

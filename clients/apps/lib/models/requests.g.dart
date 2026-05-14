@@ -176,6 +176,19 @@ Map<String, dynamic> _$ChangePasswordRequestToJson(
       'newPassword': instance.newPassword,
     };
 
+PresenceBatchRequest _$PresenceBatchRequestFromJson(
+        Map<String, dynamic> json) =>
+    PresenceBatchRequest(
+      userIds:
+          (json['userIds'] as List<dynamic>).map((e) => e as String).toList(),
+    );
+
+Map<String, dynamic> _$PresenceBatchRequestToJson(
+        PresenceBatchRequest instance) =>
+    <String, dynamic>{
+      'userIds': instance.userIds,
+    };
+
 TypingRequest _$TypingRequestFromJson(Map<String, dynamic> json) =>
     TypingRequest(
       conversationId: json['conversationId'] as String,

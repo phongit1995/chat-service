@@ -6,6 +6,7 @@ import '../services/socket_service.dart';
 import 'active_conversation_provider.dart';
 import 'auth_provider.dart';
 import 'core_providers.dart';
+import 'presence_provider.dart';
 
 class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
   @override
@@ -161,7 +162,26 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
   }
 }
 
-final conversationsProvider =
+final conversationsRawProvider =
     AsyncNotifierProvider<ConversationsNotifier, List<Conversation>>(
       ConversationsNotifier.new,
     );
+
+final conversationsProvider = Provider<AsyncValue<List<Conversation>>>((ref) {
+  final raw = ref.watch(conversationsRawProvider);
+  final presence = ref.watch(presenceProvider);
+  return raw.whenData((list) {
+    return list.map((c) {
+      final other = c.otherUser;
+      if (other == null) return c;
+      final live = presence[other.id];
+      if (live == null) return c;
+      return c.copyWith(
+        otherUser: other.copyWith(
+          isOnline: live.isOnline,
+          lastActiveAt: live.lastActiveAt,
+        ),
+      );
+    }).toList();
+  });
+});

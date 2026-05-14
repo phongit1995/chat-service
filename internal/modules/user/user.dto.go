@@ -64,6 +64,22 @@ type UserPublicProfileResponse struct {
 	CreatedAt    string `json:"createdAt" example:"2024-01-01T00:00:00Z"`
 }
 
+type PresenceBatchRequest struct {
+	UserIds []string `json:"userIds" binding:"required,min=1,max=200,dive,uuid" example:"550e8400-e29b-41d4-a716-446655440000"`
+}
+
+type UserPresence struct {
+	UserID       string `json:"userId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	IsOnline     bool   `json:"isOnline" example:"true"`
+	LastActiveAt string `json:"lastActiveAt,omitempty" example:"2024-01-15T10:30:00Z"`
+}
+
+type PresenceBatchResponse struct {
+	Users []UserPresence `json:"users"`
+}
+
+type PresenceBatchSuccessResponse = utils.BaseResponse[PresenceBatchResponse]
+
 type UserPublicProfileSuccessResponse = utils.BaseResponse[UserPublicProfileResponse]
 
 type UserProfileSuccessResponse = utils.BaseResponse[UserProfileResponse]

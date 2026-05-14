@@ -23,6 +23,7 @@ func (r *Router) Setup(api *utils.AppGroup) {
 		user.GET("/me", r.controller.GetProfile)
 		user.PUT("/me", r.controller.UpdateProfile)
 		user.POST("/upload", r.controller.Upload)
+		user.POST("/presence", r.controller.GetPresenceBatch)
 		user.GET("/search", r.controller.SearchUsers)
 		user.GET("/:id", r.controller.GetUserInfo)
 	}

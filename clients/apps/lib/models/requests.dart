@@ -147,6 +147,17 @@ class ChangePasswordRequest {
 }
 
 @JsonSerializable()
+class PresenceBatchRequest {
+  final List<String> userIds;
+
+  PresenceBatchRequest({required this.userIds});
+
+  factory PresenceBatchRequest.fromJson(Map<String, dynamic> json) =>
+      _$PresenceBatchRequestFromJson(json);
+  Map<String, dynamic> toJson() => _$PresenceBatchRequestToJson(this);
+}
+
+@JsonSerializable()
 class TypingRequest {
   final String conversationId;
 

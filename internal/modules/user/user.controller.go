@@ -54,6 +54,31 @@ func (ctrl *Controller) GetUserInfo(c *gin.Context) (interface{}, error) {
 	return profile, nil
 }
 
+// GetPresenceBatch godoc
+// @Summary      Get presence status for multiple users
+// @Description  Returns online status and last active time for the given user IDs (reads from Redis cache, no DB hit)
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body PresenceBatchRequest true "User IDs"
+// @Success      200  {object}  PresenceBatchSuccessResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Router       /user/presence [post]
+func (ctrl *Controller) GetPresenceBatch(c *gin.Context) (interface{}, error) {
+	if _, ok := middleware.GetUserID(c); !ok {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	var req PresenceBatchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	return ctrl.service.GetPresenceBatch(req.UserIds), nil
+}
+
 // GetProfile godoc
 // @Summary      Get user profile
 // @Description  Get authenticated user's profile information

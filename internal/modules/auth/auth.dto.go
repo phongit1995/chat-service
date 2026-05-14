@@ -43,5 +43,11 @@ type ChangePasswordRequest struct {
 	NewPassword     string `json:"newPassword" binding:"required,min=6" example:"newpassword123"`
 }
 
+type ChangePasswordResponse struct {
+	Message string `json:"message" example:"Password changed successfully"`
+}
+
+type ChangePasswordSuccessResponse = utils.BaseResponse[ChangePasswordResponse]
+
 type RegisterSuccessResponse = utils.BaseResponse[RegisterResponse]
 type AuthSuccessResponse = utils.BaseResponse[AuthResponse]

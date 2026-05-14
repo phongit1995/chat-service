@@ -4,6 +4,7 @@ import type {
   UpdateProfileDTO,
   UploadImageResponse,
   User,
+  UserPresence,
   UserPublicProfile,
 } from '../types'
 import { http } from './http'
@@ -33,6 +34,11 @@ export const userService = {
 
   async getUserInfo(userId: string): Promise<ApiResponse<UserPublicProfile>> {
     const res = await http.get<ApiResponse<UserPublicProfile>>(`/user/${userId}`)
+    return res.data
+  },
+
+  async getPresenceBatch(userIds: string[]): Promise<ApiResponse<{ users: UserPresence[] }>> {
+    const res = await http.post<ApiResponse<{ users: UserPresence[] }>>('/user/presence', { userIds })
     return res.data
   },
 

@@ -34,6 +34,12 @@ export interface UserPublicProfile extends UserBase {
   createdAt?: string
 }
 
+export interface UserPresence {
+  userId: string
+  isOnline: boolean
+  lastActiveAt?: string
+}
+
 export interface TempChatUser {
   id: string
   username: string

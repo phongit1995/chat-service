@@ -40,7 +40,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = await ref.read(userServiceProvider).getProfile();
       state = state.copyWith(user: user);
       ref.read(socketProvider).connect(token);
-      ref.invalidate(conversationsProvider);
+      ref.invalidate(conversationsRawProvider);
     } catch (_) {
       await auth.logout();
     }
@@ -52,7 +52,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final result = await ref.read(authServiceProvider).login(email, password);
       state = state.copyWith(user: result.user, loading: false);
       ref.read(socketProvider).connect(result.token);
-      ref.invalidate(conversationsProvider);
+      ref.invalidate(conversationsRawProvider);
       showSuccessToast('Welcome back, ${result.user.displayName}!');
       return true;
     } catch (e) {

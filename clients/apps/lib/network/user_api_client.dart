@@ -28,4 +28,9 @@ abstract class UserApiClient {
   Future<HttpResponse<ApiResponse<User>>> updateProfile(
     @Body() UpdateProfileRequest request,
   );
+
+  @POST('/user/presence')
+  Future<HttpResponse<ApiResponse<PresenceBatchResponse>>> getPresenceBatch(
+    @Body() PresenceBatchRequest body,
+  );
 }

@@ -50,7 +50,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     setState(() => _startingChat = true);
     try {
       final conv = await ref.read(conversationServiceProvider).createDirectConversation(widget.userId);
-      await ref.read(conversationsProvider.notifier).reload();
+      await ref.read(conversationsRawProvider.notifier).reload();
       if (!mounted) return;
       context.pop();
       context.push('/chat/${conv.id}', extra: conv);

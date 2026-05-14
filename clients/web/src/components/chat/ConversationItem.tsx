@@ -9,6 +9,7 @@ interface ConversationItemProps {
 
 export const ConversationItem = ({ conversation, isActive, onClick }: ConversationItemProps) => {
   const hasUnread = (conversation.unreadCount || 0) > 0
+  const isOnline = conversation.type === 'direct' && !!conversation.otherUser?.isOnline
 
   const formatTime = (dateString?: string) => {
     if (!dateString) return ''
@@ -45,11 +46,7 @@ export const ConversationItem = ({ conversation, isActive, onClick }: Conversati
           size="lg"
           storyRing={hasUnread}
           storyRingSeen={!hasUnread}
-          status={
-            conversation.type === 'direct' && conversation.otherUser?.isOnline
-              ? 'online'
-              : undefined
-          }
+          status={isOnline ? 'online' : undefined}
         />
 
         <div className="flex-1 min-w-0">

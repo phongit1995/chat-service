@@ -44,11 +44,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ref.read(messagesProvider.notifier).load(widget.conversationId);
       _activeConversationNotifier.set(widget.conversationId);
       ref.read(typingProvider.notifier).init(widget.conversationId);
+      final otherId = widget.conversation?.otherUser?.id;
+      if (widget.conversation?.type == 'direct' && otherId != null) {
+        ref.read(presenceProvider.notifier).startFocusPolling(otherId);
+      }
       ref
           .read(conversationServiceProvider)
           .markAsRead(widget.conversationId)
           .catchError((_) {});
-      ref.read(conversationsProvider.notifier).markRead(widget.conversationId);
+      ref.read(conversationsRawProvider.notifier).markRead(widget.conversationId);
     });
 
     _input.addListener(_onInputChanged);
@@ -84,6 +88,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _stopTypingTimer?.cancel();
     _input.removeListener(_onInputChanged);
     _conversationDeletedSub?.cancel();
+    ref.read(presenceProvider.notifier).stopFocusPolling();
     _input.dispose();
     _scroll.dispose();
     super.dispose();

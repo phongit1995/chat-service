@@ -21,16 +21,16 @@ final socketListenerProvider = Provider<SocketListener>((ref) {
 
   final subs = <StreamSubscription<dynamic>>[
     socket.onConversationCreated.listen((_) {
-      ref.read(conversationsProvider.notifier).reload();
+      ref.read(conversationsRawProvider.notifier).reload();
     }),
     socket.onConversationUpdated.listen((p) {
-      ref.read(conversationsProvider.notifier).handleConversationUpdated(p);
+      ref.read(conversationsRawProvider.notifier).handleConversationUpdated(p);
     }),
     socket.onConversationDeleted.listen((id) {
-      ref.read(conversationsProvider.notifier).handleConversationDeleted(id);
+      ref.read(conversationsRawProvider.notifier).handleConversationDeleted(id);
     }),
     socket.onNewMessage.listen((event) {
-      ref.read(conversationsProvider.notifier).handleNewMessage(event);
+      ref.read(conversationsRawProvider.notifier).handleNewMessage(event);
       ref.read(messagesProvider.notifier).applyIncoming(event.message);
     }),
   ];

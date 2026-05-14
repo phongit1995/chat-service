@@ -1,6 +1,7 @@
 package user
 
 import (
+	"chat-server/internal/constants"
 	"chat-server/internal/models"
 	"chat-server/internal/services"
 	"chat-server/internal/transport/websocket"
@@ -220,6 +221,39 @@ func (s *Service) SearchUsers(query string, limit int, currentUserID uuid.UUID) 
 		Users: results,
 		Total: len(results),
 	}, nil
+}
+
+func (s *Service) GetPresenceBatch(userIDs []string) *PresenceBatchResponse {
+	online := s.presence.GetOnlineUsers(userIDs)
+	lastActive := s.presence.GetLastActiveBatch(userIDs)
+
+	users := make([]UserPresence, 0, len(userIDs))
+	graceWindow := time.Duration(constants.OnlineGraceWindowSecs) * time.Second
+
+	for _, id := range userIDs {
+		isOnline := online[id]
+		lastActiveStr := lastActive[id]
+
+		if !isOnline && lastActiveStr != "" {
+			if t, err := time.Parse(time.RFC3339, lastActiveStr); err == nil {
+				if time.Since(t) <= graceWindow {
+					isOnline = true
+					lastActiveStr = ""
+				}
+			}
+		}
+		if isOnline {
+			lastActiveStr = ""
+		}
+
+		users = append(users, UserPresence{
+			UserID:       id,
+			IsOnline:     isOnline,
+			LastActiveAt: lastActiveStr,
+		})
+	}
+
+	return &PresenceBatchResponse{Users: users}
 }
 
 func (s *Service) GetPublicProfile(targetUserID uuid.UUID) (*UserPublicProfileResponse, error) {

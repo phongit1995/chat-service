@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
 import { useChatUIStore } from '../../store/chatUIStore'
+import { usePresenceStore } from '../../store/presenceStore'
+import { useConversationsWithPresence, useConversationWithPresence } from '../../store/useConversationsWithPresence'
 import { ProfileEditModal } from '../../components/ProfileEditModal'
 import { SearchModal } from '../../components/search/SearchModal'
 import { ChatSidebar } from './ChatSidebar'
@@ -16,8 +18,7 @@ export const Chat = () => {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const {
-    conversations,
-    currentConversation,
+    currentConversation: rawCurrentConversation,
     messages,
     typingUsers,
     handleConversationClick,
@@ -26,6 +27,9 @@ export const Chat = () => {
     handleSelectUser,
     initialize,
   } = useChatStore()
+
+  const conversations = useConversationsWithPresence()
+  const currentConversation = useConversationWithPresence(rawCurrentConversation?.id)
 
   const {
     messageInput,
@@ -43,6 +47,33 @@ export const Chat = () => {
   useEffect(() => {
     initialize()
   }, [initialize])
+
+  useEffect(() => {
+    const presence = usePresenceStore.getState()
+    presence.startListPolling(() => {
+      return useChatStore
+        .getState()
+        .conversations
+        .filter((c) => c.type === 'direct' && c.otherUser?.id)
+        .map((c) => c.otherUser!.id)
+    })
+    return () => {
+      usePresenceStore.getState().stopListPolling()
+    }
+  }, [])
+
+  useEffect(() => {
+    const presence = usePresenceStore.getState()
+    const otherId = currentConversation?.type === 'direct' ? currentConversation.otherUser?.id : null
+    if (otherId) {
+      presence.startFocusPolling(otherId)
+    } else {
+      presence.stopFocusPolling()
+    }
+    return () => {
+      presence.stopFocusPolling()
+    }
+  }, [currentConversation?.id, currentConversation?.type, currentConversation?.otherUser?.id])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

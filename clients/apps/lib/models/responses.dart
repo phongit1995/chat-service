@@ -71,6 +71,34 @@ class UsersResponse {
 }
 
 @JsonSerializable()
+class UserPresence {
+  final String userId;
+  final bool isOnline;
+  final String? lastActiveAt;
+
+  UserPresence({
+    required this.userId,
+    required this.isOnline,
+    this.lastActiveAt,
+  });
+
+  factory UserPresence.fromJson(Map<String, dynamic> json) =>
+      _$UserPresenceFromJson(json);
+  Map<String, dynamic> toJson() => _$UserPresenceToJson(this);
+}
+
+@JsonSerializable()
+class PresenceBatchResponse {
+  final List<UserPresence> users;
+
+  PresenceBatchResponse({required this.users});
+
+  factory PresenceBatchResponse.fromJson(Map<String, dynamic> json) =>
+      _$PresenceBatchResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$PresenceBatchResponseToJson(this);
+}
+
+@JsonSerializable()
 class UploadAvatarResponse {
   final String url;
   final String secureUrl;

@@ -26,6 +26,19 @@ class OtherUserBrief {
   factory OtherUserBrief.fromJson(Map<String, dynamic> json) =>
       _$OtherUserBriefFromJson(json);
   Map<String, dynamic> toJson() => _$OtherUserBriefToJson(this);
+
+  OtherUserBrief copyWith({
+    bool? isOnline,
+    String? lastActiveAt,
+  }) => OtherUserBrief(
+        id: id,
+        username: username,
+        fullName: fullName,
+        avatar: avatar,
+        bio: bio,
+        isOnline: isOnline ?? this.isOnline,
+        lastActiveAt: lastActiveAt ?? this.lastActiveAt,
+      );
 }
 
 @JsonSerializable()
@@ -77,6 +90,7 @@ class Conversation {
     bool? isLastMessageFromMe,
     bool? seen,
     int? unreadCount,
+    OtherUserBrief? otherUser,
   }) => Conversation(
     id: id,
     type: type,
@@ -90,7 +104,7 @@ class Conversation {
     seen: seen ?? this.seen,
     unreadCount: unreadCount ?? this.unreadCount,
     participantCount: participantCount,
-    otherUser: otherUser,
+    otherUser: otherUser ?? this.otherUser,
   );
 
   String get displayName => (name != null && name!.isNotEmpty)

@@ -25,6 +25,14 @@ class UserService {
     return res.data.data?.users ?? [];
   }
 
+  Future<List<UserPresence>> getPresenceBatch(List<String> userIds) async {
+    if (userIds.isEmpty) return [];
+    final res = await _client.getPresenceBatch(
+      PresenceBatchRequest(userIds: userIds),
+    );
+    return res.data.data?.users ?? [];
+  }
+
   Future<User> updateProfile(UpdateProfileRequest request) async {
     final res = await _client.updateProfile(request);
     return res.data.data!;

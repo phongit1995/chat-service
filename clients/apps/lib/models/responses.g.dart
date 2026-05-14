@@ -88,6 +88,33 @@ Map<String, dynamic> _$UsersResponseToJson(UsersResponse instance) =>
       'users': instance.users,
     };
 
+UserPresence _$UserPresenceFromJson(Map<String, dynamic> json) => UserPresence(
+      userId: json['userId'] as String,
+      isOnline: json['isOnline'] as bool,
+      lastActiveAt: json['lastActiveAt'] as String?,
+    );
+
+Map<String, dynamic> _$UserPresenceToJson(UserPresence instance) =>
+    <String, dynamic>{
+      'userId': instance.userId,
+      'isOnline': instance.isOnline,
+      'lastActiveAt': instance.lastActiveAt,
+    };
+
+PresenceBatchResponse _$PresenceBatchResponseFromJson(
+        Map<String, dynamic> json) =>
+    PresenceBatchResponse(
+      users: (json['users'] as List<dynamic>)
+          .map((e) => UserPresence.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$PresenceBatchResponseToJson(
+        PresenceBatchResponse instance) =>
+    <String, dynamic>{
+      'users': instance.users,
+    };
+
 UploadAvatarResponse _$UploadAvatarResponseFromJson(
         Map<String, dynamic> json) =>
     UploadAvatarResponse(

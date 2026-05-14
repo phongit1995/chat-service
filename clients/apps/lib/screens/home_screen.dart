@@ -10,11 +10,37 @@ import '../theme/widgets.dart';
 import 'user_search_screen.dart';
 import 'profile_edit_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (!mounted) return;
+      ref.read(presenceProvider.notifier).startListPolling(() {
+        final convs = ref.read(conversationsProvider).value ?? [];
+        return convs
+            .where((c) => c.type == 'direct' && c.otherUser?.id != null)
+            .map((c) => c.otherUser!.id)
+            .toList();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    ref.read(presenceProvider.notifier).stopListPolling();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final convs = ref.watch(conversationsProvider);
     final user = ref.watch(authProvider).user;
 
@@ -72,7 +98,7 @@ class HomeScreen extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded, color: Colors.white),
                   onPressed: () =>
-                      ref.read(conversationsProvider.notifier).reload(),
+                      ref.read(conversationsRawProvider.notifier).reload(),
                 ),
                 IconButton(
                   icon: const Icon(Icons.logout_rounded, color: Colors.white),
@@ -93,7 +119,7 @@ class HomeScreen extends ConsumerWidget {
                 return RefreshIndicator(
                   color: AppColors.primary,
                   onRefresh: () =>
-                      ref.read(conversationsProvider.notifier).reload(),
+                      ref.read(conversationsRawProvider.notifier).reload(),
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -182,6 +208,7 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unread = conv.unreadCount > 0;
+    final isOnline = conv.type == 'direct' && (conv.otherUser?.isOnline ?? false);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -200,10 +227,7 @@ class _ConversationTile extends StatelessWidget {
                 size: 48,
                 storyRing: unread,
                 seen: !unread,
-                status:
-                    conv.type == 'direct' && conv.otherUser?.isOnline == true
-                    ? 'online'
-                    : null,
+                status: isOnline ? 'online' : null,
               ),
               const SizedBox(width: 12),
               Expanded(
