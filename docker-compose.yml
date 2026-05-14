@@ -60,7 +60,12 @@ services:
       - WS_READ_BUFFER_SIZE=${WS_READ_BUFFER_SIZE:-1024}
       - WS_WRITE_BUFFER_SIZE=${WS_WRITE_BUFFER_SIZE:-1024}
       - KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
-      - CLOUDINARY_URL=${CLOUDINARY_URL}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin123}
+      - MINIO_BUCKET=${MINIO_BUCKET:-chat-uploads}
+      - MINIO_USE_SSL=${MINIO_USE_SSL:-false}
+      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-http://localhost:9000}
       - SWAGGER_HOST=${SWAGGER_HOST:-api:8080}
       - SERVICE_NAME=api
     depends_on:
@@ -69,6 +74,7 @@ services:
       - scylladb
       - kafka
       - migrate
+      - minio
     networks:
       - chat-network
 
@@ -90,7 +96,6 @@ services:
       - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-change-in-production-min-32-chars}
       - JWT_EXPIRY=${JWT_EXPIRY:-24h}
       - KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
-      - CLOUDINARY_URL=${CLOUDINARY_URL}
       - CHAT_PORT=${CHAT_PORT:-8081}
       - SERVICE_NAME=chat
       - DB_HOST=${DB_HOST:-postgres}
@@ -131,6 +136,27 @@ services:
       - web
     networks:
       - chat-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: chat-server-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
+    volumes:
+      - minio_data:/data
+    networks:
+      - chat-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   postgres:
     image: postgres:15-alpine
@@ -283,6 +309,7 @@ volumes:
   loki_data:
   grafana_data:
   alloy_data:
+  minio_data:
 
 networks:
   chat-network:
