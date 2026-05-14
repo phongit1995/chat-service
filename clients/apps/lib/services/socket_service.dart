@@ -13,6 +13,7 @@ class NewMessageEvent {
 
 class SocketService {
   IO.Socket? _socket;
+  Timer? _pingTimer;
 
   final _newMessageCtrl = StreamController<NewMessageEvent>.broadcast();
   final _messageUpdatedCtrl = StreamController<NewMessageEvent>.broadcast();
@@ -64,6 +65,13 @@ class SocketService {
     });
 
     _socket!.connect();
+
+    _pingTimer?.cancel();
+    _pingTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (_socket?.connected == true) {
+        _socket!.emit(WsClientEvent.ping);
+      }
+    });
   }
 
   void _dispatch(String type, Map<String, dynamic> payload) {
@@ -102,6 +110,8 @@ class SocketService {
   }
 
   void disconnect() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
     _socket?.dispose();
     _socket = null;
   }

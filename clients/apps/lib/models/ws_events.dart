@@ -3,6 +3,10 @@ import 'models.dart';
 
 part 'ws_events.g.dart';
 
+class WsClientEvent {
+  static const ping = 'ping';
+}
+
 class WsEventType {
   static const newMessage = 'NEW_MESSAGE';
   static const messageUpdated = 'MESSAGE_UPDATED';

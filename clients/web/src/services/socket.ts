@@ -16,6 +16,7 @@ import env from '../config/env'
 class SocketService {
   private socket: Socket | null = null
   private listeners = new Map<string, Set<(data: unknown) => void>>()
+  private pingInterval: ReturnType<typeof setInterval> | null = null
 
   connect(token: string) {
     if (this.socket) {
@@ -29,10 +30,19 @@ class SocketService {
 
     this.socket.on('connect', () => {
       console.log('Socket connected:', this.socket?.id)
+      this.pingInterval = setInterval(() => {
+        if (this.socket?.connected) {
+          this.socket.emit(WebSocketClientEvent.PING)
+        }
+      }, 60_000)
     })
 
     this.socket.on('disconnect', () => {
       console.log('Socket disconnected')
+      if (this.pingInterval) {
+        clearInterval(this.pingInterval)
+        this.pingInterval = null
+      }
     })
 
     this.socket.on('error', (error: any) => {
@@ -85,6 +95,10 @@ class SocketService {
   }
 
   disconnect() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval)
+      this.pingInterval = null
+    }
     if (this.socket) {
       this.socket.disconnect()
       this.socket = null
@@ -97,13 +111,6 @@ class SocketService {
 
   leaveConversation(_conversationId: string) {
     // server routes via user:{userId} rooms — no client leave needed
-  }
-
-  sendTyping(conversationId: string, isTyping: boolean) {
-    const event = isTyping
-      ? WebSocketClientEvent.TYPING
-      : WebSocketClientEvent.STOP_TYPING
-    this.socket?.emit(event, { conversation_id: conversationId })
   }
 
   on<K extends keyof WebSocketEventPayloadMap>(

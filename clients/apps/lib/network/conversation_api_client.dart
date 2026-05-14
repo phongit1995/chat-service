@@ -38,4 +38,9 @@ abstract class ConversationApiClient {
   Future<HttpResponse<ApiResponse<Conversation>>> getConversationDetail(
     @Path('id') String conversationId,
   );
+
+  @POST('/conversations/typing')
+  Future<HttpResponse<ApiResponse<dynamic>>> sendTyping(
+    @Body() TypingRequest body,
+  );
 }

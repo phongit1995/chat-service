@@ -109,3 +109,14 @@ class CreateGroupConversationRequest {
       _$CreateGroupConversationRequestFromJson(json);
   Map<String, dynamic> toJson() => _$CreateGroupConversationRequestToJson(this);
 }
+
+@JsonSerializable()
+class TypingRequest {
+  final String conversationId;
+
+  TypingRequest({required this.conversationId});
+
+  factory TypingRequest.fromJson(Map<String, dynamic> json) =>
+      _$TypingRequestFromJson(json);
+  Map<String, dynamic> toJson() => _$TypingRequestToJson(this);
+}

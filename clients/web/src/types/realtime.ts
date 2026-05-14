@@ -5,8 +5,7 @@ export const WebSocketTransportEvent = {
 } as const
 
 export const WebSocketClientEvent = {
-  TYPING: 'typing',
-  STOP_TYPING: 'stop_typing',
+  PING: 'ping',
 } as const
 
 export const WebSocketEventType = {

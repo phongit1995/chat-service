@@ -133,3 +133,13 @@ Map<String, dynamic> _$CreateGroupConversationRequestToJson(
       'name': instance.name,
       'participantIds': instance.participantIds,
     };
+
+TypingRequest _$TypingRequestFromJson(Map<String, dynamic> json) =>
+    TypingRequest(
+      conversationId: json['conversationId'] as String,
+    );
+
+Map<String, dynamic> _$TypingRequestToJson(TypingRequest instance) =>
+    <String, dynamic>{
+      'conversationId': instance.conversationId,
+    };

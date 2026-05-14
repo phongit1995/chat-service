@@ -49,4 +49,8 @@ class ConversationService {
     final res = await _client.getConversationDetail(conversationId);
     return res.data.data!;
   }
+
+  Future<void> sendTyping(String conversationId) async {
+    await _client.sendTyping(TypingRequest(conversationId: conversationId));
+  }
 }
