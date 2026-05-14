@@ -134,6 +134,34 @@ Map<String, dynamic> _$CreateGroupConversationRequestToJson(
       'participantIds': instance.participantIds,
     };
 
+UpdateProfileRequest _$UpdateProfileRequestFromJson(
+        Map<String, dynamic> json) =>
+    UpdateProfileRequest(
+      avatar: json['avatar'] as String?,
+      phone: json['phone'] as String?,
+      fullName: json['fullName'] as String?,
+      bio: json['bio'] as String?,
+      dateOfBirth: json['dateOfBirth'] as String?,
+    );
+
+Map<String, dynamic> _$UpdateProfileRequestToJson(
+    UpdateProfileRequest instance) {
+  final val = <String, dynamic>{};
+
+  void writeNotNull(String key, dynamic value) {
+    if (value != null) {
+      val[key] = value;
+    }
+  }
+
+  writeNotNull('avatar', instance.avatar);
+  writeNotNull('phone', instance.phone);
+  writeNotNull('fullName', instance.fullName);
+  writeNotNull('bio', instance.bio);
+  writeNotNull('dateOfBirth', instance.dateOfBirth);
+  return val;
+}
+
 TypingRequest _$TypingRequestFromJson(Map<String, dynamic> json) =>
     TypingRequest(
       conversationId: json['conversationId'] as String,

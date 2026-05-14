@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
+import '../theme/app_colors.dart';
 
 class UserSearchScreen extends ConsumerStatefulWidget {
   const UserSearchScreen({super.key});
@@ -89,16 +90,39 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
               itemBuilder: (_, i) {
                 final u = _results[i];
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: u.avatar != null && u.avatar!.isNotEmpty
-                        ? NetworkImage(u.avatar!)
-                        : null,
-                    child: (u.avatar == null || u.avatar!.isEmpty)
-                        ? Text(u.displayName[0].toUpperCase())
-                        : null,
+                  leading: Stack(
+                    children: [
+                      CircleAvatar(
+                        backgroundImage: u.avatar != null && u.avatar!.isNotEmpty
+                            ? NetworkImage(u.avatar!)
+                            : null,
+                        child: (u.avatar == null || u.avatar!.isEmpty)
+                            ? Text(u.displayName[0].toUpperCase())
+                            : null,
+                      ),
+                      if (u.isOnline)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 11,
+                            height: 11,
+                            decoration: BoxDecoration(
+                              color: AppColors.success,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Theme.of(context).scaffoldBackgroundColor,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   title: Text(u.displayName),
-                  subtitle: Text('@${u.username} · ${u.email}'),
+                  subtitle: Text(
+                    u.isOnline ? '@${u.username} · Online' : '@${u.username}',
+                  ),
                   onTap: () => _startChat(u),
                 );
               },

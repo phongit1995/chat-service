@@ -69,3 +69,22 @@ class UsersResponse {
       _$UsersResponseFromJson(json);
   Map<String, dynamic> toJson() => _$UsersResponseToJson(this);
 }
+
+@JsonSerializable()
+class UploadAvatarResponse {
+  final String url;
+  final String secureUrl;
+  final String publicId;
+  final String format;
+
+  UploadAvatarResponse({
+    required this.url,
+    required this.secureUrl,
+    required this.publicId,
+    required this.format,
+  });
+
+  factory UploadAvatarResponse.fromJson(Map<String, dynamic> json) =>
+      _$UploadAvatarResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$UploadAvatarResponseToJson(this);
+}

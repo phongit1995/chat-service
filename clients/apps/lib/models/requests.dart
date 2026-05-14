@@ -110,6 +110,27 @@ class CreateGroupConversationRequest {
   Map<String, dynamic> toJson() => _$CreateGroupConversationRequestToJson(this);
 }
 
+@JsonSerializable(includeIfNull: false)
+class UpdateProfileRequest {
+  final String? avatar;
+  final String? phone;
+  final String? fullName;
+  final String? bio;
+  final String? dateOfBirth;
+
+  UpdateProfileRequest({
+    this.avatar,
+    this.phone,
+    this.fullName,
+    this.bio,
+    this.dateOfBirth,
+  });
+
+  factory UpdateProfileRequest.fromJson(Map<String, dynamic> json) =>
+      _$UpdateProfileRequestFromJson(json);
+  Map<String, dynamic> toJson() => _$UpdateProfileRequestToJson(this);
+}
+
 @JsonSerializable()
 class TypingRequest {
   final String conversationId;

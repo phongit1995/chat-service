@@ -87,3 +87,21 @@ Map<String, dynamic> _$UsersResponseToJson(UsersResponse instance) =>
     <String, dynamic>{
       'users': instance.users,
     };
+
+UploadAvatarResponse _$UploadAvatarResponseFromJson(
+        Map<String, dynamic> json) =>
+    UploadAvatarResponse(
+      url: json['url'] as String,
+      secureUrl: json['secureUrl'] as String,
+      publicId: json['publicId'] as String,
+      format: json['format'] as String,
+    );
+
+Map<String, dynamic> _$UploadAvatarResponseToJson(
+        UploadAvatarResponse instance) =>
+    <String, dynamic>{
+      'url': instance.url,
+      'secureUrl': instance.secureUrl,
+      'publicId': instance.publicId,
+      'format': instance.format,
+    };

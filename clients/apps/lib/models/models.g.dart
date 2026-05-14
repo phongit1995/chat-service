@@ -14,6 +14,7 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
       avatar: json['avatar'] as String?,
       avatarURL: json['avatarURL'] as String?,
       bio: json['bio'] as String?,
+      phone: json['phone'] as String?,
       status: json['status'] as String? ?? 'offline',
     );
 
@@ -25,6 +26,7 @@ Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
       'avatar': instance.avatar,
       'avatarURL': instance.avatarURL,
       'bio': instance.bio,
+      'phone': instance.phone,
       'status': instance.status,
     };
 
@@ -115,16 +117,18 @@ UserSearchResult _$UserSearchResultFromJson(Map<String, dynamic> json) =>
     UserSearchResult(
       id: json['id'] as String,
       username: json['username'] as String,
-      email: json['email'] as String,
       fullName: json['fullName'] as String?,
       avatar: json['avatar'] as String?,
+      bio: json['bio'] as String?,
+      isOnline: json['isOnline'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$UserSearchResultToJson(UserSearchResult instance) =>
     <String, dynamic>{
       'id': instance.id,
       'username': instance.username,
-      'email': instance.email,
       'fullName': instance.fullName,
       'avatar': instance.avatar,
+      'bio': instance.bio,
+      'isOnline': instance.isOnline,
     };

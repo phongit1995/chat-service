@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 import '../models/models.dart';
+import '../models/requests.dart';
 import '../models/responses.dart';
 
 part 'user_api_client.g.dart';
@@ -17,4 +18,9 @@ abstract class UserApiClient {
     @Query('q') String query, {
     @Query('limit') int limit = 20,
   });
+
+  @PUT('/user/me')
+  Future<HttpResponse<ApiResponse<User>>> updateProfile(
+    @Body() UpdateProfileRequest request,
+  );
 }

@@ -8,6 +8,7 @@ import '../theme/app_gradients.dart';
 import '../theme/app_typography.dart';
 import '../theme/widgets.dart';
 import 'user_search_screen.dart';
+import 'profile_edit_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -31,11 +32,18 @@ class HomeScreen extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                GradientAvatar(
-                  name: user?.displayName ?? '',
-                  imageUrl: user?.avatar ?? user?.avatarURL,
-                  size: 44,
-                  storyRing: true,
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ProfileEditScreen(),
+                    ),
+                  ),
+                  child: GradientAvatar(
+                    name: user?.displayName ?? '',
+                    imageUrl: user?.avatar ?? user?.avatarURL,
+                    size: 44,
+                    storyRing: true,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

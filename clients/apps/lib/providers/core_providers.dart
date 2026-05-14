@@ -18,7 +18,7 @@ final authServiceProvider = Provider<AuthService>(
 );
 
 final userServiceProvider = Provider<UserService>(
-  (ref) => UserService(UserApiClient(ref.read(_dioProvider))),
+  (ref) => UserService(UserApiClient(ref.read(_dioProvider)), ref.read(_dioProvider)),
 );
 
 final conversationServiceProvider = Provider<ConversationService>(

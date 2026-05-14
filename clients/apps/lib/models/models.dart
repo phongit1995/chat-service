@@ -11,6 +11,7 @@ class User {
   final String? avatar;
   final String? avatarURL;
   final String? bio;
+  final String? phone;
   @JsonKey(defaultValue: 'offline')
   final String status;
 
@@ -22,6 +23,7 @@ class User {
     this.avatar,
     this.avatarURL,
     this.bio,
+    this.phone,
     this.status = 'offline',
   });
 
@@ -179,16 +181,19 @@ class Message {
 class UserSearchResult {
   final String id;
   final String username;
-  final String email;
   final String? fullName;
   final String? avatar;
+  final String? bio;
+  @JsonKey(defaultValue: false)
+  final bool isOnline;
 
   UserSearchResult({
     required this.id,
     required this.username,
-    required this.email,
     this.fullName,
     this.avatar,
+    this.bio,
+    this.isOnline = false,
   });
 
   factory UserSearchResult.fromJson(Map<String, dynamic> json) =>
