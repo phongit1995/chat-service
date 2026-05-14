@@ -32,7 +32,7 @@ func NewContainer() (*dig.Container, error) {
 		db.NewScyllaDB,
 		services.NewCacheService,
 		services.NewJWTService,
-		services.NewCloudinaryService,
+		services.NewMinIOService,
 		middleware.NewAuthMiddleware,
 		CreateServer,
 	}

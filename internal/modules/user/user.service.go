@@ -14,29 +14,29 @@ import (
 )
 
 type Service struct {
-	repo              *Repository
-	cache             *CacheService
-	cloudinaryService *services.CloudinaryService
-	cacheService      *services.CacheService
-	db                *gorm.DB
-	logger            *zap.SugaredLogger
+	repo         *Repository
+	cache        *CacheService
+	minioService *services.MinIOService
+	cacheService *services.CacheService
+	db           *gorm.DB
+	logger       *zap.SugaredLogger
 }
 
 func NewService(
 	repo *Repository,
 	cache *CacheService,
-	cloudinaryService *services.CloudinaryService,
+	minioService *services.MinIOService,
 	cacheService *services.CacheService,
 	db *gorm.DB,
 	logger *zap.SugaredLogger,
 ) *Service {
 	return &Service{
-		repo:              repo,
-		cache:             cache,
-		cloudinaryService: cloudinaryService,
-		cacheService:      cacheService,
-		db:                db,
-		logger:            logger.Named("[user_service]"),
+		repo:         repo,
+		cache:        cache,
+		minioService: minioService,
+		cacheService: cacheService,
+		db:           db,
+		logger:       logger.Named("[user_service]"),
 	}
 }
 
@@ -239,9 +239,9 @@ func (s *Service) UploadImage(ctx context.Context, userID uuid.UUID, file multip
 		"filename", filename,
 	)
 
-	result, err := s.cloudinaryService.UploadAvatar(ctx, file, filename)
+	result, err := s.minioService.UploadFile(ctx, file, filename, "uploads")
 	if err != nil {
-		s.logger.Errorw("Failed to upload image to Cloudinary",
+		s.logger.Errorw("Failed to upload image to MinIO",
 			"user_id", userID,
 			"error", err.Error(),
 		)

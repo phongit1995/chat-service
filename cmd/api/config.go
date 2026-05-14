@@ -19,7 +19,9 @@ type APIConfigValidator struct {
 	JWTSecret          string   `validate:"required,min=32"`
 	CORSAllowedOrigins []string `validate:"required,min=1"`
 	KafkaBrokers       []string `validate:"required,min=1"`
-	CloudinaryURL      string   `validate:"required"`
+	MinIOEndpoint  string `validate:"required"`
+	MinIOAccessKey string `validate:"required"`
+	MinIOSecretKey string `validate:"required"`
 }
 
 func LoadAPIConfig() (*config.Config, error) {
@@ -48,7 +50,9 @@ func validateAPIConfig(cfg *config.Config) error {
 		JWTSecret:          cfg.JWTSecret,
 		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
 		KafkaBrokers:       cfg.KafkaBrokers,
-		CloudinaryURL:      cfg.CloudinaryURL,
+		MinIOEndpoint:      cfg.MinIOEndpoint,
+		MinIOAccessKey:     cfg.MinIOAccessKey,
+		MinIOSecretKey:     cfg.MinIOSecretKey,
 	}
 
 	validate := validator.New()

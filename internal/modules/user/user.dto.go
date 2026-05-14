@@ -45,12 +45,12 @@ type SearchUsersResponse struct {
 }
 
 type UploadAvatarResponse struct {
-	URL       string `json:"url" example:"https://res.cloudinary.com/demo/image/upload/avatars/user123.webp"`
-	SecureURL string `json:"secureUrl" example:"https://res.cloudinary.com/demo/image/upload/avatars/user123.webp"`
-	PublicID  string `json:"publicId" example:"avatars/user123"`
+	URL       string `json:"url" example:"http://localhost:9000/chat-uploads/uploads/abc123.webp"`
+	SecureURL string `json:"secureUrl" example:"http://localhost:9000/chat-uploads/uploads/abc123.webp"`
+	PublicID  string `json:"publicId" example:"uploads/abc123.webp"`
 	Format    string `json:"format" example:"webp"`
-	Width     int    `json:"width" example:"400"`
-	Height    int    `json:"height" example:"400"`
+	Width     int    `json:"width" example:"0"`
+	Height    int    `json:"height" example:"0"`
 }
 
 type UserProfileSuccessResponse = utils.BaseResponse[UserProfileResponse]

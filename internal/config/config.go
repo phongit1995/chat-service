@@ -53,7 +53,12 @@ type Config struct {
 	KafkaConsumerWorkers   int      `env:"KAFKA_CONSUMER_WORKERS" envDefault:"10" validate:"min=1,max=100"`
 	KafkaMessageTimeoutSec int      `env:"KAFKA_MESSAGE_TIMEOUT_SEC" envDefault:"10" validate:"min=1,max=300"`
 
-	CloudinaryURL string `env:"CLOUDINARY_URL" validate:"required"`
+	MinIOEndpoint  string `env:"MINIO_ENDPOINT" envDefault:"localhost:9000"`
+	MinIOAccessKey string `env:"MINIO_ACCESS_KEY"`
+	MinIOSecretKey string `env:"MINIO_SECRET_KEY"`
+	MinIOBucket    string `env:"MINIO_BUCKET" envDefault:"chat-uploads"`
+	MinIOUseSSL    bool   `env:"MINIO_USE_SSL" envDefault:"false"`
+	MinIOPublicURL string `env:"MINIO_PUBLIC_URL" envDefault:""`
 }
 
 func LoadConfig() (*Config, error) {
