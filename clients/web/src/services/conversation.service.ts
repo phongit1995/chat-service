@@ -50,4 +50,14 @@ export const conversationService = {
     const res = await http.put<ApiResponse<void>>(`/conversations/${conversationId}/read`)
     return res.data
   },
+
+  async hide(conversationId: string): Promise<ApiResponse<void>> {
+    const res = await http.post<ApiResponse<void>>(`/conversations/${conversationId}/hide`)
+    return res.data
+  },
+
+  async unhide(conversationId: string): Promise<ApiResponse<void>> {
+    const res = await http.post<ApiResponse<void>>(`/conversations/${conversationId}/unhide`)
+    return res.data
+  },
 }

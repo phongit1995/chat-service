@@ -53,4 +53,12 @@ class ConversationService {
   Future<void> sendTyping(String conversationId) async {
     await _client.sendTyping(TypingRequest(conversationId: conversationId));
   }
+
+  Future<void> hide(String conversationId) async {
+    await _client.hideConversation(conversationId);
+  }
+
+  Future<void> unhide(String conversationId) async {
+    await _client.unhideConversation(conversationId);
+  }
 }

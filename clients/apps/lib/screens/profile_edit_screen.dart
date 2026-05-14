@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import '../models/models.dart';
 import '../models/requests.dart';
 import '../providers/providers.dart';
@@ -50,14 +52,30 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
+  bool get _isDesktop =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
+
+  Future<XFile?> _pickImageFile() async {
+    if (_isDesktop) {
+      const typeGroup = XTypeGroup(
+        label: 'Images',
+        extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+      );
+      return await openFile(acceptedTypeGroups: [typeGroup]);
+    }
+    return await ImagePicker().pickImage(
       source: ImageSource.gallery,
       maxWidth: 1024,
       maxHeight: 1024,
       imageQuality: 85,
     );
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await _pickImageFile();
     if (picked == null || !mounted) return;
 
     setState(() {

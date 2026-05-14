@@ -30,6 +30,7 @@ export interface ChatState {
   addMessage: (message: Message) => void
   setTyping: (userId: string, isTyping: boolean, username?: string) => void
   markAsRead: (conversationId: string) => Promise<void>
+  hideConversation: (conversationId: string) => Promise<void>
   handleConversationClick: (conversationId: string) => void
   handleSendMessage: () => Promise<void>
   handleInputChange: (value: string) => void

@@ -10,6 +10,7 @@ interface ChatSidebarProps {
   onNewChatClick: () => void
   onLogout: () => void
   onConversationClick: (conversationId: string) => void
+  onHideConversation?: (conversationId: string) => void
 }
 
 export const ChatSidebar = ({
@@ -20,6 +21,7 @@ export const ChatSidebar = ({
   onNewChatClick,
   onLogout,
   onConversationClick,
+  onHideConversation,
 }: ChatSidebarProps) => {
   return (
     <>
@@ -110,6 +112,7 @@ export const ChatSidebar = ({
                   conversation={conv}
                   isActive={currentConversation?.id === conv.id}
                   onClick={() => onConversationClick(conv.id)}
+                  onHide={onHideConversation ? () => onHideConversation(conv.id) : undefined}
                 />
               ))
           )}

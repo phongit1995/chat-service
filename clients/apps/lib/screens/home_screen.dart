@@ -127,7 +127,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     itemCount: list.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 4),
-                    itemBuilder: (_, i) => _ConversationTile(conv: list[i]),
+                    itemBuilder: (_, i) {
+                      final c = list[i];
+                      return Dismissible(
+                        key: ValueKey('conv-${c.id}'),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          color: Colors.red,
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.visibility_off_rounded, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text(
+                                'Hide',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        confirmDismiss: (_) async {
+                          final ok = await ref
+                              .read(conversationsRawProvider.notifier)
+                              .hide(c.id);
+                          return ok;
+                        },
+                        child: _ConversationTile(conv: c),
+                      );
+                    },
                   ),
                 );
               },

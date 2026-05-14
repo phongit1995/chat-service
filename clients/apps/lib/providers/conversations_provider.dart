@@ -25,6 +25,21 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     }
   }
 
+  Future<bool> hide(String conversationId) async {
+    final list = state.value ?? [];
+    final prev = list;
+    state = AsyncValue.data(
+      list.where((c) => c.id != conversationId).toList(),
+    );
+    try {
+      await ref.read(conversationServiceProvider).hide(conversationId);
+      return true;
+    } catch (_) {
+      state = AsyncValue.data(prev);
+      return false;
+    }
+  }
+
   void markRead(String conversationId) {
     final list = state.value ?? [];
     final idx = list.indexWhere(

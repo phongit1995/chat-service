@@ -25,6 +25,7 @@ export const Chat = () => {
     handleSendMessage,
     handleInputChange,
     handleSelectUser,
+    hideConversation,
     initialize,
   } = useChatStore()
 
@@ -120,6 +121,7 @@ export const Chat = () => {
           onNewChatClick={() => setShowSearch(true)}
           onLogout={handleLogout}
           onConversationClick={handleConversationClick}
+          onHideConversation={hideConversation}
         />
       </div>
 

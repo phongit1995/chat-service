@@ -209,6 +209,25 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
     },
 
+    hideConversation: async (conversationId: string) => {
+      const { conversations, currentConversation } = get()
+      const prev = conversations
+      set({
+        conversations: conversations.filter((c) => c.id !== conversationId),
+        ...(currentConversation?.id === conversationId
+          ? { currentConversation: null, messages: [] }
+          : {}),
+      })
+      try {
+        await conversationService.hide(conversationId)
+      } catch (error: any) {
+        console.error('Failed to hide conversation:', error)
+        set({ conversations: prev })
+        toast.error('Failed to hide conversation')
+        throw error
+      }
+    },
+
     handleConversationClick: (conversationId: string) => {
       useChatUIStore.getState().setTempChatUser(null)
       get().selectConversation(conversationId)

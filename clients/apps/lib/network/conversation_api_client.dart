@@ -43,4 +43,14 @@ abstract class ConversationApiClient {
   Future<HttpResponse<ApiResponse<dynamic>>> sendTyping(
     @Body() TypingRequest body,
   );
+
+  @POST('/conversations/{id}/hide')
+  Future<HttpResponse<ApiResponse<dynamic>>> hideConversation(
+    @Path('id') String conversationId,
+  );
+
+  @POST('/conversations/{id}/unhide')
+  Future<HttpResponse<ApiResponse<dynamic>>> unhideConversation(
+    @Path('id') String conversationId,
+  );
 }

@@ -100,11 +100,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
-  void _scrollToMaxExtent({required bool animated, int attempt = 0}) {
+  void _scrollToMaxExtent({
+    required bool animated,
+    int attempt = 0,
+    double lastExtent = -1,
+  }) {
     if (!mounted) return;
     if (!_scroll.hasClients) {
-      if (attempt < 6) {
-        Future<void>.delayed(const Duration(milliseconds: 16), () {
+      if (attempt < 10) {
+        Future<void>.delayed(const Duration(milliseconds: 32), () {
           _scrollToMaxExtent(animated: animated, attempt: attempt + 1);
         });
       }
@@ -120,6 +124,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
     } else {
       _scroll.jumpTo(target);
+    }
+
+    if (attempt < 6 && (target != lastExtent || target == 0)) {
+      Future<void>.delayed(const Duration(milliseconds: 64), () {
+        if (!mounted || !_scroll.hasClients) return;
+        final newTarget = _scroll.position.maxScrollExtent;
+        if (newTarget > target + 0.5) {
+          _scrollToMaxExtent(
+            animated: false,
+            attempt: attempt + 1,
+            lastExtent: target,
+          );
+        }
+      });
     }
   }
 
