@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button, Input, Modal, ModalHeader, ModalBody, ModalFooter } from './ui'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
@@ -22,6 +22,19 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
   const [isUploading, setIsUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState(user?.avatar || '')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        fullName: user?.fullName || '',
+        bio: user?.bio || '',
+        phone: user?.phone || '',
+        dateOfBirth: user?.dateOfBirth || '',
+        avatar: user?.avatar || '',
+      })
+      setPreviewUrl(user?.avatar || '')
+    }
+  }, [isOpen])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
