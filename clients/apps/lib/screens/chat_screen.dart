@@ -10,6 +10,7 @@ import '../utils/toast.dart';
 import 'chat/chat_app_bar.dart';
 import 'chat/message_composer.dart';
 import 'chat/message_list.dart';
+import 'chat/typing_indicator.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -30,6 +31,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   StreamSubscription<String>? _conversationDeletedSub;
   late final ActiveConversationNotifier _activeConversationNotifier;
   int _lastMessageCount = 0;
+  Timer? _stopTypingTimer;
+  bool _isTyping = false;
 
   @override
   void initState() {
@@ -40,12 +43,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (!mounted) return;
       ref.read(messagesProvider.notifier).load(widget.conversationId);
       _activeConversationNotifier.set(widget.conversationId);
+      ref.read(typingProvider.notifier).init(widget.conversationId);
       ref
           .read(conversationServiceProvider)
           .markAsRead(widget.conversationId)
           .catchError((_) {});
       ref.read(conversationsProvider.notifier).markRead(widget.conversationId);
     });
+
+    _input.addListener(_onInputChanged);
 
     final socket = ref.read(socketProvider);
     _conversationDeletedSub = socket.onConversationDeleted.listen((id) {
@@ -55,8 +61,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
+  void _onInputChanged() {
+    if (_input.text.isNotEmpty && !_isTyping) {
+      _isTyping = true;
+      ref
+          .read(conversationServiceProvider)
+          .sendTyping(widget.conversationId)
+          .catchError((_) {});
+    }
+    _stopTypingTimer?.cancel();
+    if (_input.text.isEmpty) {
+      _isTyping = false;
+      return;
+    }
+    _stopTypingTimer = Timer(const Duration(seconds: 3), () {
+      _isTyping = false;
+    });
+  }
+
   @override
   void dispose() {
+    _stopTypingTimer?.cancel();
+    _input.removeListener(_onInputChanged);
     _conversationDeletedSub?.cancel();
     _input.dispose();
     _scroll.dispose();
@@ -108,6 +134,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final me = ref.watch(authProvider).user;
     final convsState = ref.watch(conversationsProvider);
     final messagesState = ref.watch(messagesProvider);
+    final typingUsers = ref.watch(typingProvider);
 
     final liveConv = convsState.value?.firstWhere(
       (c) => c.id == widget.conversationId,
@@ -154,6 +181,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       scrollController: _scroll,
                     ),
             ),
+            TypingIndicator(typingUsers: typingUsers),
             MessageComposer(
               controller: _input,
               sending: messagesState.sending,
