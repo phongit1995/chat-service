@@ -73,16 +73,16 @@ jobs:
 
       - name: Build APK split-per-abi (release, unsigned)
         working-directory: ${{ env.APP_DIR }}
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
       - name: Build APK universal (release, unsigned)
         working-directory: ${{ env.APP_DIR }}
-        run: flutter build apk --release
+        run: flutter build apk --release --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
       - name: Build AAB (release, unsigned)
         if: inputs.release == true
         working-directory: ${{ env.APP_DIR }}
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
@@ -122,7 +122,7 @@ jobs:
 
       - name: Build Windows
         working-directory: ${{ env.APP_DIR }}
-        run: flutter build windows --release
+        run: flutter build windows --release --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
       - name: Zip Windows build
         working-directory: ${{ env.APP_DIR }}/build/windows/x64/runner/Release
@@ -158,7 +158,7 @@ jobs:
 
       - name: Build macOS (release, unsigned)
         working-directory: ${{ env.APP_DIR }}
-        run: flutter build macos --release
+        run: flutter build macos --release --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
       - name: Zip macOS app
         working-directory: ${{ env.APP_DIR }}/build/macos/Build/Products/Release
@@ -199,7 +199,7 @@ jobs:
 
       - name: Build Linux
         working-directory: ${{ env.APP_DIR }}
-        run: flutter build linux --release
+        run: flutter build linux --release --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
       - name: Tar Linux build
         working-directory: ${{ env.APP_DIR }}/build/linux/x64/release/bundle
