@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"chat-server/internal/middleware"
 	"chat-server/internal/utils"
 	"net/http"
 
@@ -65,6 +66,37 @@ func (ctrl *Controller) Register(c *gin.Context) (interface{}, error) {
 	)
 
 	return resp, nil
+}
+
+// ChangePassword godoc
+// @Summary      Change password
+// @Description  Change the authenticated user's password
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body ChangePasswordRequest true "Change Password Request"
+// @Success      200  {object}  utils.APISuccess
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Router       /auth/change-password [post]
+func (ctrl *Controller) ChangePassword(c *gin.Context) (interface{}, error) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+	}
+
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if err := ctrl.service.ChangePassword(userID, &req); err != nil {
+		statusCode := utils.HTTPStatusFromError(err)
+		return nil, utils.NewHTTPError(statusCode, err.Error())
+	}
+
+	return gin.H{"message": "Password changed successfully"}, nil
 }
 
 // Login godoc

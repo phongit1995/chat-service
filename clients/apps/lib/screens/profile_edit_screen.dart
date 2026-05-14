@@ -10,6 +10,7 @@ import '../theme/app_gradients.dart';
 import '../theme/app_typography.dart';
 import '../utils/toast.dart';
 import '../theme/widgets.dart';
+import 'change_password_screen.dart';
 
 class ProfileEditScreen extends ConsumerStatefulWidget {
   const ProfileEditScreen({super.key});
@@ -214,6 +215,22 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               loading: _saving,
               fullWidth: true,
               child: const Text('Save Changes'),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ChangePasswordScreen(),
+                ),
+              ),
+              child: const Text(
+                'Change Password',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ],
         ),

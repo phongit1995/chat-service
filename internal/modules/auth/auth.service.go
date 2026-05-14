@@ -6,6 +6,7 @@ import (
 	"chat-server/internal/services"
 	"errors"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -186,6 +187,29 @@ func (s *Service) Login(req *LoginRequest, clientIP string) (*AuthResponse, erro
 	)
 
 	return s.buildAuthResponse(user, token, refreshToken), nil
+}
+
+func (s *Service) ChangePassword(userID uuid.UUID, req *ChangePasswordRequest) error {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); err != nil {
+		return errors.New("current password is incorrect")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repo.UpdatePassword(userID, string(hashed)); err != nil {
+		return err
+	}
+
+	s.userCache.DeleteUser(userID)
+	return nil
 }
 
 func (s *Service) buildAuthResponse(user *models.User, token, refreshToken string) *AuthResponse {

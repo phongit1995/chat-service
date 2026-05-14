@@ -162,6 +162,20 @@ Map<String, dynamic> _$UpdateProfileRequestToJson(
   return val;
 }
 
+ChangePasswordRequest _$ChangePasswordRequestFromJson(
+        Map<String, dynamic> json) =>
+    ChangePasswordRequest(
+      currentPassword: json['currentPassword'] as String,
+      newPassword: json['newPassword'] as String,
+    );
+
+Map<String, dynamic> _$ChangePasswordRequestToJson(
+        ChangePasswordRequest instance) =>
+    <String, dynamic>{
+      'currentPassword': instance.currentPassword,
+      'newPassword': instance.newPassword,
+    };
+
 TypingRequest _$TypingRequestFromJson(Map<String, dynamic> json) =>
     TypingRequest(
       conversationId: json['conversationId'] as String,

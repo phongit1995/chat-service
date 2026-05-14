@@ -132,6 +132,21 @@ class UpdateProfileRequest {
 }
 
 @JsonSerializable()
+class ChangePasswordRequest {
+  final String currentPassword;
+  final String newPassword;
+
+  ChangePasswordRequest({
+    required this.currentPassword,
+    required this.newPassword,
+  });
+
+  factory ChangePasswordRequest.fromJson(Map<String, dynamic> json) =>
+      _$ChangePasswordRequestFromJson(json);
+  Map<String, dynamic> toJson() => _$ChangePasswordRequestToJson(this);
+}
+
+@JsonSerializable()
 class TypingRequest {
   final String conversationId;
 

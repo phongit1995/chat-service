@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button, Input, Modal, ModalHeader, ModalBody, ModalFooter } from './ui'
 import { useAuthStore } from '../store/authStore'
+import { ChangePasswordModal } from './ChangePasswordModal'
 import toast from 'react-hot-toast'
 import type { UpdateProfileDTO } from '../types'
 
@@ -11,6 +12,7 @@ interface ProfileEditModalProps {
 
 export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => {
   const { user, updateProfile, uploadAvatar } = useAuthStore()
+  const [showChangePassword, setShowChangePassword] = useState(false)
   const [formData, setFormData] = useState<UpdateProfileDTO>({
     fullName: user?.fullName || '',
     bio: user?.bio || '',
@@ -193,6 +195,13 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
         </ModalBody>
 
         <ModalFooter>
+          <button
+            type="button"
+            onClick={() => setShowChangePassword(true)}
+            className="text-[13px] text-ink-secondary hover:text-ink-primary mr-auto"
+          >
+            Change password
+          </button>
           <Button type="button" onClick={onClose} disabled={isLoading}
             className="bg-surface-overlay text-ink-primary hover:bg-surface-elevated">
             Cancel
@@ -202,6 +211,10 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
           </Button>
         </ModalFooter>
       </form>
+      <ChangePasswordModal
+        isOpen={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+      />
     </Modal>
   )
 }

@@ -18,4 +18,9 @@ abstract class AuthApiClient {
   Future<HttpResponse<ApiResponse<dynamic>>> register(
     @Body() RegisterRequest body,
   );
+
+  @POST('/auth/change-password')
+  Future<HttpResponse<ApiResponse<dynamic>>> changePassword(
+    @Body() ChangePasswordRequest body,
+  );
 }

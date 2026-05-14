@@ -1,13 +1,17 @@
 package auth
 
-import "chat-server/internal/utils"
+import (
+	"chat-server/internal/middleware"
+	"chat-server/internal/utils"
+)
 
 type Router struct {
-	controller *Controller
+	controller     *Controller
+	authMiddleware *middleware.AuthMiddleware
 }
 
-func NewRouter(controller *Controller) *Router {
-	return &Router{controller: controller}
+func NewRouter(controller *Controller, authMiddleware *middleware.AuthMiddleware) *Router {
+	return &Router{controller: controller, authMiddleware: authMiddleware}
 }
 
 func (r *Router) Setup(api *utils.AppGroup) {
@@ -15,5 +19,6 @@ func (r *Router) Setup(api *utils.AppGroup) {
 	{
 		auth.POST("/register", r.controller.Register)
 		auth.POST("/login", r.controller.Login)
+		auth.POST("/change-password", r.authMiddleware.RequireAuth(), r.controller.ChangePassword)
 	}
 }

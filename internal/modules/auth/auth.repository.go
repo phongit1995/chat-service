@@ -46,6 +46,12 @@ func (r *Repository) FindByID(id uuid.UUID) (*models.User, error) {
 	return &user, nil
 }
 
+func (r *Repository) UpdatePassword(userID uuid.UUID, hashedPassword string) error {
+	return r.db.Model(&models.User{}).
+		Where("id = ?", userID).
+		Update("password", hashedPassword).Error
+}
+
 func (r *Repository) UpdateLoginInfo(userID uuid.UUID, ip, refreshToken string) error {
 	now := gorm.Expr("NOW()")
 	return r.db.Model(&models.User{}).

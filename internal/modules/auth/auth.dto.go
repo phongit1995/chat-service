@@ -38,5 +38,10 @@ type UserResponse struct {
 	CustomInfo  map[string]interface{} `json:"customInfo,omitempty" swaggertype:"object" example:"{\"theme\":\"dark\",\"language\":\"en\"}"`
 }
 
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword" binding:"required" example:"oldpassword123"`
+	NewPassword     string `json:"newPassword" binding:"required,min=6" example:"newpassword123"`
+}
+
 type RegisterSuccessResponse = utils.BaseResponse[RegisterResponse]
 type AuthSuccessResponse = utils.BaseResponse[AuthResponse]

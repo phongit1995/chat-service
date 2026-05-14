@@ -16,4 +16,8 @@ export const authService = {
     const res = await http.post<RegisterResponse>('/auth/register', data)
     return res.data
   },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await http.post('/auth/change-password', { currentPassword, newPassword })
+  },
 }
