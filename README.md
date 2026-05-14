@@ -209,6 +209,67 @@ make web-dev      # :3000
 - **Web UI (dev):** `http://localhost:3000`
 - **Grafana:** `http://localhost:3001`
 
+## Client App Installation
+
+Pre-built binaries are attached to every [GitHub Release](https://github.com/phongit1995/chat-service/releases). Use the one-liner below for your platform — the script installs the app and skips the download if you are already on the latest version.
+
+### Windows
+
+Open **PowerShell** and run:
+
+```powershell
+irm https://raw.githubusercontent.com/phongit1995/chat-service/main/scripts/install-windows.ps1 | iex
+```
+
+The app is installed to `%LOCALAPPDATA%\ChatApp` and a desktop shortcut is created automatically.
+
+### macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/phongit1995/chat-service/main/scripts/install-macos.sh | bash
+```
+
+The `.app` bundle is copied to `/Applications`.
+
+### Linux
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/phongit1995/chat-service/main/scripts/install-linux.sh | bash
+```
+
+The app is extracted to `~/.local/share/chat-app`, a symlink is added to `~/.local/bin/chat-app`, and a `.desktop` entry is created.
+
+#### Install a specific version
+
+Pass the release tag as the first argument (macOS / Linux) or `-Tag` parameter (Windows):
+
+```bash
+# macOS / Linux
+bash install-macos.sh v1.2.0
+bash install-linux.sh v1.2.0
+```
+
+```powershell
+# Windows
+.\install-windows.ps1 -Tag v1.2.0
+```
+
+#### Auto-update
+
+Re-running the same script checks the installed version against the latest release. If already up to date it exits immediately — safe to add to a cron job or scheduled task.
+
+```bash
+# Linux / macOS cron — check for updates every day at 09:00
+0 9 * * * curl -fsSL https://raw.githubusercontent.com/phongit1995/chat-service/main/scripts/install-linux.sh | bash
+```
+
+```powershell
+# Windows — create a daily scheduled task
+$action  = New-ScheduledTaskAction -Execute "powershell" -Argument "-Command irm https://raw.githubusercontent.com/phongit1995/chat-service/main/scripts/install-windows.ps1 | iex"
+$trigger = New-ScheduledTaskTrigger -Daily -At "09:00"
+Register-ScheduledTask -TaskName "ChatAppUpdate" -Action $action -Trigger $trigger -RunLevel Highest
+```
+
 ## Configuration
 
 The two services read separate env files:
