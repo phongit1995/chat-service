@@ -12,6 +12,49 @@ import (
 	"gorm.io/gorm"
 )
 
+type cachedUser struct {
+	ID          string                 `json:"id"`
+	Username    string                 `json:"username"`
+	Email       string                 `json:"email"`
+	Avatar      string                 `json:"avatar"`
+	Phone       string                 `json:"phone"`
+	FullName    string                 `json:"fullName"`
+	Bio         string                 `json:"bio"`
+	DateOfBirth *time.Time             `json:"dateOfBirth"`
+	CustomInfo  map[string]interface{} `json:"customInfo"`
+	CreatedAt   time.Time              `json:"createdAt"`
+	UpdatedAt   time.Time              `json:"updatedAt"`
+}
+
+func toCachedUser(u *models.User) *cachedUser {
+	return &cachedUser{
+		ID:          u.ID.String(),
+		Username:    u.Username,
+		Email:       u.Email,
+		Avatar:      u.Avatar,
+		Phone:       u.Phone,
+		FullName:    u.FullName,
+		Bio:         u.Bio,
+		DateOfBirth: u.DateOfBirth,
+		CustomInfo:  u.CustomInfo,
+		CreatedAt:   u.CreatedAt,
+		UpdatedAt:   u.UpdatedAt,
+	}
+}
+
+func (cu *cachedUser) toModel() *models.User {
+	return &models.User{
+		Username:    cu.Username,
+		Email:       cu.Email,
+		Avatar:      cu.Avatar,
+		Phone:       cu.Phone,
+		FullName:    cu.FullName,
+		Bio:         cu.Bio,
+		DateOfBirth: cu.DateOfBirth,
+		CustomInfo:  models.JSONB(cu.CustomInfo),
+	}
+}
+
 type CacheService struct {
 	cache  *services.CacheService
 	db     *gorm.DB
@@ -28,16 +71,20 @@ func NewCacheService(cache *services.CacheService, db *gorm.DB, logger *zap.Suga
 
 func (c *CacheService) GetUser(userID uuid.UUID) (*models.User, error) {
 	key := fmt.Sprintf(constants.CacheKeyUserProfile, userID.String())
-	var user models.User
-	if err := c.cache.Get(key, &user); err != nil {
+	var cu cachedUser
+	if err := c.cache.Get(key, &cu); err != nil {
 		return nil, err
 	}
-	return &user, nil
+	u := cu.toModel()
+	u.ID = userID
+	u.CreatedAt = cu.CreatedAt
+	u.UpdatedAt = cu.UpdatedAt
+	return u, nil
 }
 
 func (c *CacheService) SetUser(userID uuid.UUID, user *models.User) error {
 	key := fmt.Sprintf(constants.CacheKeyUserProfile, userID.String())
-	return c.cache.Set(key, user, constants.CacheTTLUserProfile*time.Second)
+	return c.cache.Set(key, toCachedUser(user), constants.CacheTTLUserProfile*time.Second)
 }
 
 func (c *CacheService) DeleteUser(userID uuid.UUID) error {
