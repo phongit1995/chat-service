@@ -109,6 +109,14 @@ class SocketService {
     }
   }
 
+  void emitTyping(String conversationId) {
+    _socket?.emit('typing', {'conversationId': conversationId});
+  }
+
+  void emitStopTyping(String conversationId) {
+    _socket?.emit('stop_typing', {'conversationId': conversationId});
+  }
+
   void disconnect() {
     _pingTimer?.cancel();
     _pingTimer = null;

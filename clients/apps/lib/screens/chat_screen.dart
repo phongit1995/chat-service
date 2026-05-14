@@ -62,20 +62,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _onInputChanged() {
+    final socket = ref.read(socketProvider);
     if (_input.text.isNotEmpty && !_isTyping) {
       _isTyping = true;
-      ref
-          .read(conversationServiceProvider)
-          .sendTyping(widget.conversationId)
-          .catchError((_) {});
+      socket.emitTyping(widget.conversationId);
     }
     _stopTypingTimer?.cancel();
-    if (_input.text.isEmpty) {
+    if (_input.text.isEmpty && _isTyping) {
       _isTyping = false;
+      socket.emitStopTyping(widget.conversationId);
       return;
     }
     _stopTypingTimer = Timer(const Duration(seconds: 3), () {
-      _isTyping = false;
+      if (_isTyping) {
+        _isTyping = false;
+        socket.emitStopTyping(widget.conversationId);
+      }
     });
   }
 
