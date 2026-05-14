@@ -1,5 +1,7 @@
 package conversation
 
+import "chat-server/internal/utils"
+
 type CreateDirectConversationRequest struct {
 	RecipientID string `json:"recipientId" binding:"required,uuid" example:"ca4c6d54-870c-4735-b9a6-cce05a04aedb"`
 }
@@ -43,17 +45,8 @@ type ConversationsListResponse struct {
 	Total         int                    `json:"total" example:"10"`
 }
 
-type ConversationSuccessResponse struct {
-	Success bool                  `json:"success" example:"true"`
-	Message string                `json:"message" example:"Conversation created successfully"`
-	Data    *ConversationResponse `json:"data"`
-}
-
-type ConversationsListSuccessResponse struct {
-	Success bool                       `json:"success" example:"true"`
-	Message string                     `json:"message" example:"Conversations retrieved successfully"`
-	Data    *ConversationsListResponse `json:"data"`
-}
+type ConversationSuccessResponse = utils.BaseResponse[ConversationResponse]
+type ConversationsListSuccessResponse = utils.BaseResponse[ConversationsListResponse]
 
 type SimpleSuccessResponse struct {
 	Success bool   `json:"success" example:"true"`

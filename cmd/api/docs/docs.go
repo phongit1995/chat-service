@@ -366,6 +366,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/conversations/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get full detail of a conversation including other-user info and presence (direct only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Get conversation detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_conversation.ConversationSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/conversations/{id}/hide": {
             "post": {
                 "security": [
@@ -899,12 +951,12 @@ const docTemplate = `{
                 "summary": "Block a user",
                 "parameters": [
                     {
-                        "description": "User ID to block (use addresseeId field)",
+                        "description": "Block User Request",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_modules_relationships.SendFriendRequestRequest"
+                            "$ref": "#/definitions/internal_modules_relationships.BlockUserRequest"
                         }
                     }
                 ],
@@ -1421,7 +1473,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Search users by username, full name, or email",
+                "description": "Search users by username or full name",
                 "produces": [
                     "application/json"
                 ],
@@ -1468,7 +1520,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Upload image to Cloudinary and get URL (does not update user profile)",
+                "description": "Upload image to MinIO and get URL (does not update user profile)",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1695,6 +1747,9 @@ const docTemplate = `{
                     "type": "string",
                     "example": "John Doe"
                 },
+                "otherUser": {
+                    "$ref": "#/definitions/internal_modules_conversation.OtherUserBrief"
+                },
                 "participantCount": {
                     "type": "integer",
                     "example": 2
@@ -1723,13 +1778,23 @@ const docTemplate = `{
                 "data": {
                     "$ref": "#/definitions/internal_modules_conversation.ConversationResponse"
                 },
-                "message": {
-                    "type": "string",
-                    "example": "Conversation created successfully"
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
                 },
                 "success": {
-                    "type": "boolean",
-                    "example": true
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
                 }
             }
         },
@@ -1754,13 +1819,23 @@ const docTemplate = `{
                 "data": {
                     "$ref": "#/definitions/internal_modules_conversation.ConversationsListResponse"
                 },
-                "message": {
-                    "type": "string",
-                    "example": "Conversations retrieved successfully"
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
                 },
                 "success": {
-                    "type": "boolean",
-                    "example": true
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
                 }
             }
         },
@@ -1812,6 +1887,39 @@ const docTemplate = `{
                 "success": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "internal_modules_conversation.OtherUserBrief": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "bio": {
+                    "type": "string",
+                    "example": "Software developer"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "ca4c6d54-870c-4735-b9a6-cce05a04aedb"
+                },
+                "isOnline": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "lastActiveAt": {
+                    "type": "string",
+                    "example": "2024-01-15T15:45:00Z"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "johndoe"
                 }
             }
         },
@@ -1974,13 +2082,23 @@ const docTemplate = `{
                 "data": {
                     "$ref": "#/definitions/internal_modules_message.MessageResponse"
                 },
-                "message": {
-                    "type": "string",
-                    "example": "Message sent successfully"
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
                 },
                 "success": {
-                    "type": "boolean",
-                    "example": true
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
                 }
             }
         },
@@ -2005,13 +2123,23 @@ const docTemplate = `{
                 "data": {
                     "$ref": "#/definitions/internal_modules_message.MessagesListResponse"
                 },
-                "message": {
-                    "type": "string",
-                    "example": "Messages retrieved successfully"
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
                 },
                 "success": {
-                    "type": "boolean",
-                    "example": true
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
                 }
             }
         },
@@ -2030,6 +2158,7 @@ const docTemplate = `{
                 },
                 "content": {
                     "type": "string",
+                    "maxLength": 4000,
                     "minLength": 1,
                     "example": "Hello, how are you?"
                 },
@@ -2069,6 +2198,7 @@ const docTemplate = `{
                 },
                 "content": {
                     "type": "string",
+                    "maxLength": 4000,
                     "minLength": 1,
                     "example": "Hello, how are you?"
                 },
@@ -2118,8 +2248,21 @@ const docTemplate = `{
             "properties": {
                 "content": {
                     "type": "string",
+                    "maxLength": 4000,
                     "minLength": 1,
                     "example": "Updated message content"
+                }
+            }
+        },
+        "internal_modules_relationships.BlockUserRequest": {
+            "type": "object",
+            "required": [
+                "userId"
+            ],
+            "properties": {
+                "userId": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440001"
                 }
             }
         },
@@ -2394,10 +2537,12 @@ const docTemplate = `{
             "properties": {
                 "avatar": {
                     "type": "string",
+                    "maxLength": 500,
                     "example": "https://example.com/avatar.jpg"
                 },
                 "bio": {
                     "type": "string",
+                    "maxLength": 500,
                     "example": "Software developer"
                 },
                 "customInfo": {
@@ -2409,10 +2554,12 @@ const docTemplate = `{
                 },
                 "fullName": {
                     "type": "string",
+                    "maxLength": 100,
                     "example": "John Doe"
                 },
                 "phone": {
                     "type": "string",
+                    "maxLength": 20,
                     "example": "+84987654321"
                 }
             }
@@ -2426,23 +2573,23 @@ const docTemplate = `{
                 },
                 "height": {
                     "type": "integer",
-                    "example": 400
+                    "example": 0
                 },
                 "publicId": {
                     "type": "string",
-                    "example": "avatars/user123"
+                    "example": "uploads/abc123.webp"
                 },
                 "secureUrl": {
                     "type": "string",
-                    "example": "https://res.cloudinary.com/demo/image/upload/avatars/user123.webp"
+                    "example": "http://localhost:9000/chat-uploads/uploads/abc123.webp"
                 },
                 "url": {
                     "type": "string",
-                    "example": "https://res.cloudinary.com/demo/image/upload/avatars/user123.webp"
+                    "example": "http://localhost:9000/chat-uploads/uploads/abc123.webp"
                 },
                 "width": {
                     "type": "integer",
-                    "example": 400
+                    "example": 0
                 }
             }
         },
@@ -2486,10 +2633,6 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Software developer"
                 },
-                "email": {
-                    "type": "string",
-                    "example": "john@example.com"
-                },
                 "fullName": {
                     "type": "string",
                     "example": "John Doe"
@@ -2497,6 +2640,10 @@ const docTemplate = `{
                 "id": {
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "isOnline": {
+                    "type": "boolean",
+                    "example": true
                 },
                 "username": {
                     "type": "string",

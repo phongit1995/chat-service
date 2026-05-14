@@ -33,10 +33,10 @@ type UpdateProfileRequest struct {
 type UserSearchResult struct {
 	ID       string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Username string `json:"username" example:"john_doe"`
-	Email    string `json:"email" example:"john@example.com"`
 	FullName string `json:"fullName,omitempty" example:"John Doe"`
 	Avatar   string `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
 	Bio      string `json:"bio,omitempty" example:"Software developer"`
+	IsOnline bool   `json:"isOnline" example:"true"`
 }
 
 type SearchUsersResponse struct {

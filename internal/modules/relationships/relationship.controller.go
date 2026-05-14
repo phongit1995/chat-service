@@ -226,7 +226,7 @@ func (ctrl *Controller) Unfriend(c *gin.Context) (interface{}, error) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body SendFriendRequestRequest true "User ID to block (use addresseeId field)"
+// @Param        request body BlockUserRequest true "Block User Request"
 // @Success      201  {object}  RelationshipSuccessResponse
 // @Failure      400  {object}  utils.APIError
 // @Failure      401  {object}  utils.APIError
@@ -237,12 +237,12 @@ func (ctrl *Controller) BlockUser(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
 	}
 
-	var req SendFriendRequestRequest
+	var req BlockUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		return nil, utils.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	blockedID, err := uuid.Parse(req.AddresseeID)
+	blockedID, err := uuid.Parse(req.UserID)
 	if err != nil {
 		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid user ID")
 	}
@@ -256,7 +256,7 @@ func (ctrl *Controller) BlockUser(c *gin.Context) (interface{}, error) {
 	if err != nil {
 		ctrl.logger.Warnw("Failed to block user",
 			"blocker_id", userID,
-			"blocked_id", req.AddresseeID,
+			"blocked_id", req.UserID,
 			"error", err.Error(),
 		)
 		statusCode := utils.HTTPStatusFromError(err)
@@ -265,7 +265,7 @@ func (ctrl *Controller) BlockUser(c *gin.Context) (interface{}, error) {
 
 	ctrl.logger.Infow("User blocked successfully",
 		"blocker_id", userID,
-		"blocked_id", req.AddresseeID,
+		"blocked_id", req.UserID,
 	)
 
 	return response, nil

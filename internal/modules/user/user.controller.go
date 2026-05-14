@@ -122,7 +122,7 @@ func (ctrl *Controller) UpdateProfile(c *gin.Context) (interface{}, error) {
 
 // SearchUsers godoc
 // @Summary      Search users
-// @Description  Search users by username, full name, or email
+// @Description  Search users by username or full name
 // @Tags         user
 // @Produce      json
 // @Security     BearerAuth

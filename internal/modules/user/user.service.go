@@ -3,6 +3,7 @@ package user
 import (
 	"chat-server/internal/models"
 	"chat-server/internal/services"
+	"chat-server/internal/transport/websocket"
 	"context"
 	"errors"
 	"mime/multipart"
@@ -18,6 +19,7 @@ type Service struct {
 	cache        *CacheService
 	minioService *services.MinIOService
 	cacheService *services.CacheService
+	presence     *websocket.PresenceService
 	db           *gorm.DB
 	logger       *zap.SugaredLogger
 }
@@ -27,6 +29,7 @@ func NewService(
 	cache *CacheService,
 	minioService *services.MinIOService,
 	cacheService *services.CacheService,
+	presence *websocket.PresenceService,
 	db *gorm.DB,
 	logger *zap.SugaredLogger,
 ) *Service {
@@ -35,6 +38,7 @@ func NewService(
 		cache:        cache,
 		minioService: minioService,
 		cacheService: cacheService,
+		presence:     presence,
 		db:           db,
 		logger:       logger.Named("[user_service]"),
 	}
@@ -189,15 +193,21 @@ func (s *Service) SearchUsers(query string, limit int, currentUserID uuid.UUID) 
 		return nil, err
 	}
 
+	userIDs := make([]string, len(users))
+	for i, u := range users {
+		userIDs[i] = u.ID.String()
+	}
+	onlineMap := s.presence.GetOnlineUsers(userIDs)
+
 	results := make([]UserSearchResult, 0, len(users))
 	for _, user := range users {
 		results = append(results, UserSearchResult{
 			ID:       user.ID.String(),
 			Username: user.Username,
-			Email:    user.Email,
 			FullName: user.FullName,
 			Avatar:   user.Avatar,
 			Bio:      user.Bio,
+			IsOnline: onlineMap[user.ID.String()],
 		})
 	}
 

@@ -1,5 +1,7 @@
 package message
 
+import "chat-server/internal/utils"
+
 type SendMessageRequest struct {
 	ConversationID string  `json:"conversationId" binding:"required,uuid" example:"ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"`
 	Type           string  `json:"type" binding:"required,oneof=text image file video audio" example:"text"`
@@ -42,19 +44,10 @@ type MessagesListResponse struct {
 	Total    int               `json:"total" example:"50"`
 }
 
-type MessageSuccessResponse struct {
-	Success bool             `json:"success" example:"true"`
-	Message string           `json:"message" example:"Message sent successfully"`
-	Data    *MessageResponse `json:"data"`
-}
-
-type MessagesListSuccessResponse struct {
-	Success bool                  `json:"success" example:"true"`
-	Message string                `json:"message" example:"Messages retrieved successfully"`
-	Data    *MessagesListResponse `json:"data"`
-}
-
 type SimpleSuccessResponse struct {
 	Success bool   `json:"success" example:"true"`
 	Message string `json:"message" example:"Operation completed successfully"`
 }
+
+type MessageSuccessResponse = utils.BaseResponse[MessageResponse]
+type MessagesListSuccessResponse = utils.BaseResponse[MessagesListResponse]

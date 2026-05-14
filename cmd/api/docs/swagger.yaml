@@ -123,6 +123,8 @@ definitions:
       name:
         example: John Doe
         type: string
+      otherUser:
+        $ref: '#/definitions/internal_modules_conversation.OtherUserBrief'
       participantCount:
         example: 2
         type: integer
@@ -143,12 +145,18 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/internal_modules_conversation.ConversationResponse'
-      message:
-        example: Conversation created successfully
+      error:
         type: string
+      path:
+        type: string
+      status:
+        type: integer
       success:
-        example: true
         type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
     type: object
   internal_modules_conversation.ConversationsListResponse:
     properties:
@@ -164,12 +172,18 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/internal_modules_conversation.ConversationsListResponse'
-      message:
-        example: Conversations retrieved successfully
+      error:
         type: string
+      path:
+        type: string
+      status:
+        type: integer
       success:
-        example: true
         type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
     type: object
   internal_modules_conversation.CreateDirectConversationRequest:
     properties:
@@ -206,6 +220,30 @@ definitions:
       success:
         example: true
         type: boolean
+    type: object
+  internal_modules_conversation.OtherUserBrief:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      bio:
+        example: Software developer
+        type: string
+      fullName:
+        example: John Doe
+        type: string
+      id:
+        example: ca4c6d54-870c-4735-b9a6-cce05a04aedb
+        type: string
+      isOnline:
+        example: true
+        type: boolean
+      lastActiveAt:
+        example: "2024-01-15T15:45:00Z"
+        type: string
+      username:
+        example: johndoe
+        type: string
     type: object
   internal_modules_conversation.SimpleSuccessResponse:
     properties:
@@ -318,12 +356,18 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/internal_modules_message.MessageResponse'
-      message:
-        example: Message sent successfully
+      error:
         type: string
+      path:
+        type: string
+      status:
+        type: integer
       success:
-        example: true
         type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
     type: object
   internal_modules_message.MessagesListResponse:
     properties:
@@ -339,12 +383,18 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/internal_modules_message.MessagesListResponse'
-      message:
-        example: Messages retrieved successfully
+      error:
         type: string
+      path:
+        type: string
+      status:
+        type: integer
       success:
-        example: true
         type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
     type: object
   internal_modules_message.SendDirectMessageRequest:
     properties:
@@ -354,6 +404,7 @@ definitions:
         type: string
       content:
         example: Hello, how are you?
+        maxLength: 4000
         minLength: 1
         type: string
       metadata:
@@ -384,6 +435,7 @@ definitions:
         type: string
       content:
         example: Hello, how are you?
+        maxLength: 4000
         minLength: 1
         type: string
       conversationId:
@@ -422,10 +474,19 @@ definitions:
     properties:
       content:
         example: Updated message content
+        maxLength: 4000
         minLength: 1
         type: string
     required:
     - content
+    type: object
+  internal_modules_relationships.BlockUserRequest:
+    properties:
+      userId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+    required:
+    - userId
     type: object
   internal_modules_relationships.FriendListResponse:
     properties:
@@ -612,9 +673,11 @@ definitions:
     properties:
       avatar:
         example: https://example.com/avatar.jpg
+        maxLength: 500
         type: string
       bio:
         example: Software developer
+        maxLength: 500
         type: string
       customInfo:
         type: object
@@ -623,9 +686,11 @@ definitions:
         type: string
       fullName:
         example: John Doe
+        maxLength: 100
         type: string
       phone:
         example: "+84987654321"
+        maxLength: 20
         type: string
     type: object
   internal_modules_user.UploadAvatarResponse:
@@ -634,19 +699,19 @@ definitions:
         example: webp
         type: string
       height:
-        example: 400
+        example: 0
         type: integer
       publicId:
-        example: avatars/user123
+        example: uploads/abc123.webp
         type: string
       secureUrl:
-        example: https://res.cloudinary.com/demo/image/upload/avatars/user123.webp
+        example: http://localhost:9000/chat-uploads/uploads/abc123.webp
         type: string
       url:
-        example: https://res.cloudinary.com/demo/image/upload/avatars/user123.webp
+        example: http://localhost:9000/chat-uploads/uploads/abc123.webp
         type: string
       width:
-        example: 400
+        example: 0
         type: integer
     type: object
   internal_modules_user.UploadAvatarSuccessResponse:
@@ -676,15 +741,15 @@ definitions:
       bio:
         example: Software developer
         type: string
-      email:
-        example: john@example.com
-        type: string
       fullName:
         example: John Doe
         type: string
       id:
         example: 550e8400-e29b-41d4-a716-446655440000
         type: string
+      isOnline:
+        example: true
+        type: boolean
       username:
         example: john_doe
         type: string
@@ -784,6 +849,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Get user conversations
+      tags:
+      - conversations
+  /conversations/{id}:
+    get:
+      description: Get full detail of a conversation including other-user info and
+        presence (direct only)
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_conversation.ConversationSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get conversation detail
       tags:
       - conversations
   /conversations/{id}/hide:
@@ -1392,12 +1491,12 @@ paths:
       - application/json
       description: Block another user
       parameters:
-      - description: User ID to block (use addresseeId field)
+      - description: Block User Request
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_modules_relationships.SendFriendRequestRequest'
+          $ref: '#/definitions/internal_modules_relationships.BlockUserRequest'
       produces:
       - application/json
       responses:
@@ -1590,7 +1689,7 @@ paths:
       - user
   /user/search:
     get:
-      description: Search users by username, full name, or email
+      description: Search users by username or full name
       parameters:
       - description: Search query
         in: query
@@ -1622,7 +1721,7 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload image to Cloudinary and get URL (does not update user profile)
+      description: Upload image to MinIO and get URL (does not update user profile)
       parameters:
       - description: Image file (jpg, png, gif, webp)
         in: formData
