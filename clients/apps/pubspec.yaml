@@ -48,6 +48,7 @@ dependencies:
   livekit_client: ^2.4.8
   wakelock_plus: ^1.4.0
   flutter_callkit_incoming: ^3.0.0
+  desktop_multi_window: ^0.2.1
 
 dev_dependencies:
   flutter_test:

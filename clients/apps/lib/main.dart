@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,12 +13,33 @@ import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/call/call_screen.dart';
+import 'screens/call/call_window_app.dart';
 import 'screens/call/incoming_call_overlay.dart';
 import 'providers/call_provider.dart';
 import 'theme/app_theme.dart';
 import 'utils/toast.dart' show navigatorKey;
 
-void main() {
+void main(List<String> args) {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Sub-window entry: launched by DesktopMultiWindow.createWindow().
+  // args == ['multi_window', '<windowId>', '<json args>']
+  if (args.isNotEmpty && args.first == 'multi_window') {
+    final windowId = int.parse(args[1]);
+    final raw = args.length > 2 ? args[2] : '';
+    final subArgs = raw.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(raw) as Map<String, dynamic>;
+    final type = subArgs['type'] as String?;
+    if (type == 'call') {
+      runApp(CallWindowApp(
+        windowController: WindowController.fromWindowId(windowId),
+        args: subArgs,
+      ));
+      return;
+    }
+  }
+
   runApp(const ProviderScope(child: ChatApp()));
 }
 
@@ -95,8 +119,17 @@ class _AuthListenable extends ChangeNotifier {
   }
 }
 
-/// Layers the route content with the global call screen (full-screen when
-/// expanded, mini widget when collapsed) and the incoming call overlay.
+bool get _isDesktopPlatform =>
+    defaultTargetPlatform == TargetPlatform.windows ||
+    defaultTargetPlatform == TargetPlatform.macOS ||
+    defaultTargetPlatform == TargetPlatform.linux;
+
+/// Layers the route content with the global call screen and the incoming
+/// call overlay.
+///
+/// Desktop platforms render the in-call UI in a dedicated sub-window
+/// (spawned by CallNotifier), so this layer skips the in-place [CallScreen]
+/// there and only keeps the incoming-call overlay for ringing UI.
 class _CallLayer extends ConsumerWidget {
   final Widget child;
   const _CallLayer({required this.child});
@@ -106,14 +139,13 @@ class _CallLayer extends ConsumerWidget {
     final mode = ref.watch(callProvider.select((s) => s.mode));
     final expanded = ref.watch(callProvider.select((s) => s.expanded));
     final inCall = mode == CallMode.outgoing || mode == CallMode.active;
-    final fullScreen = inCall && expanded;
+    final useSubWindow = _isDesktopPlatform;
+    final fullScreen = inCall && expanded && !useSubWindow;
 
     return Stack(
       children: [
-        // Hide the route under the full-screen call to save resources, but
-        // keep it mounted so state survives.
         Offstage(offstage: fullScreen, child: child),
-        if (inCall) const Positioned.fill(child: CallScreen()),
+        if (inCall && !useSubWindow) const Positioned.fill(child: CallScreen()),
         const Positioned.fill(child: IncomingCallOverlay()),
       ],
     );

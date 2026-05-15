@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:ui';
+
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
@@ -7,6 +11,46 @@ import '../models/call.dart';
 import '../models/ws_events.dart';
 import '../utils/toast.dart';
 import 'core_providers.dart';
+
+bool get _isDesktop =>
+    defaultTargetPlatform == TargetPlatform.windows ||
+    defaultTargetPlatform == TargetPlatform.macOS ||
+    defaultTargetPlatform == TargetPlatform.linux;
+
+Future<int?> _openCallWindow({
+  required ActiveCall active,
+  required bool isOutgoing,
+}) async {
+  if (!_isDesktop) return null;
+  try {
+    final controller = await DesktopMultiWindow.createWindow(jsonEncode({
+      'type': 'call',
+      'callId': active.callId,
+      'token': active.token,
+      'wsUrl': active.wsUrl,
+      'roomName': active.roomName,
+      'callType': active.callType == CallType.video ? 'video' : 'audio',
+      'peerName': active.peer.displayName,
+      'peerAvatar': active.peer.avatar,
+      'mode': isOutgoing ? 'outgoing' : 'active',
+    }));
+    controller
+      ..setFrame(const Offset(0, 0) & const Size(960, 640))
+      ..center()
+      ..setTitle(active.peer.displayName)
+      ..show();
+    return controller.windowId;
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _closeCallWindow(int? windowId) async {
+  if (windowId == null) return;
+  try {
+    await WindowController.fromWindowId(windowId).close();
+  } catch (_) {}
+}
 
 enum CallMode { idle, incoming, outgoing, active }
 
@@ -54,6 +98,9 @@ class CallState {
   final bool micMuted;
   final bool camOff;
   final bool localEnded;
+  /// Desktop only: id of the spawned call sub-window. Used to close it
+  /// when the call ends from any side (peer hangup, remote decline, etc).
+  final int? callWindowId;
 
   const CallState({
     this.mode = CallMode.idle,
@@ -63,6 +110,7 @@ class CallState {
     this.micMuted = false,
     this.camOff = false,
     this.localEnded = false,
+    this.callWindowId,
   });
 
   CallState copyWith({
@@ -73,8 +121,10 @@ class CallState {
     bool? micMuted,
     bool? camOff,
     bool? localEnded,
+    int? callWindowId,
     bool clearIncoming = false,
     bool clearActive = false,
+    bool clearCallWindowId = false,
   }) => CallState(
         mode: mode ?? this.mode,
         incoming: clearIncoming ? null : (incoming ?? this.incoming),
@@ -83,6 +133,8 @@ class CallState {
         micMuted: micMuted ?? this.micMuted,
         camOff: camOff ?? this.camOff,
         localEnded: localEnded ?? this.localEnded,
+        callWindowId:
+            clearCallWindowId ? null : (callWindowId ?? this.callWindowId),
       );
 
   static const idle = CallState();
@@ -159,6 +211,9 @@ class CallNotifier extends Notifier<CallState> {
     if (_useCallkit) {
       FlutterCallkitIncoming.onEvent.listen(_handleCallkitEvent);
     }
+    if (_isDesktop) {
+      DesktopMultiWindow.setMethodHandler(_handleSubWindowMessage);
+    }
     return CallState.idle;
   }
 
@@ -179,6 +234,23 @@ class CallNotifier extends Notifier<CallState> {
     }
   }
 
+  /// IPC from the call sub-window (desktop only). The sub-window owns the
+  /// LiveKit Room — when the user ends the call there, this is how main
+  /// learns about it.
+  Future<dynamic> _handleSubWindowMessage(call, fromWindowId) async {
+    switch (call.method) {
+      case 'call.ended':
+        await endActive();
+        break;
+    }
+    return null;
+  }
+
+  Future<void> _spawnCallWindow(ActiveCall active, bool isOutgoing) async {
+    final id = await _openCallWindow(active: active, isOutgoing: isOutgoing);
+    if (id != null) state = state.copyWith(callWindowId: id);
+  }
+
   Future<void> startCall(
     String conversationId,
     CallType callType,
@@ -188,11 +260,13 @@ class CallNotifier extends Notifier<CallState> {
       final data = await ref
           .read(callServiceProvider)
           .start(conversationId, callType);
+      final active = _toActiveCall(data, peer);
       state = CallState(
         mode: CallMode.outgoing,
-        active: _toActiveCall(data, peer),
+        active: active,
         expanded: true,
       );
+      await _spawnCallWindow(active, true);
     } catch (_) {
       showErrorToast('Failed to start call');
       state = CallState.idle;
@@ -207,11 +281,13 @@ class CallNotifier extends Notifier<CallState> {
       final data = await ref
           .read(callServiceProvider)
           .answer(incoming.callId);
+      final active = _toActiveCall(data, incoming.caller);
       state = CallState(
         mode: CallMode.active,
-        active: _toActiveCall(data, incoming.caller),
+        active: active,
         expanded: true,
       );
+      await _spawnCallWindow(active, false);
     } catch (_) {
       showErrorToast('Failed to answer call');
       state = CallState.idle;
@@ -222,8 +298,10 @@ class CallNotifier extends Notifier<CallState> {
     final incoming = state.incoming;
     if (incoming == null) return;
     await _endCallkitUI(incoming.callId);
+    final windowId = state.callWindowId;
     state = CallState(localEnded: true);
     showInfoToast('Call declined');
+    await _closeCallWindow(windowId);
     try {
       await ref.read(callServiceProvider).decline(incoming.callId);
     } catch (_) {}
@@ -233,9 +311,11 @@ class CallNotifier extends Notifier<CallState> {
     final active = state.active;
     if (active == null) return;
     final wasActive = state.mode == CallMode.active;
+    final windowId = state.callWindowId;
     await _endCallkitUI(active.callId);
     state = CallState(localEnded: true);
     showInfoToast(wasActive ? 'Call ended' : 'Call cancelled');
+    await _closeCallWindow(windowId);
     try {
       await ref.read(callServiceProvider).end(active.callId);
     } catch (_) {}
@@ -294,9 +374,11 @@ class CallNotifier extends Notifier<CallState> {
     final active = state.active;
     if (active?.callId != data.callId) return;
     final name = active!.peer.displayName;
+    final windowId = state.callWindowId;
     _endCallkitUI(data.callId);
     showInfoToast('$name declined');
     state = CallState.idle;
+    _closeCallWindow(windowId);
   }
 
   void onEnded(CallEndedPayload data) {
@@ -304,14 +386,17 @@ class CallNotifier extends Notifier<CallState> {
     final isOurActive = state.active?.callId == data.callId;
     if (!isOurIncoming && !isOurActive) return;
 
+    final windowId = state.callWindowId;
     _endCallkitUI(data.callId);
 
     if (state.localEnded) {
       state = CallState.idle;
+      _closeCallWindow(windowId);
       return;
     }
 
     state = CallState.idle;
+    _closeCallWindow(windowId);
 
     if (data.status == 'missed') {
       showInfoToast(isOurIncoming ? 'Missed call' : 'No answer');
