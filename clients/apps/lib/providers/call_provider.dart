@@ -72,16 +72,13 @@ Future<int?> _openIncomingCallWindow(IncomingCall incoming) =>
       title: 'Incoming · ${incoming.caller.displayName}',
     );
 
-Future<void> _closeCallWindow(int? windowId) async {
-  if (windowId == null) return;
-  try {
-    await WindowController.fromWindowId(windowId).close();
-  } catch (_) {}
-}
-
 /// Tell the existing incoming sub-window to switch to active call mode and
 /// resize itself. Used after the user answers — we keep the same window
 /// instead of spawning a new one.
+/// Tell the existing incoming sub-window to switch to active call mode.
+/// The sub-window resizes itself after switching so the resize and the UI
+/// transition happen atomically — main does NOT resize from here to avoid
+/// flashing the wrong layout at the new size.
 Future<void> _switchWindowToActive({
   required int windowId,
   required ActiveCall active,
@@ -96,10 +93,29 @@ Future<void> _switchWindowToActive({
       'peerName': active.peer.displayName,
       'peerAvatar': active.peer.avatar,
     });
-    final ctrl = WindowController.fromWindowId(windowId);
-    ctrl
-      ..setFrame(Offset.zero & _kLargeSize)
-      ..center();
+  } catch (_) {}
+}
+
+/// Bug #1 fix — when caller's outgoing call is accepted by the peer, tell
+/// the already-open sub-window (which spawned in 'outgoing' / "Ringing…"
+/// mode) to update its status to "Connected".
+Future<void> _notifyPeerAccepted(int windowId) async {
+  try {
+    await DesktopMultiWindow.invokeMethod(windowId, 'call.peerAccepted', {});
+  } catch (_) {}
+}
+
+/// Bug #5+#6 fix — main is the single source of truth for ending the call.
+/// Send the sub-window a graceful "wind down" IPC so it can disconnect
+/// LiveKit cleanly, then close from main. The sub-window never calls
+/// close() on itself; it only emits 'call.ended' to main.
+Future<void> _windDownAndCloseWindow(int? windowId) async {
+  if (windowId == null) return;
+  try {
+    await DesktopMultiWindow.invokeMethod(windowId, 'call.end', {});
+  } catch (_) {}
+  try {
+    await WindowController.fromWindowId(windowId).close();
   } catch (_) {}
 }
 
@@ -303,11 +319,17 @@ class CallNotifier extends Notifier<CallState> {
     return null;
   }
 
+  // Bug #2 guard: prevents double-click / double-accept on the network
+  // round-trip. Reset to false on each user-initiated action.
+  bool _busy = false;
+
   Future<void> startCall(
     String conversationId,
     CallType callType,
     CallerBrief peer,
   ) async {
+    if (_busy) return;
+    _busy = true;
     try {
       final data = await ref
           .read(callServiceProvider)
@@ -324,12 +346,19 @@ class CallNotifier extends Notifier<CallState> {
     } catch (_) {
       showErrorToast('Failed to start call');
       state = CallState.idle;
+    } finally {
+      _busy = false;
     }
   }
 
   Future<void> answerIncoming() async {
+    if (_busy) return;
+    _busy = true;
     final incoming = state.incoming;
-    if (incoming == null) return;
+    if (incoming == null) {
+      _busy = false;
+      return;
+    }
     await _endCallkitUI(incoming.callId);
     try {
       final data = await ref
@@ -343,48 +372,68 @@ class CallNotifier extends Notifier<CallState> {
         expanded: true,
         callWindowId: existingWindowId,
       );
-      // Desktop: the small ringing window was already open — resize and
-      // switch it to active call mode in-place. Otherwise spawn fresh.
+      // Desktop: the small ringing window was already open — tell it to
+      // switch to active mode (it will resize itself once switched).
       if (existingWindowId != null) {
         await _switchWindowToActive(
           windowId: existingWindowId,
           active: active,
         );
-      } else {
+      } else if (_isDesktop) {
+        // Shouldn't happen on desktop (window was spawned in onIncoming)
+        // but recover gracefully.
         final id = await _openActiveCallWindow(active, false);
         if (id != null) state = state.copyWith(callWindowId: id);
       }
     } catch (_) {
       showErrorToast('Failed to answer call');
+      // Wind down any open sub-window before reset.
+      await _windDownAndCloseWindow(state.callWindowId);
       state = CallState.idle;
+    } finally {
+      _busy = false;
     }
   }
 
   Future<void> declineIncoming() async {
+    if (_busy) return;
+    _busy = true;
     final incoming = state.incoming;
-    if (incoming == null) return;
-    await _endCallkitUI(incoming.callId);
+    if (incoming == null) {
+      _busy = false;
+      return;
+    }
     final windowId = state.callWindowId;
+    await _endCallkitUI(incoming.callId);
+    // Bug #9 fix: close the sub-window FIRST, then reset state. Otherwise
+    // a failed close leaves a zombie window with no way to recover.
+    await _windDownAndCloseWindow(windowId);
     state = CallState(localEnded: true);
     showInfoToast('Call declined');
-    await _closeCallWindow(windowId);
     try {
       await ref.read(callServiceProvider).decline(incoming.callId);
     } catch (_) {}
+    _busy = false;
   }
 
   Future<void> endActive() async {
+    if (_busy) return;
+    _busy = true;
     final active = state.active;
-    if (active == null) return;
+    if (active == null) {
+      _busy = false;
+      return;
+    }
     final wasActive = state.mode == CallMode.active;
     final windowId = state.callWindowId;
     await _endCallkitUI(active.callId);
+    await _windDownAndCloseWindow(windowId);
     state = CallState(localEnded: true);
     showInfoToast(wasActive ? 'Call ended' : 'Call cancelled');
-    await _closeCallWindow(windowId);
     try {
       await ref.read(callServiceProvider).end(active.callId);
     } catch (_) {}
+    _busy = false;
   }
 
   void setExpanded(bool expanded) => state = state.copyWith(expanded: expanded);
@@ -403,80 +452,103 @@ class CallNotifier extends Notifier<CallState> {
       return;
     }
 
-    CallerBrief caller = CallerBrief(id: data.callerId);
-    try {
-      final u = await ref.read(userServiceProvider).getUserInfo(data.callerId);
-      caller = CallerBrief(
-        id: u.id,
-        username: u.username,
-        fullName: u.fullName,
-        avatar: u.avatar,
-      );
-    } catch (_) {}
-
-    if (state.mode != CallMode.idle) return;
-
+    // Bug #8: claim the slot synchronously so a second concurrent
+    // INCOMING_CALL can't slip in during the async profile fetch.
     final incoming = IncomingCall(
       callId: data.callId,
       conversationId: data.conversationId,
       callType: _parseCallType(data.callType),
       roomName: data.roomName,
-      caller: caller,
+      caller: CallerBrief(id: data.callerId),
     );
-
     state = CallState(mode: CallMode.incoming, incoming: incoming);
-    await _showCallkitUI(incoming);
 
-    // Desktop: spawn a small ringing sub-window. iOS / web render the
-    // IncomingCallOverlay in the main window instead.
+    // Enrich the caller profile asynchronously; only apply if we're still
+    // ringing on the same callId (user may have answered/declined already).
+    try {
+      final u = await ref.read(userServiceProvider).getUserInfo(data.callerId);
+      if (state.mode == CallMode.incoming &&
+          state.incoming?.callId == data.callId) {
+        final enriched = IncomingCall(
+          callId: incoming.callId,
+          conversationId: incoming.conversationId,
+          callType: incoming.callType,
+          roomName: incoming.roomName,
+          caller: CallerBrief(
+            id: u.id,
+            username: u.username,
+            fullName: u.fullName,
+            avatar: u.avatar,
+          ),
+        );
+        state = state.copyWith(incoming: enriched);
+      }
+    } catch (_) {}
+
+    if (state.mode != CallMode.incoming ||
+        state.incoming?.callId != data.callId) {
+      return;
+    }
+
+    await _showCallkitUI(state.incoming!);
+
     if (_isDesktop) {
-      final id = await _openIncomingCallWindow(incoming);
-      if (id != null) state = state.copyWith(callWindowId: id);
+      final id = await _openIncomingCallWindow(state.incoming!);
+      if (id != null &&
+          state.mode == CallMode.incoming &&
+          state.incoming?.callId == data.callId) {
+        state = state.copyWith(callWindowId: id);
+      }
     }
   }
 
+  /// Peer accepted our outgoing call. Bug #1 fix: also push an IPC to the
+  /// desktop sub-window so it stops showing "Ringing…".
   void onAccepted(CallAcceptedPayload data) {
     final active = state.active;
     if (active?.callId != data.callId) return;
-    if (state.mode == CallMode.outgoing) {
-      state = state.copyWith(mode: CallMode.active);
+    if (state.mode != CallMode.outgoing) return;
+    state = state.copyWith(mode: CallMode.active);
+    final windowId = state.callWindowId;
+    if (windowId != null) {
+      _notifyPeerAccepted(windowId);
     }
   }
 
-  void onDeclined(CallDeclinedPayload data) {
+  Future<void> onDeclined(CallDeclinedPayload data) async {
     final active = state.active;
     if (active?.callId != data.callId) return;
     final name = active!.peer.displayName;
     final windowId = state.callWindowId;
-    _endCallkitUI(data.callId);
+    await _endCallkitUI(data.callId);
+    await _windDownAndCloseWindow(windowId);
     showInfoToast('$name declined');
     state = CallState.idle;
-    _closeCallWindow(windowId);
   }
 
-  void onEnded(CallEndedPayload data) {
+  Future<void> onEnded(CallEndedPayload data) async {
     final isOurIncoming = state.incoming?.callId == data.callId;
     final isOurActive = state.active?.callId == data.callId;
     if (!isOurIncoming && !isOurActive) return;
 
     final windowId = state.callWindowId;
-    _endCallkitUI(data.callId);
+    await _endCallkitUI(data.callId);
+    await _windDownAndCloseWindow(windowId);
 
     if (state.localEnded) {
       state = CallState.idle;
-      _closeCallWindow(windowId);
       return;
     }
-
     state = CallState.idle;
-    _closeCallWindow(windowId);
 
     if (data.status == 'missed') {
       showInfoToast(isOurIncoming ? 'Missed call' : 'No answer');
     } else if (data.status == 'declined') {
       // already shown in onDeclined
     } else if (data.durationSeconds > 0) {
-      showSuccessToast('Call ended · ${formatCallDuration(data.durationSeconds)}');
+      showSuccessToast(
+        'Call ended · ${formatCallDuration(data.durationSeconds)}',
+      );
     } else {
       showInfoToast('Call ended');
     }

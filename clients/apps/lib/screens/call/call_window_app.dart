@@ -32,9 +32,14 @@ class CallWindowApp extends StatefulWidget {
 
 enum _UiMode { incoming, active }
 
+const Size _kLargeSize = Size(960, 640);
+
 class _CallWindowAppState extends State<CallWindowApp> {
   // ── Mode ──
   late _UiMode _uiMode;
+  // True after peer has accepted an outgoing call (so we stop showing
+  // "Ringing…" even though we stay in _UiMode.active throughout).
+  bool _peerAccepted = false;
 
   // ── Call args (mutable so we can swap them when switching mode) ──
   late Map<String, dynamic> _args;
@@ -49,6 +54,8 @@ class _CallWindowAppState extends State<CallWindowApp> {
   Timer? _timer;
   lk.ConnectionState _connState = lk.ConnectionState.disconnected;
   bool _ended = false;
+  // Bug #2: prevents double-tap on accept/decline while IPC is in flight.
+  bool _busy = false;
 
   String get _peerName => _args['peerName'] as String? ?? 'Unknown';
   String? get _peerAvatar => _args['peerAvatar'] as String?;
@@ -64,8 +71,8 @@ class _CallWindowAppState extends State<CallWindowApp> {
     _args = Map<String, dynamic>.from(widget.args);
     _uiMode = _args['mode'] == 'incoming' ? _UiMode.incoming : _UiMode.active;
 
-    // Receive instructions from the main window (e.g. switch to active mode
-    // after the user answers, or end the call).
+    // Receive instructions from the main window (switch to active, peer
+    // accepted, end call).
     DesktopMultiWindow.setMethodHandler(_handleMainMessage);
 
     if (_uiMode == _UiMode.active) {
@@ -75,6 +82,17 @@ class _CallWindowAppState extends State<CallWindowApp> {
 
   @override
   void dispose() {
+    // Bug #7: if user closes the window via OS title bar (X), let main
+    // know so it can finalize the call. dispose() runs whether close came
+    // from main or from OS, but _ended guards us from notifying twice.
+    if (!_ended) {
+      _ended = true;
+      // Fire-and-forget — the engine is going down so we can't await.
+      DesktopMultiWindow.invokeMethod(0, 'call.ended', {
+        'callId': _callId,
+        'durationSeconds': _elapsed,
+      }).catchError((_) => null);
+    }
     _timer?.cancel();
     _teardown();
     WakelockPlus.disable();
@@ -84,13 +102,27 @@ class _CallWindowAppState extends State<CallWindowApp> {
   Future<dynamic> _handleMainMessage(call, fromWindowId) async {
     switch (call.method) {
       case 'call.switchToActive':
+        // Bug #3: resize ourselves AFTER the layout swap so the new size
+        // never gets paired with the old (incoming) UI for one frame.
         final args = Map<String, dynamic>.from(call.arguments as Map);
         if (!mounted) return null;
         setState(() {
           _args = {..._args, ...args, 'mode': 'active'};
           _uiMode = _UiMode.active;
+          _peerAccepted = true;
         });
+        try {
+          widget.windowController
+            ..setFrame(Offset.zero & _kLargeSize)
+            ..center();
+        } catch (_) {}
         await _connect();
+        break;
+      case 'call.peerAccepted':
+        // Bug #1: outgoing window was already in active LiveKit mode, but
+        // status said "Ringing…". Now peer has joined — drop that label.
+        if (!mounted) return null;
+        setState(() => _peerAccepted = true);
         break;
       case 'call.end':
         await _closeFromMain();
@@ -103,22 +135,33 @@ class _CallWindowAppState extends State<CallWindowApp> {
     if (_ended) return;
     _ended = true;
     await _teardown();
-    await widget.windowController.close();
+    try {
+      await widget.windowController.close();
+    } catch (_) {}
   }
+
+  // Suppress the ringing-window-still-open width for the small ringing UI
+  // when we are spawned with mode='incoming' (the parent already opened
+  // us at _kSmallSize; this is just a safety net).
+  // Bug #3 also fixes the small→large transition via _handleMainMessage.
 
   // ── Local actions ────────────────────────────────────────────────────
 
   Future<void> _onAccept() async {
-    // Tell main to call /api/answer. Main will resize this window and IPC
-    // back 'call.switchToActive' once it has a token.
+    if (_busy) return;
+    _busy = true;
     try {
       await DesktopMultiWindow.invokeMethod(0, 'call.accept', {
         'callId': _callId,
       });
     } catch (_) {}
+    // Don't reset _busy — main will reply with switchToActive (which sets
+    // _uiMode = active) or main will close us. Either way no more accepts.
   }
 
   Future<void> _onDecline() async {
+    if (_busy) return;
+    _busy = true;
     try {
       await DesktopMultiWindow.invokeMethod(0, 'call.decline', {
         'callId': _callId,
@@ -130,7 +173,10 @@ class _CallWindowAppState extends State<CallWindowApp> {
   // ── LiveKit lifecycle ────────────────────────────────────────────────
 
   Future<void> _connect() async {
-    if (_connecting) return;
+    // Bug #4: don't start a new connection if the call already ended or
+    // we're already connecting. Without this, a late switchToActive after
+    // teardown could resurrect the room object.
+    if (_connecting || _ended) return;
     _connecting = true;
 
     final wsUrl = _args['wsUrl'] as String?;
@@ -143,6 +189,14 @@ class _CallWindowAppState extends State<CallWindowApp> {
     final room = Room(
       roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
     );
+
+    // Bug #4: if _endCall was triggered between the await above and now,
+    // throw away this freshly-created room instead of leaking it.
+    if (_ended) {
+      _connecting = false;
+      await room.dispose();
+      return;
+    }
     _room = room;
 
     final listener = room.createListener();
@@ -156,6 +210,7 @@ class _CallWindowAppState extends State<CallWindowApp> {
 
     try {
       await room.connect(wsUrl, token);
+      if (_ended) return;
       await room.localParticipant?.setMicrophoneEnabled(true);
       if (_callType == CallType.video) {
         await room.localParticipant?.setCameraEnabled(true);
@@ -168,7 +223,9 @@ class _CallWindowAppState extends State<CallWindowApp> {
       _endCall();
     } finally {
       _connecting = false;
-      if (mounted) setState(() => _connState = room.connectionState);
+      if (mounted && !_ended) {
+        setState(() => _connState = room.connectionState);
+      }
     }
   }
 
@@ -184,6 +241,10 @@ class _CallWindowAppState extends State<CallWindowApp> {
     }
   }
 
+  /// User clicked End in the active call UI. Bug #5: we do NOT close the
+  /// window ourselves — main is the single source of truth and will close
+  /// us in response to 'call.ended'. This avoids the double-close race
+  /// between sub-window and main.
   Future<void> _endCall() async {
     if (_ended) return;
     _ended = true;
@@ -194,7 +255,7 @@ class _CallWindowAppState extends State<CallWindowApp> {
         'durationSeconds': _elapsed,
       });
     } catch (_) {}
-    await widget.windowController.close();
+    // Main will call windowController.close() via _windDownAndCloseWindow.
   }
 
   void _toggleMic() {
@@ -236,9 +297,9 @@ class _CallWindowAppState extends State<CallWindowApp> {
   }
 
   String _statusLabel() {
-    if (_isOutgoing && _connState != lk.ConnectionState.connected) {
-      return 'Ringing…';
-    }
+    // Bug #1: outgoing call stays "Ringing…" until peer accepts (signalled
+    // by main via 'call.peerAccepted'), regardless of local LiveKit state.
+    if (_isOutgoing && !_peerAccepted) return 'Ringing…';
     if (_connState == lk.ConnectionState.connecting) return 'Connecting…';
     if (_connState == lk.ConnectionState.reconnecting) return 'Reconnecting…';
     if (_connState == lk.ConnectionState.connected) {
