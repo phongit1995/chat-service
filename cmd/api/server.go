@@ -4,6 +4,7 @@ import (
 	"chat-server/internal/config"
 	"chat-server/internal/transport/websocket"
 	"chat-server/internal/modules/auth"
+	"chat-server/internal/modules/call"
 	"chat-server/internal/modules/conversation"
 	"chat-server/internal/modules/health"
 	"chat-server/internal/modules/message"
@@ -30,6 +31,7 @@ func CreateServer(
 	relationshipsRouter *relationships.Router,
 	conversationRouter *conversation.Router,
 	messageRouter *message.Router,
+	callRouter *call.Router,
 	wsServer *websocket.Server,
 	cfg *config.Config,
 ) *Server {
@@ -65,6 +67,7 @@ func CreateServer(
 		relationshipsRouter.Setup(api)
 		conversationRouter.Setup(api)
 		messageRouter.Setup(api)
+		callRouter.Setup(api)
 	}
 
 	r.NoRoute(func(c *gin.Context) {

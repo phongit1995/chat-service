@@ -59,6 +59,11 @@ type Config struct {
 	MinIOBucket    string `env:"MINIO_BUCKET" envDefault:"chat-uploads"`
 	MinIOUseSSL    bool   `env:"MINIO_USE_SSL" envDefault:"false"`
 	MinIOPublicURL string `env:"MINIO_PUBLIC_URL" envDefault:""`
+
+	LiveKitURL              string `env:"LIVEKIT_URL" envDefault:""`
+	LiveKitAPIKey           string `env:"LIVEKIT_API_KEY" envDefault:""`
+	LiveKitAPISecret        string `env:"LIVEKIT_API_SECRET" envDefault:""`
+	CallRingTimeoutSeconds  int    `env:"CALL_RING_TIMEOUT_SECONDS" envDefault:"45" validate:"min=2,max=300"`
 }
 
 func LoadConfig() (*Config, error) {

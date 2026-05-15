@@ -9,6 +9,7 @@ import (
 	"chat-server/internal/logger"
 	"chat-server/internal/middleware"
 	"chat-server/internal/modules/auth"
+	"chat-server/internal/modules/call"
 	"chat-server/internal/modules/conversation"
 	"chat-server/internal/modules/health"
 	"chat-server/internal/modules/message"
@@ -53,6 +54,7 @@ func NewContainer() (*dig.Container, error) {
 		relationships.Provider,
 		conversation.Provider,
 		message.Provider,
+		call.Provider,
 	}
 
 	for _, module := range modules {

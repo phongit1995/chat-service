@@ -8,6 +8,10 @@ const (
 	KafkaTopicConversationUpdated = "CHAT.CONVERSATION.UPDATED"
 	KafkaTopicConversationDeleted = "CHAT.CONVERSATION.DELETED"
 	KafkaTopicUserTyping          = "CHAT.USER.TYPING"
+	KafkaTopicCallInvited         = "CHAT.CALL.INVITED"
+	KafkaTopicCallAccepted        = "CHAT.CALL.ACCEPTED"
+	KafkaTopicCallDeclined        = "CHAT.CALL.DECLINED"
+	KafkaTopicCallEnded           = "CHAT.CALL.ENDED"
 )
 
 func AllKafkaTopics() []string {
@@ -19,6 +23,10 @@ func AllKafkaTopics() []string {
 		KafkaTopicConversationUpdated,
 		KafkaTopicConversationDeleted,
 		KafkaTopicUserTyping,
+		KafkaTopicCallInvited,
+		KafkaTopicCallAccepted,
+		KafkaTopicCallDeclined,
+		KafkaTopicCallEnded,
 	}
 }
 
@@ -61,8 +69,14 @@ const (
 	WebSocketEventConversationDeleted = "CONVERSATION_DELETED"
 	WebSocketEventUserTyping          = "USER_TYPING"
 	WebSocketEventUserStopTyping      = "USER_STOP_TYPING"
+	WebSocketEventIncomingCall        = "INCOMING_CALL"
+	WebSocketEventCallAccepted        = "CALL_ACCEPTED"
+	WebSocketEventCallDeclined        = "CALL_DECLINED"
+	WebSocketEventCallEnded           = "CALL_ENDED"
 	WebSocketEventError               = "ERROR"
 )
+
+var CallRingTimeoutSeconds = 45
 
 const (
 	WebSocketMessageEvent = "message"

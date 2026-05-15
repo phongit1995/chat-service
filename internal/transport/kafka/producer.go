@@ -3,6 +3,7 @@ package kafka
 import (
 	"chat-server/internal/config"
 	"chat-server/internal/constants"
+	callEvents "chat-server/internal/domain/call"
 	conversationEvents "chat-server/internal/domain/conversation"
 	messageEvents "chat-server/internal/domain/message"
 	"context"
@@ -29,7 +30,7 @@ func NewProducer(cfg *config.Config, logger *zap.SugaredLogger) (*Producer, erro
 		WriteTimeout:           5 * time.Second,
 		ReadTimeout:            5 * time.Second,
 		AllowAutoTopicCreation: true,
-		Compression:            kafka.Lz4,
+		Compression:            kafka.Gzip,
 	}
 
 	logger.Infow("✅ Kafka Producer initialized", "brokers", cfg.KafkaBrokers)
@@ -66,6 +67,22 @@ func (p *Producer) PublishConversationDeleted(ctx context.Context, event *conver
 
 func (p *Producer) PublishConversationTyping(ctx context.Context, event *conversationEvents.TypingEvent) error {
 	return p.publishKeyed(ctx, constants.KafkaTopicUserTyping, event.ConversationID, event)
+}
+
+func (p *Producer) PublishCallInvited(ctx context.Context, event *callEvents.InvitedEvent) error {
+	return p.publishKeyed(ctx, constants.KafkaTopicCallInvited, event.CallID, event)
+}
+
+func (p *Producer) PublishCallAccepted(ctx context.Context, event *callEvents.AcceptedEvent) error {
+	return p.publishKeyed(ctx, constants.KafkaTopicCallAccepted, event.CallID, event)
+}
+
+func (p *Producer) PublishCallDeclined(ctx context.Context, event *callEvents.DeclinedEvent) error {
+	return p.publishKeyed(ctx, constants.KafkaTopicCallDeclined, event.CallID, event)
+}
+
+func (p *Producer) PublishCallEnded(ctx context.Context, event *callEvents.EndedEvent) error {
+	return p.publishKeyed(ctx, constants.KafkaTopicCallEnded, event.CallID, event)
 }
 
 func (p *Producer) PublishToDLQ(ctx context.Context, originalTopic string, key string, payload []byte, reason string) error {
