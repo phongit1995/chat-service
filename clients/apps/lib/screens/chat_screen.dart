@@ -30,6 +30,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scroll = ScrollController();
   StreamSubscription<String>? _conversationDeletedSub;
   late final ActiveConversationNotifier _activeConversationNotifier;
+  late final PresenceNotifier _presenceNotifier;
   int _lastMessageCount = 0;
   Timer? _stopTypingTimer;
   bool _isTyping = false;
@@ -38,6 +39,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _activeConversationNotifier = ref.read(activeConversationProvider.notifier);
+    _presenceNotifier = ref.read(presenceProvider.notifier);
 
     Future.microtask(() {
       if (!mounted) return;
@@ -88,7 +90,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _stopTypingTimer?.cancel();
     _input.removeListener(_onInputChanged);
     _conversationDeletedSub?.cancel();
-    ref.read(presenceProvider.notifier).stopFocusPolling();
+    _presenceNotifier.stopFocusPolling();
     _input.dispose();
     _scroll.dispose();
     super.dispose();

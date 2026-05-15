@@ -1,8 +1,5 @@
-import 'dart:convert';
-import 'dart:ui';
-
-import 'package:desktop_multi_window/desktop_multi_window.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,113 +8,6 @@ import '../models/call.dart';
 import '../models/ws_events.dart';
 import '../utils/toast.dart';
 import 'core_providers.dart';
-
-bool get _isDesktop =>
-    defaultTargetPlatform == TargetPlatform.windows ||
-    defaultTargetPlatform == TargetPlatform.macOS ||
-    defaultTargetPlatform == TargetPlatform.linux;
-
-const Size _kSmallSize = Size(380, 540);
-const Size _kLargeSize = Size(960, 640);
-
-Future<int?> _openCallWindow({
-  required Map<String, dynamic> args,
-  required Size size,
-  required String title,
-}) async {
-  if (!_isDesktop) return null;
-  try {
-    final controller = await DesktopMultiWindow.createWindow(
-      jsonEncode({'type': 'call', ...args}),
-    );
-    controller
-      ..setFrame(Offset.zero & size)
-      ..center()
-      ..setTitle(title)
-      ..show();
-    return controller.windowId;
-  } catch (_) {
-    return null;
-  }
-}
-
-Future<int?> _openActiveCallWindow(ActiveCall active, bool isOutgoing) =>
-    _openCallWindow(
-      args: {
-        'callId': active.callId,
-        'token': active.token,
-        'wsUrl': active.wsUrl,
-        'roomName': active.roomName,
-        'callType': active.callType == CallType.video ? 'video' : 'audio',
-        'peerName': active.peer.displayName,
-        'peerAvatar': active.peer.avatar,
-        'mode': isOutgoing ? 'outgoing' : 'active',
-      },
-      size: _kLargeSize,
-      title: active.peer.displayName,
-    );
-
-Future<int?> _openIncomingCallWindow(IncomingCall incoming) =>
-    _openCallWindow(
-      args: {
-        'callId': incoming.callId,
-        'roomName': incoming.roomName,
-        'callType': incoming.callType == CallType.video ? 'video' : 'audio',
-        'peerName': incoming.caller.displayName,
-        'peerUsername': incoming.caller.username,
-        'peerAvatar': incoming.caller.avatar,
-        'mode': 'incoming',
-      },
-      size: _kSmallSize,
-      title: 'Incoming · ${incoming.caller.displayName}',
-    );
-
-/// Tell the existing incoming sub-window to switch to active call mode and
-/// resize itself. Used after the user answers — we keep the same window
-/// instead of spawning a new one.
-/// Tell the existing incoming sub-window to switch to active call mode.
-/// The sub-window resizes itself after switching so the resize and the UI
-/// transition happen atomically — main does NOT resize from here to avoid
-/// flashing the wrong layout at the new size.
-Future<void> _switchWindowToActive({
-  required int windowId,
-  required ActiveCall active,
-}) async {
-  try {
-    await DesktopMultiWindow.invokeMethod(windowId, 'call.switchToActive', {
-      'callId': active.callId,
-      'token': active.token,
-      'wsUrl': active.wsUrl,
-      'roomName': active.roomName,
-      'callType': active.callType == CallType.video ? 'video' : 'audio',
-      'peerName': active.peer.displayName,
-      'peerAvatar': active.peer.avatar,
-    });
-  } catch (_) {}
-}
-
-/// Bug #1 fix — when caller's outgoing call is accepted by the peer, tell
-/// the already-open sub-window (which spawned in 'outgoing' / "Ringing…"
-/// mode) to update its status to "Connected".
-Future<void> _notifyPeerAccepted(int windowId) async {
-  try {
-    await DesktopMultiWindow.invokeMethod(windowId, 'call.peerAccepted', {});
-  } catch (_) {}
-}
-
-/// Bug #5+#6 fix — main is the single source of truth for ending the call.
-/// Send the sub-window a graceful "wind down" IPC so it can disconnect
-/// LiveKit cleanly, then close from main. The sub-window never calls
-/// close() on itself; it only emits 'call.ended' to main.
-Future<void> _windDownAndCloseWindow(int? windowId) async {
-  if (windowId == null) return;
-  try {
-    await DesktopMultiWindow.invokeMethod(windowId, 'call.end', {});
-  } catch (_) {}
-  try {
-    await WindowController.fromWindowId(windowId).close();
-  } catch (_) {}
-}
 
 enum CallMode { idle, incoming, outgoing, active }
 
@@ -165,9 +55,6 @@ class CallState {
   final bool micMuted;
   final bool camOff;
   final bool localEnded;
-  /// Desktop only: id of the spawned call sub-window. Used to close it
-  /// when the call ends from any side (peer hangup, remote decline, etc).
-  final int? callWindowId;
 
   const CallState({
     this.mode = CallMode.idle,
@@ -177,7 +64,6 @@ class CallState {
     this.micMuted = false,
     this.camOff = false,
     this.localEnded = false,
-    this.callWindowId,
   });
 
   CallState copyWith({
@@ -188,10 +74,8 @@ class CallState {
     bool? micMuted,
     bool? camOff,
     bool? localEnded,
-    int? callWindowId,
     bool clearIncoming = false,
     bool clearActive = false,
-    bool clearCallWindowId = false,
   }) => CallState(
         mode: mode ?? this.mode,
         incoming: clearIncoming ? null : (incoming ?? this.incoming),
@@ -200,8 +84,6 @@ class CallState {
         micMuted: micMuted ?? this.micMuted,
         camOff: camOff ?? this.camOff,
         localEnded: localEnded ?? this.localEnded,
-        callWindowId:
-            clearCallWindowId ? null : (callWindowId ?? this.callWindowId),
       );
 
   static const idle = CallState();
@@ -278,9 +160,9 @@ class CallNotifier extends Notifier<CallState> {
     if (_useCallkit) {
       FlutterCallkitIncoming.onEvent.listen(_handleCallkitEvent);
     }
-    if (_isDesktop) {
-      DesktopMultiWindow.setMethodHandler(_handleSubWindowMessage);
-    }
+    // Desktop sub-window IPC currently broken (loop-back bug in
+    // desktop_multi_window 0.2.1 with Flutter 3.27+). Disabled — desktop
+    // uses inline CallScreen instead.
     return CallState.idle;
   }
 
@@ -299,24 +181,6 @@ class CallNotifier extends Notifier<CallState> {
       default:
         break;
     }
-  }
-
-  /// IPC from the call sub-window (desktop only). The sub-window owns the
-  /// LiveKit Room and the incoming-ringing UI — main learns about user
-  /// actions there via these messages.
-  Future<dynamic> _handleSubWindowMessage(call, fromWindowId) async {
-    switch (call.method) {
-      case 'call.accept':
-        await answerIncoming();
-        break;
-      case 'call.decline':
-        await declineIncoming();
-        break;
-      case 'call.ended':
-        await endActive();
-        break;
-    }
-    return null;
   }
 
   // Bug #2 guard: prevents double-click / double-accept on the network
@@ -340,9 +204,6 @@ class CallNotifier extends Notifier<CallState> {
         active: active,
         expanded: true,
       );
-      // Outgoing: open large window right away — the user is the one calling.
-      final id = await _openActiveCallWindow(active, true);
-      if (id != null) state = state.copyWith(callWindowId: id);
     } catch (_) {
       showErrorToast('Failed to start call');
       state = CallState.idle;
@@ -365,30 +226,13 @@ class CallNotifier extends Notifier<CallState> {
           .read(callServiceProvider)
           .answer(incoming.callId);
       final active = _toActiveCall(data, incoming.caller);
-      final existingWindowId = state.callWindowId;
       state = CallState(
         mode: CallMode.active,
         active: active,
         expanded: true,
-        callWindowId: existingWindowId,
       );
-      // Desktop: the small ringing window was already open — tell it to
-      // switch to active mode (it will resize itself once switched).
-      if (existingWindowId != null) {
-        await _switchWindowToActive(
-          windowId: existingWindowId,
-          active: active,
-        );
-      } else if (_isDesktop) {
-        // Shouldn't happen on desktop (window was spawned in onIncoming)
-        // but recover gracefully.
-        final id = await _openActiveCallWindow(active, false);
-        if (id != null) state = state.copyWith(callWindowId: id);
-      }
     } catch (_) {
       showErrorToast('Failed to answer call');
-      // Wind down any open sub-window before reset.
-      await _windDownAndCloseWindow(state.callWindowId);
       state = CallState.idle;
     } finally {
       _busy = false;
@@ -403,11 +247,7 @@ class CallNotifier extends Notifier<CallState> {
       _busy = false;
       return;
     }
-    final windowId = state.callWindowId;
     await _endCallkitUI(incoming.callId);
-    // Bug #9 fix: close the sub-window FIRST, then reset state. Otherwise
-    // a failed close leaves a zombie window with no way to recover.
-    await _windDownAndCloseWindow(windowId);
     state = CallState(localEnded: true);
     showInfoToast('Call declined');
     try {
@@ -425,9 +265,7 @@ class CallNotifier extends Notifier<CallState> {
       return;
     }
     final wasActive = state.mode == CallMode.active;
-    final windowId = state.callWindowId;
     await _endCallkitUI(active.callId);
-    await _windDownAndCloseWindow(windowId);
     state = CallState(localEnded: true);
     showInfoToast(wasActive ? 'Call ended' : 'Call cancelled');
     try {
@@ -492,36 +330,23 @@ class CallNotifier extends Notifier<CallState> {
 
     await _showCallkitUI(state.incoming!);
 
-    if (_isDesktop) {
-      final id = await _openIncomingCallWindow(state.incoming!);
-      if (id != null &&
-          state.mode == CallMode.incoming &&
-          state.incoming?.callId == data.callId) {
-        state = state.copyWith(callWindowId: id);
-      }
-    }
+    // Desktop sub-window disabled (see _isDesktop note). Incoming UI is
+    // rendered inline by _CallLayer via IncomingCallOverlay.
   }
 
-  /// Peer accepted our outgoing call. Bug #1 fix: also push an IPC to the
-  /// desktop sub-window so it stops showing "Ringing…".
+  /// Peer accepted our outgoing call.
   void onAccepted(CallAcceptedPayload data) {
     final active = state.active;
     if (active?.callId != data.callId) return;
     if (state.mode != CallMode.outgoing) return;
     state = state.copyWith(mode: CallMode.active);
-    final windowId = state.callWindowId;
-    if (windowId != null) {
-      _notifyPeerAccepted(windowId);
-    }
   }
 
   Future<void> onDeclined(CallDeclinedPayload data) async {
     final active = state.active;
     if (active?.callId != data.callId) return;
     final name = active!.peer.displayName;
-    final windowId = state.callWindowId;
     await _endCallkitUI(data.callId);
-    await _windDownAndCloseWindow(windowId);
     showInfoToast('$name declined');
     state = CallState.idle;
   }
@@ -531,9 +356,7 @@ class CallNotifier extends Notifier<CallState> {
     final isOurActive = state.active?.callId == data.callId;
     if (!isOurIncoming && !isOurActive) return;
 
-    final windowId = state.callWindowId;
     await _endCallkitUI(data.callId);
-    await _windDownAndCloseWindow(windowId);
 
     if (state.localEnded) {
       state = CallState.idle;

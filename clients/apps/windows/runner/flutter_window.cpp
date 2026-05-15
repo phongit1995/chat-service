@@ -3,18 +3,9 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
-#include <desktop_multi_window/desktop_multi_window_plugin.h>
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {
-  // Register plugins in sub-windows (e.g. the call window) so
-  // flutter_webrtc / livekit / wakelock_plus work there.
-  DesktopMultiWindowSetWindowCreatedCallback([](void* controller_registrar) {
-    auto* registrar =
-        reinterpret_cast<flutter::PluginRegistry*>(controller_registrar);
-    RegisterPlugins(registrar);
-  });
-}
+    : project_(project) {}
 
 FlutterWindow::~FlutterWindow() {}
 

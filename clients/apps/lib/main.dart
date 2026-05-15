@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'package:desktop_multi_window/desktop_multi_window.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,33 +10,12 @@ import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/call/call_screen.dart';
-import 'screens/call/call_window_app.dart';
 import 'screens/call/incoming_call_overlay.dart';
 import 'providers/call_provider.dart';
 import 'theme/app_theme.dart';
 import 'utils/toast.dart' show navigatorKey;
 
-void main(List<String> args) {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Sub-window entry: launched by DesktopMultiWindow.createWindow().
-  // args == ['multi_window', '<windowId>', '<json args>']
-  if (args.isNotEmpty && args.first == 'multi_window') {
-    final windowId = int.parse(args[1]);
-    final raw = args.length > 2 ? args[2] : '';
-    final subArgs = raw.isEmpty
-        ? <String, dynamic>{}
-        : jsonDecode(raw) as Map<String, dynamic>;
-    final type = subArgs['type'] as String?;
-    if (type == 'call') {
-      runApp(CallWindowApp(
-        windowController: WindowController.fromWindowId(windowId),
-        args: subArgs,
-      ));
-      return;
-    }
-  }
-
+void main() {
   runApp(const ProviderScope(child: ChatApp()));
 }
 
@@ -76,10 +52,19 @@ class _ChatAppState extends ConsumerState<ChatApp> {
         GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
         GoRoute(
           path: '/chat/:id',
-          builder: (_, st) => ChatScreen(
-            conversationId: st.pathParameters['id']!,
-            conversation: st.extra as Conversation?,
-          ),
+          builder: (_, st) {
+            final extra = st.extra;
+            Conversation? conv;
+            if (extra is Conversation) {
+              conv = extra;
+            } else if (extra is Map<String, dynamic>) {
+              conv = Conversation.fromJson(extra);
+            }
+            return ChatScreen(
+              conversationId: st.pathParameters['id']!,
+              conversation: conv,
+            );
+          },
         ),
       ],
     );
@@ -119,17 +104,12 @@ class _AuthListenable extends ChangeNotifier {
   }
 }
 
-bool get _isDesktopPlatform =>
-    defaultTargetPlatform == TargetPlatform.windows ||
-    defaultTargetPlatform == TargetPlatform.macOS ||
-    defaultTargetPlatform == TargetPlatform.linux;
-
-/// Layers the route content with the global call screen and the incoming
-/// call overlay.
+/// Layers the route content with the global call screen (full-screen when
+/// expanded, mini widget when collapsed) and the incoming call overlay.
 ///
-/// Desktop platforms render the in-call UI in a dedicated sub-window
-/// (spawned by CallNotifier), so this layer skips the in-place [CallScreen]
-/// there and only keeps the incoming-call overlay for ringing UI.
+/// All platforms use the same in-place rendering — desktop multi-window is
+/// disabled because the `desktop_multi_window` plugin loops IPC back to the
+/// sender on Flutter 3.27+ macOS instead of routing to the target engine.
 class _CallLayer extends ConsumerWidget {
   final Widget child;
   const _CallLayer({required this.child});
@@ -139,15 +119,34 @@ class _CallLayer extends ConsumerWidget {
     final mode = ref.watch(callProvider.select((s) => s.mode));
     final expanded = ref.watch(callProvider.select((s) => s.expanded));
     final inCall = mode == CallMode.outgoing || mode == CallMode.active;
-    final useSubWindow = _isDesktopPlatform;
-    final fullScreen = inCall && expanded && !useSubWindow;
+    final isIncoming = mode == CallMode.incoming;
+    final fullScreen = inCall && expanded;
 
+    // Nothing to overlay — return route content as-is so we don't introduce
+    // an Overlay that would interfere with the Navigator's overlay tree.
+    if (!inCall && !isIncoming) return child;
+
+    // Call widgets use Material/Tooltip which need an Overlay ancestor.
+    // Provide one by hosting them inside a Navigator (which contains its
+    // own Overlay) layered on top of the route content.
     return Stack(
       children: [
         Offstage(offstage: fullScreen, child: child),
-        if (inCall && !useSubWindow) const Positioned.fill(child: CallScreen()),
-        // Desktop spawns a small sub-window for incoming ringing instead.
-        if (!useSubWindow) const Positioned.fill(child: IncomingCallOverlay()),
+        Positioned.fill(
+          child: Navigator(
+            onGenerateRoute: (_) => PageRouteBuilder(
+              opaque: false,
+              barrierColor: Colors.transparent,
+              pageBuilder: (_, __, ___) => Stack(
+                children: [
+                  if (inCall) const Positioned.fill(child: CallScreen()),
+                  if (isIncoming)
+                    const Positioned.fill(child: IncomingCallOverlay()),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
