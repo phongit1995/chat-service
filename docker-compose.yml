@@ -68,6 +68,9 @@ services:
       - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-http://localhost:9000}
       - SWAGGER_HOST=${SWAGGER_HOST:-api:8080}
       - SERVICE_NAME=api
+      - LIVEKIT_URL=${LIVEKIT_URL:-}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
     depends_on:
       - postgres
       - redis
