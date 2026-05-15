@@ -311,6 +311,10 @@ services:
     command: --config /etc/livekit.yaml
     environment:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+    labels:
+      - dockflare.enable=true
+      - dockflare.hostname=livekit.ola-server.click
+      - dockflare.service=http://${LIVEKIT_EXTERNAL_HOST:-103.161.171.169}:7880
     ports:
       - "${LIVEKIT_PORT:-7880}:7880"
       - "${LIVEKIT_TCP_PORT:-7881}:7881"
