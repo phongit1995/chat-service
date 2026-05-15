@@ -25,8 +25,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   String? _connectedRoomName;
   EventsListener<RoomEvent>? _listener;
   bool _connecting = false;
-  bool _micMuted = false;
-  bool _camOff = false;
   int _elapsed = 0;
   Timer? _timer;
   lk.ConnectionState _connState = lk.ConnectionState.disconnected;
@@ -108,16 +106,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   }
 
   void _toggleMic() {
+    final micMuted = ref.read(callProvider).micMuted;
+    final next = !micMuted;
+    ref.read(callProvider.notifier).setMicMuted(next);
     final pub = _room?.localParticipant?.audioTrackPublications.firstOrNull;
-    final next = !_micMuted;
-    setState(() => _micMuted = next);
     final track = pub?.track;
     if (track != null) {
-      if (next) {
-        track.mute();
-      } else {
-        track.unmute();
-      }
+      if (next) { track.mute(); } else { track.unmute(); }
     } else {
       _room?.localParticipant
           ?.setMicrophoneEnabled(!next)
@@ -127,16 +122,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   }
 
   void _toggleCam() {
+    final camOff = ref.read(callProvider).camOff;
+    final next = !camOff;
+    ref.read(callProvider.notifier).setCamOff(next);
     final pub = _room?.localParticipant?.videoTrackPublications.firstOrNull;
-    final next = !_camOff;
-    setState(() => _camOff = next);
     final track = pub?.track;
     if (track != null) {
-      if (next) {
-        track.mute();
-      } else {
-        track.unmute();
-      }
+      if (next) { track.mute(); } else { track.unmute(); }
     } else {
       _room?.localParticipant
           ?.setCameraEnabled(!next)
@@ -145,17 +137,29 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     }
   }
 
-  String _formatTime(int s) {
-    final m = s ~/ 60;
-    final sec = s % 60;
-    return '$m:${sec.toString().padLeft(2, '0')}';
+  // Sync LiveKit track mute state to match persisted store state.
+  // Called after room connects or when expanding from mini widget.
+  void _syncTrackStates() {
+    final s = ref.read(callProvider);
+    final audioTrack = _room?.localParticipant
+        ?.audioTrackPublications.firstOrNull?.track;
+    if (audioTrack != null) {
+      if (s.micMuted && !audioTrack.muted) audioTrack.mute();
+      if (!s.micMuted && audioTrack.muted) audioTrack.unmute();
+    }
+    final videoTrack = _room?.localParticipant
+        ?.videoTrackPublications.firstOrNull?.track;
+    if (videoTrack != null) {
+      if (s.camOff && !videoTrack.muted) videoTrack.mute();
+      if (!s.camOff && videoTrack.muted) videoTrack.unmute();
+    }
   }
 
   String _statusLabel(CallMode mode) {
     if (mode == CallMode.outgoing) return 'Ringing…';
     if (_connState == lk.ConnectionState.connecting) return 'Connecting…';
     if (_connState == lk.ConnectionState.reconnecting) return 'Reconnecting…';
-    if (mode == CallMode.active) return _formatTime(_elapsed);
+    if (mode == CallMode.active) return formatCallDuration(_elapsed);
     return 'Connected';
   }
 
@@ -195,7 +199,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       return _CallMiniWidget(
         active: active,
         statusLabel: _statusLabel(state.mode),
-        onExpand: () => ref.read(callProvider.notifier).setExpanded(true),
+        onExpand: () {
+          ref.read(callProvider.notifier).setExpanded(true);
+          Future.microtask(_syncTrackStates);
+        },
         onEnd: () => ref.read(callProvider.notifier).endActive(),
       );
     }
@@ -204,8 +211,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       active: active,
       room: _room,
       mode: state.mode,
-      micMuted: _micMuted,
-      camOff: _camOff,
+      micMuted: state.micMuted,
+      camOff: state.camOff,
       statusLabel: _statusLabel(state.mode),
       onMinimize: () => ref.read(callProvider.notifier).setExpanded(false),
       onToggleMic: _toggleMic,

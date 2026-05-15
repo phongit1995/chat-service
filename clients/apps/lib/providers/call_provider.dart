@@ -51,12 +51,18 @@ class CallState {
   final IncomingCall? incoming;
   final ActiveCall? active;
   final bool expanded;
+  final bool micMuted;
+  final bool camOff;
+  final bool localEnded;
 
   const CallState({
     this.mode = CallMode.idle,
     this.incoming,
     this.active,
     this.expanded = false,
+    this.micMuted = false,
+    this.camOff = false,
+    this.localEnded = false,
   });
 
   CallState copyWith({
@@ -64,6 +70,9 @@ class CallState {
     IncomingCall? incoming,
     ActiveCall? active,
     bool? expanded,
+    bool? micMuted,
+    bool? camOff,
+    bool? localEnded,
     bool clearIncoming = false,
     bool clearActive = false,
   }) => CallState(
@@ -71,6 +80,9 @@ class CallState {
         incoming: clearIncoming ? null : (incoming ?? this.incoming),
         active: clearActive ? null : (active ?? this.active),
         expanded: expanded ?? this.expanded,
+        micMuted: micMuted ?? this.micMuted,
+        camOff: camOff ?? this.camOff,
+        localEnded: localEnded ?? this.localEnded,
       );
 
   static const idle = CallState();
@@ -134,7 +146,7 @@ ActiveCall _toActiveCall(CallTokenResponse data, CallerBrief peer) =>
       peer: peer,
     );
 
-String _formatDuration(int seconds) {
+String formatCallDuration(int seconds) {
   final m = seconds ~/ 60;
   final s = seconds % 60;
   return '$m:${s.toString().padLeft(2, '0')}';
@@ -143,7 +155,6 @@ String _formatDuration(int seconds) {
 class CallNotifier extends Notifier<CallState> {
   @override
   CallState build() {
-    // Listen to CallKit native events (accept/decline from lock screen)
     if (_useCallkit) {
       FlutterCallkitIncoming.onEvent.listen(_handleCallkitEvent);
     }
@@ -183,6 +194,7 @@ class CallNotifier extends Notifier<CallState> {
       );
     } catch (_) {
       showErrorToast('Failed to start call');
+      state = CallState.idle;
     }
   }
 
@@ -209,7 +221,7 @@ class CallNotifier extends Notifier<CallState> {
     final incoming = state.incoming;
     if (incoming == null) return;
     await _endCallkitUI(incoming.callId);
-    state = CallState.idle;
+    state = CallState(localEnded: true);
     showInfoToast('Call declined');
     try {
       await ref.read(callServiceProvider).decline(incoming.callId);
@@ -221,27 +233,29 @@ class CallNotifier extends Notifier<CallState> {
     if (active == null) return;
     final wasActive = state.mode == CallMode.active;
     await _endCallkitUI(active.callId);
-    state = CallState.idle;
+    state = CallState(localEnded: true);
     showInfoToast(wasActive ? 'Call ended' : 'Call cancelled');
     try {
       await ref.read(callServiceProvider).end(active.callId);
     } catch (_) {}
   }
 
-  void setExpanded(bool expanded) {
-    state = state.copyWith(expanded: expanded);
-  }
+  void setExpanded(bool expanded) => state = state.copyWith(expanded: expanded);
+
+  void setMicMuted(bool muted) => state = state.copyWith(micMuted: muted);
+
+  void setCamOff(bool off) => state = state.copyWith(camOff: off);
 
   // ── WS event handlers ──────────────────────────────────────────────────
+
   Future<void> onIncoming(IncomingCallPayload data) async {
     if (state.mode != CallMode.idle) {
-      // Busy → auto decline
       try {
         await ref.read(callServiceProvider).decline(data.callId);
       } catch (_) {}
       return;
     }
-    // Try resolve caller profile
+
     CallerBrief caller = CallerBrief(id: data.callerId);
     try {
       final u = await ref.read(userServiceProvider).getUserInfo(data.callerId);
@@ -264,8 +278,6 @@ class CallNotifier extends Notifier<CallState> {
     );
 
     state = CallState(mode: CallMode.incoming, incoming: incoming);
-
-    // Show native callkit UI on Android/iOS (foreground only for now)
     await _showCallkitUI(incoming);
   }
 
@@ -292,6 +304,12 @@ class CallNotifier extends Notifier<CallState> {
     if (!isOurIncoming && !isOurActive) return;
 
     _endCallkitUI(data.callId);
+
+    if (state.localEnded) {
+      state = CallState.idle;
+      return;
+    }
+
     state = CallState.idle;
 
     if (data.status == 'missed') {
@@ -299,7 +317,7 @@ class CallNotifier extends Notifier<CallState> {
     } else if (data.status == 'declined') {
       // already shown in onDeclined
     } else if (data.durationSeconds > 0) {
-      showSuccessToast('Call ended · ${_formatDuration(data.durationSeconds)}');
+      showSuccessToast('Call ended · ${formatCallDuration(data.durationSeconds)}');
     } else {
       showInfoToast('Call ended');
     }
