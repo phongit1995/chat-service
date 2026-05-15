@@ -78,7 +78,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       }
       WakelockPlus.enable();
     } catch (_) {
-      // Connection failed — end call so UI doesn't get stuck.
       if (mounted) ref.read(callProvider.notifier).endActive();
     } finally {
       _connecting = false;

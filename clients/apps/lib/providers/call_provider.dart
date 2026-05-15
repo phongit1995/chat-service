@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/call.dart';
 import '../models/ws_events.dart';
 import '../utils/toast.dart';
+import '../utils/permissions.dart';
 import 'core_providers.dart';
 
 enum CallMode { idle, incoming, outgoing, active }
@@ -131,8 +132,17 @@ Future<void> _showCallkitUI(IncomingCall incoming) async {
 
 Future<void> _endCallkitUI(String callId) async {
   if (!_useCallkit) return;
-  await FlutterCallkitIncoming.endCall(callId);
+  _globalSuppressCallkitEnd++;
+  try {
+    await FlutterCallkitIncoming.endCall(callId);
+  } finally {
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (_globalSuppressCallkitEnd > 0) _globalSuppressCallkitEnd--;
+    });
+  }
 }
+
+int _globalSuppressCallkitEnd = 0;
 
 CallType _parseCallType(String s) =>
     s == 'video' ? CallType.video : CallType.audio;
@@ -176,6 +186,7 @@ class CallNotifier extends Notifier<CallState> {
         declineIncoming();
         break;
       case Event.actionCallEnded:
+        if (_globalSuppressCallkitEnd > 0) return;
         endActive();
         break;
       default:
@@ -195,6 +206,14 @@ class CallNotifier extends Notifier<CallState> {
     if (_busy) return;
     _busy = true;
     try {
+      final granted = await CallPermissions.requestCallMedia(
+        video: callType == CallType.video,
+      );
+      if (!granted) {
+        showErrorToast('Microphone/Camera permission required');
+        _busy = false;
+        return;
+      }
       final data = await ref
           .read(callServiceProvider)
           .start(conversationId, callType);
@@ -217,6 +236,16 @@ class CallNotifier extends Notifier<CallState> {
     _busy = true;
     final incoming = state.incoming;
     if (incoming == null) {
+      _busy = false;
+      return;
+    }
+    final granted = await CallPermissions.requestCallMedia(
+      video: incoming.callType == CallType.video,
+    );
+    if (!granted) {
+      showErrorToast('Microphone/Camera permission required');
+      await _endCallkitUI(incoming.callId);
+      state = CallState.idle;
       _busy = false;
       return;
     }

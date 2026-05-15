@@ -14,6 +14,7 @@ import 'screens/call/incoming_call_overlay.dart';
 import 'providers/call_provider.dart';
 import 'theme/app_theme.dart';
 import 'utils/toast.dart' show navigatorKey;
+import 'utils/permissions.dart';
 
 void main() {
   runApp(const ProviderScope(child: ChatApp()));
@@ -74,6 +75,9 @@ class _ChatAppState extends ConsumerState<ChatApp> {
     ref.listenManual<AuthState>(authProvider, (prev, next) {
       if (next.user != null) {
         ref.read(socketListenerProvider);
+        if (prev?.user == null) {
+          CallPermissions.requestNotificationOnLogin();
+        }
       }
     }, fireImmediately: true);
   }
@@ -126,14 +130,12 @@ class _CallLayer extends ConsumerWidget {
     // an Overlay that would interfere with the Navigator's overlay tree.
     if (!inCall && !isIncoming) return child;
 
-    // Call widgets use Material/Tooltip which need an Overlay ancestor.
-    // Provide one by hosting them inside a Navigator (which contains its
-    // own Overlay) layered on top of the route content.
     return Stack(
       children: [
         Offstage(offstage: fullScreen, child: child),
         Positioned.fill(
           child: Navigator(
+            key: ValueKey('call-overlay-${inCall ? 1 : 0}-${isIncoming ? 1 : 0}'),
             onGenerateRoute: (_) => PageRouteBuilder(
               opaque: false,
               barrierColor: Colors.transparent,
