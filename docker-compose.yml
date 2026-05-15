@@ -301,6 +301,27 @@ services:
       retries: 5
       start_period: 30s
 
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: chat-server-livekit
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml
+    environment:
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+    ports:
+      - "${LIVEKIT_PORT:-7880}:7880"
+      - "${LIVEKIT_TCP_PORT:-7881}:7881"
+      - "${LIVEKIT_UDP_PORT:-7882}:7882/udp"
+    volumes:
+      - ./infra/livekit/livekit.prod.yaml:/etc/livekit.yaml:ro
+    networks:
+      - chat-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   postgres_data:
   redis_data:
