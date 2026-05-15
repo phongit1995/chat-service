@@ -17,6 +17,10 @@ export const WebSocketEventType = {
   CONVERSATION_DELETED: 'CONVERSATION_DELETED',
   USER_TYPING: 'USER_TYPING',
   USER_STOP_TYPING: 'USER_STOP_TYPING',
+  INCOMING_CALL: 'INCOMING_CALL',
+  CALL_ACCEPTED: 'CALL_ACCEPTED',
+  CALL_DECLINED: 'CALL_DECLINED',
+  CALL_ENDED: 'CALL_ENDED',
 } as const
 
 export type WebSocketEventTypeKeys = keyof typeof WebSocketEventType
@@ -71,6 +75,35 @@ export interface ConversationDeletedData {
   conversationId: string
 }
 
+export interface IncomingCallData {
+  callId: string
+  conversationId: string
+  callerId: string
+  callType: 'audio' | 'video'
+  roomName: string
+  startedAt: string
+}
+
+export interface CallAcceptedData {
+  callId: string
+  conversationId: string
+  answeredBy: string
+}
+
+export interface CallDeclinedData {
+  callId: string
+  conversationId: string
+  declinedBy: string
+}
+
+export interface CallEndedData {
+  callId: string
+  conversationId: string
+  endedBy?: string
+  status: 'ended' | 'missed' | 'declined'
+  durationSeconds: number
+}
+
 export interface WebSocketEventPayloadMap {
   [WebSocketEventType.NEW_MESSAGE]: MessageCreatedEventData
   [WebSocketEventType.MESSAGE_UPDATED]: MessageUpdatedEventData
@@ -80,4 +113,8 @@ export interface WebSocketEventPayloadMap {
   [WebSocketEventType.CONVERSATION_DELETED]: ConversationDeletedData
   [WebSocketEventType.USER_TYPING]: UserTypingData
   [WebSocketEventType.USER_STOP_TYPING]: UserTypingData
+  [WebSocketEventType.INCOMING_CALL]: IncomingCallData
+  [WebSocketEventType.CALL_ACCEPTED]: CallAcceptedData
+  [WebSocketEventType.CALL_DECLINED]: CallDeclinedData
+  [WebSocketEventType.CALL_ENDED]: CallEndedData
 }

@@ -76,7 +76,7 @@ const (
 	WebSocketEventError               = "ERROR"
 )
 
-var CallRingTimeoutSeconds = 45
+var CallRingTimeoutSeconds = 30
 
 const (
 	WebSocketMessageEvent = "message"

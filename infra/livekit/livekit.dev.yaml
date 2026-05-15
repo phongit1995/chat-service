@@ -8,6 +8,7 @@ rtc:
   udp_port: 7882
   use_external_ip: false
   use_ice_lite: true
+  node_ip: 127.0.0.1
 
 keys:
   devkey: devsecretatleast32characterslongforlocaldev

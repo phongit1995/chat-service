@@ -91,6 +91,15 @@ export default {
         normal:  '300ms',
         slow:    '500ms',
       },
+      keyframes: {
+        slideInRight: {
+          '0%': { transform: 'translateX(120%)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+      },
+      animation: {
+        slideInRight: 'slideInRight 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+      },
     },
   },
   plugins: [],

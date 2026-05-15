@@ -27,16 +27,26 @@ export const ConversationItem = ({
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!onHide) return
+    // Only react to primary mouse button / touch / pen
+    if (e.pointerType === 'mouse' && e.button !== 0) return
     startX.current = e.clientX
     dragging.current = true
     moved.current = false
-    e.currentTarget.setPointerCapture(e.pointerId)
+    // Don't capture pointer yet — wait until user actually drags > 5px.
+    // Capturing immediately would swallow the click event.
   }
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragging.current || startX.current === null) return
     const dx = e.clientX - startX.current
-    if (Math.abs(dx) > 5) moved.current = true
+    if (Math.abs(dx) > 5) {
+      if (!moved.current) {
+        moved.current = true
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId)
+        } catch {}
+      }
+    }
     if (dx < 0) {
       setOffset(Math.max(dx, -180))
     } else if (offset < 0) {
@@ -47,7 +57,11 @@ export const ConversationItem = ({
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragging.current) return
     dragging.current = false
-    e.currentTarget.releasePointerCapture(e.pointerId)
+    if (moved.current) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      } catch {}
+    }
     if (offset <= -HIDE_THRESHOLD && onHide) {
       setOffset(-400)
       setTimeout(onHide, 180)

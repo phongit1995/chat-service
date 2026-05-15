@@ -1,12 +1,5 @@
 import { io, Socket } from 'socket.io-client'
 import type {
-  ConversationDeletedData,
-  ConversationCreatedData,
-  ConversationUpdatedData,
-  MessageCreatedEventData,
-  MessageDeletedEventData,
-  MessageUpdatedEventData,
-  UserTypingData,
   WebSocketEventPayloadMap,
   WebSocketMessage,
 } from '../types/realtime'
@@ -50,47 +43,16 @@ class SocketService {
     })
 
     this.socket.on(WebSocketTransportEvent.MESSAGE, (wrapper: WebSocketMessage) => {
-      console.log('WebSocket event received:', wrapper.type, wrapper.data)
-      
-      switch (wrapper.type) {
-        // Message events
-        case WebSocketEventType.NEW_MESSAGE:
-          this.emit(WebSocketEventType.NEW_MESSAGE, wrapper.data as MessageCreatedEventData)
-          break
-          
-        case WebSocketEventType.MESSAGE_UPDATED:
-          this.emit(WebSocketEventType.MESSAGE_UPDATED, wrapper.data as MessageUpdatedEventData)
-          break
-          
-        case WebSocketEventType.MESSAGE_DELETED:
-          this.emit(WebSocketEventType.MESSAGE_DELETED, wrapper.data as MessageDeletedEventData)
-          break
-          
-        // Conversation events
-        case WebSocketEventType.CONVERSATION_CREATED:
-          this.emit(WebSocketEventType.CONVERSATION_CREATED, wrapper.data as ConversationCreatedData)
-          break
-          
-        case WebSocketEventType.CONVERSATION_UPDATED:
-          this.emit(WebSocketEventType.CONVERSATION_UPDATED, wrapper.data as ConversationUpdatedData)
-          break
-          
-        case WebSocketEventType.CONVERSATION_DELETED:
-          this.emit(WebSocketEventType.CONVERSATION_DELETED, wrapper.data as ConversationDeletedData)
-          break
-          
-        // User events
-        case WebSocketEventType.USER_TYPING:
-          this.emit(WebSocketEventType.USER_TYPING, wrapper.data as UserTypingData)
-          break
-          
-        case WebSocketEventType.USER_STOP_TYPING:
-          this.emit(WebSocketEventType.USER_STOP_TYPING, wrapper.data as UserTypingData)
-          break
-          
-        default:
-          console.warn('Unknown WebSocket event type:', wrapper.type)
+      if (!wrapper?.type) {
+        console.warn('WebSocket message without type:', wrapper)
+        return
       }
+      const known = Object.values(WebSocketEventType) as string[]
+      if (!known.includes(wrapper.type)) {
+        console.warn('Unknown WebSocket event type:', wrapper.type)
+        return
+      }
+      this.emit(wrapper.type as keyof WebSocketEventPayloadMap, wrapper.data as never)
     })
   }
 

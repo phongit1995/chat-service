@@ -7,6 +7,10 @@ import type {
   MessageDeletedEventData,
   MessageUpdatedEventData,
   UserTypingData,
+  IncomingCallData,
+  CallAcceptedData,
+  CallDeclinedData,
+  CallEndedData,
 } from '../types/realtime'
 import type {
   Conversation,
@@ -15,6 +19,7 @@ import { WebSocketEventType } from '../types/realtime'
 import { conversationService } from '../services/conversation.service'
 import { socketService } from '../services/socket'
 import { useAuthStore } from './authStore'
+import { useCallStore } from './callStore'
 import type { ChatState } from './chat.types'
 import { moveConversationToTop, updateConversationInList } from './chat.helpers'
 
@@ -206,5 +211,22 @@ export const registerChatRealtimeListeners = (set: ChatSetState, get: ChatGetSta
     }
 
     set({ typingUsers: newTypingUsers, typingTimeouts: newTypingTimeouts })
+  })
+
+  // ── Call events ─────────────────────────────────────────────────────────
+  socketService.on(WebSocketEventType.INCOMING_CALL, (data: IncomingCallData) => {
+    useCallStore.getState().onIncoming(data)
+  })
+
+  socketService.on(WebSocketEventType.CALL_ACCEPTED, (data: CallAcceptedData) => {
+    useCallStore.getState().onAccepted(data)
+  })
+
+  socketService.on(WebSocketEventType.CALL_DECLINED, (data: CallDeclinedData) => {
+    useCallStore.getState().onDeclined(data)
+  })
+
+  socketService.on(WebSocketEventType.CALL_ENDED, (data: CallEndedData) => {
+    useCallStore.getState().onEnded(data)
   })
 }

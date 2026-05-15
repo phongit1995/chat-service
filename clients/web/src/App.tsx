@@ -5,6 +5,7 @@ import { Login } from './pages/login'
 import { Register } from './pages/register'
 import { Chat } from './pages/chat'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { IncomingCallModal, CallScreen } from './components/call'
 import env from './config/env'
 
 function App() {
@@ -63,6 +64,8 @@ function App() {
           />
         </Routes>
       </Router>
+      <IncomingCallModal />
+      <CallScreen />
     </>
   )
 }
