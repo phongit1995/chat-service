@@ -8,10 +8,8 @@ RUN yarn install --frozen-lockfile
 
 COPY clients/web/ .
 
-ARG VITE_API_BASE_URL
 ARG VITE_LIVEKIT_URL
 
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 ENV VITE_LIVEKIT_URL=${VITE_LIVEKIT_URL}
 
 RUN yarn build
