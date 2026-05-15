@@ -34,17 +34,35 @@ export interface IncomingCall extends IncomingCallData {
   caller: CallerBrief
 }
 
+export interface WidgetPosition {
+  x: number
+  y: number
+}
+
 interface CallState {
   mode: CallMode
   incoming: IncomingCall | null
   active: ActiveCall | null
   expanded: boolean
+  /** Persisted position of the mini widget across minimize/expand cycles */
+  miniPos: WidgetPosition | null
+  /** Persisted position of the incoming call popup */
+  incomingPos: WidgetPosition | null
+  /** Persisted mic/cam state across minimize/expand */
+  micMuted: boolean
+  camOff: boolean
+  /** True after endActive/declineIncoming is called locally so onEnded can skip duplicate toast */
+  localEnded: boolean
 
   startCall: (conversationId: string, callType: CallType, peer: CallerBrief) => Promise<void>
   answerIncoming: () => Promise<void>
   declineIncoming: () => Promise<void>
   endActive: () => Promise<void>
   setExpanded: (expanded: boolean) => void
+  setMiniPos: (pos: WidgetPosition) => void
+  setIncomingPos: (pos: WidgetPosition) => void
+  setMicMuted: (muted: boolean) => void
+  setCamOff: (off: boolean) => void
 
   onIncoming: (data: IncomingCallData) => Promise<void>
   onAccepted: (data: CallAcceptedData) => void
@@ -57,6 +75,11 @@ const IDLE_STATE = {
   incoming: null,
   active: null,
   expanded: false,
+  miniPos: null,
+  incomingPos: null,
+  micMuted: false,
+  camOff: false,
+  localEnded: false,
 }
 
 const toActiveCall = (data: CallTokenResponse, peer: CallerBrief): ActiveCall => ({
@@ -74,11 +97,14 @@ const errorMessage = (e: unknown, fallback: string): string => {
   return err?.response?.data?.error || err?.message || fallback
 }
 
-const formatDuration = (seconds: number): string => {
+export const formatCallDuration = (seconds: number): string => {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
+
+export const peerDisplayName = (peer: CallerBrief): string =>
+  peer.fullName || peer.username || 'Unknown'
 
 const resolveCaller = async (data: IncomingCallData): Promise<CallerBrief> => {
   try {
@@ -120,11 +146,15 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   setExpanded: (expanded) => set({ expanded }),
+  setMiniPos: (miniPos) => set({ miniPos }),
+  setIncomingPos: (incomingPos) => set({ incomingPos }),
+  setMicMuted: (micMuted) => set({ micMuted }),
+  setCamOff: (camOff) => set({ camOff }),
 
   declineIncoming: async () => {
     const incoming = get().incoming
     if (!incoming) return
-    set(IDLE_STATE)
+    set({ ...IDLE_STATE, localEnded: true })
     callService.decline(incoming.callId).catch(() => {})
     toast('Call declined', { icon: '📵' })
   },
@@ -133,7 +163,7 @@ export const useCallStore = create<CallState>((set, get) => ({
     const active = get().active
     const wasActive = get().mode === 'active'
     if (!active) return
-    set(IDLE_STATE)
+    set({ ...IDLE_STATE, localEnded: true })
     callService.end(active.callId).catch(() => {})
     // Local feedback — server CALL_ENDED will arrive but may race or be missed
     // by this tab if it was the one initiating end. Show toast immediately.
@@ -173,10 +203,17 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   onEnded: (data) => {
-    const { active, incoming } = get()
+    const { active, incoming, localEnded } = get()
     const isOurIncoming = incoming?.callId === data.callId
     const isOurActive = active?.callId === data.callId
     if (!isOurIncoming && !isOurActive) return
+
+    // If we locally triggered end/decline, we already showed a toast and reset
+    // state. Just clear the localEnded flag and bail.
+    if (localEnded) {
+      set({ localEnded: false })
+      return
+    }
 
     set(IDLE_STATE)
 
@@ -186,7 +223,7 @@ export const useCallStore = create<CallState>((set, get) => ({
       // declined toast already shown in onDeclined; skip here.
       return
     } else if (data.durationSeconds > 0) {
-      toast.success(`Call ended · ${formatDuration(data.durationSeconds)}`)
+      toast.success(`Call ended · ${formatCallDuration(data.durationSeconds)}`)
     } else {
       toast('Call ended', { icon: '📞' })
     }

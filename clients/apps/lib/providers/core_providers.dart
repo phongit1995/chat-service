@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../network/auth_api_client.dart';
+import '../network/call_api_client.dart';
 import '../network/conversation_api_client.dart';
 import '../network/dio_factory.dart';
 import '../network/message_api_client.dart';
 import '../network/user_api_client.dart';
 import '../services/auth_service.dart';
+import '../services/call_service.dart';
 import '../services/conversation_service.dart';
 import '../services/message_service.dart';
 import '../services/socket_service.dart';
@@ -27,6 +29,10 @@ final conversationServiceProvider = Provider<ConversationService>(
 
 final messageServiceProvider = Provider<MessageService>(
   (ref) => MessageService(MessageApiClient(ref.read(_dioProvider))),
+);
+
+final callServiceProvider = Provider<CallService>(
+  (ref) => CallService(CallApiClient(ref.read(_dioProvider))),
 );
 
 final socketProvider = Provider<SocketService>((ref) {

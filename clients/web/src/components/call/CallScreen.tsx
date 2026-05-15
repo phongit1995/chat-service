@@ -6,7 +6,7 @@ import {
 } from '@livekit/components-react'
 import { RoomEvent, ConnectionState } from 'livekit-client'
 import '@livekit/components-styles'
-import { useCallStore } from '../../store/callStore'
+import { useCallStore, formatCallDuration, peerDisplayName } from '../../store/callStore'
 import { CallControls } from './CallControls'
 import { CallVideoArea } from './CallVideoArea'
 import { CallMiniWidget } from './CallMiniWidget'
@@ -38,14 +38,8 @@ export const CallScreen = () => {
   )
 }
 
-const formatTime = (seconds: number): string => {
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
 const CallContent = () => {
-  const { active, mode, expanded, endActive, setExpanded } = useCallStore()
+  const { active, mode, expanded, endActive, setExpanded, camOff } = useCallStore()
   const room = useRoomContext()
   const [elapsed, setElapsed] = useState(0)
   const [connState, setConnState] = useState<ConnectionState>(ConnectionState.Connecting)
@@ -77,14 +71,14 @@ const CallContent = () => {
 
   if (!active) return null
 
-  const name = active.peer.fullName || active.peer.username || 'Unknown'
+  const name = peerDisplayName(active.peer)
   const isVideo = active.callType === 'video'
 
   const statusLabel =
     mode === 'outgoing' ? 'Ringing…'
     : connState === ConnectionState.Connecting ? 'Connecting…'
     : connState === ConnectionState.Reconnecting ? 'Reconnecting…'
-    : mode === 'active' ? formatTime(elapsed)
+    : mode === 'active' ? formatCallDuration(elapsed)
     : 'Connected'
 
   if (!expanded) {
@@ -115,6 +109,7 @@ const CallContent = () => {
 
       <CallVideoArea
         isVideo={isVideo}
+        camOff={camOff}
         peerName={name}
         peerAvatar={active.peer.avatar}
         statusLabel={statusLabel}

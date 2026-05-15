@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../models/call.dart';
 import '../../models/models.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../theme/widgets.dart';
 import '../../utils/relative_time.dart';
+import '../call/call_button.dart';
 
 class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Conversation? conversation;
@@ -103,10 +105,16 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.call_outlined, color: AppColors.textSecondary),
-          onPressed: () {},
-        ),
+        if (isDirect && conversation?.otherUser != null)
+          CallButton(
+            conversationId: conversation!.id,
+            peer: CallerBrief(
+              id: conversation!.otherUser!.id,
+              username: conversation!.otherUser!.username,
+              fullName: conversation!.otherUser!.fullName,
+              avatar: conversation!.otherUser!.avatar,
+            ),
+          ),
         IconButton(
           icon: const Icon(
             Icons.more_horiz_rounded,

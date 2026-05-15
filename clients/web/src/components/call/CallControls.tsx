@@ -1,6 +1,7 @@
 import { useLocalParticipant } from '@livekit/components-react'
 import { Track } from 'livekit-client'
-import { useState, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { useCallStore } from '../../store/callStore'
 import { MicIcon, MicOffIcon, VideoIcon, PhoneIcon } from './icons'
 
 interface CallControlsProps {
@@ -10,8 +11,26 @@ interface CallControlsProps {
 
 export const CallControls = ({ isVideo, onEnd }: CallControlsProps) => {
   const { localParticipant } = useLocalParticipant()
-  const [micMuted, setMicMuted] = useState(false)
-  const [camOff, setCamOff] = useState(false)
+  const { micMuted, camOff, setMicMuted, setCamOff } = useCallStore()
+
+  // When this component re-mounts (e.g. after minimize→expand), sync the
+  // LiveKit track's mute state to match the persisted store state so the
+  // peer hears/sees the correct thing.
+  useEffect(() => {
+    const pub = localParticipant.getTrackPublication(Track.Source.Microphone)
+    if (pub?.track) {
+      if (micMuted && !pub.track.isMuted) pub.track.mute()
+      else if (!micMuted && pub.track.isMuted) pub.track.unmute()
+    }
+  }, [localParticipant, micMuted])
+
+  useEffect(() => {
+    const pub = localParticipant.getTrackPublication(Track.Source.Camera)
+    if (pub?.track) {
+      if (camOff && !pub.track.isMuted) pub.track.mute()
+      else if (!camOff && pub.track.isMuted) pub.track.unmute()
+    }
+  }, [localParticipant, camOff])
 
   const toggleMic = () => {
     const next = !micMuted

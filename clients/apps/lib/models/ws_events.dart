@@ -16,6 +16,10 @@ class WsEventType {
   static const conversationDeleted = 'CONVERSATION_DELETED';
   static const userTyping = 'USER_TYPING';
   static const userStopTyping = 'USER_STOP_TYPING';
+  static const incomingCall = 'INCOMING_CALL';
+  static const callAccepted = 'CALL_ACCEPTED';
+  static const callDeclined = 'CALL_DECLINED';
+  static const callEnded = 'CALL_ENDED';
   static const error = 'ERROR';
 }
 
@@ -93,4 +97,78 @@ class TypingPayload {
 
   factory TypingPayload.fromJson(Map<String, dynamic> json) =>
       _$TypingPayloadFromJson(json);
+}
+
+@JsonSerializable(createToJson: false)
+class IncomingCallPayload {
+  final String callId;
+  final String conversationId;
+  final String callerId;
+  final String callType;
+  final String roomName;
+  final String startedAt;
+
+  IncomingCallPayload({
+    required this.callId,
+    required this.conversationId,
+    required this.callerId,
+    required this.callType,
+    required this.roomName,
+    required this.startedAt,
+  });
+
+  factory IncomingCallPayload.fromJson(Map<String, dynamic> json) =>
+      _$IncomingCallPayloadFromJson(json);
+}
+
+@JsonSerializable(createToJson: false)
+class CallAcceptedPayload {
+  final String callId;
+  final String conversationId;
+  final String answeredBy;
+
+  CallAcceptedPayload({
+    required this.callId,
+    required this.conversationId,
+    required this.answeredBy,
+  });
+
+  factory CallAcceptedPayload.fromJson(Map<String, dynamic> json) =>
+      _$CallAcceptedPayloadFromJson(json);
+}
+
+@JsonSerializable(createToJson: false)
+class CallDeclinedPayload {
+  final String callId;
+  final String conversationId;
+  final String declinedBy;
+
+  CallDeclinedPayload({
+    required this.callId,
+    required this.conversationId,
+    required this.declinedBy,
+  });
+
+  factory CallDeclinedPayload.fromJson(Map<String, dynamic> json) =>
+      _$CallDeclinedPayloadFromJson(json);
+}
+
+@JsonSerializable(createToJson: false)
+class CallEndedPayload {
+  final String callId;
+  final String conversationId;
+  final String? endedBy;
+  final String status;
+  final int durationSeconds;
+
+  CallEndedPayload({
+    required this.callId,
+    required this.conversationId,
+    this.endedBy,
+    required this.status,
+    required this.durationSeconds,
+  });
+
+  factory CallEndedPayload.fromJson(Map<String, dynamic> json) =>
+      _$CallEndedPayloadFromJson(json);
 }

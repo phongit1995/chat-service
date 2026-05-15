@@ -25,6 +25,10 @@ class SocketService {
   final _conversationDeletedCtrl = StreamController<String>.broadcast();
   final _typingCtrl = StreamController<TypingPayload>.broadcast();
   final _stopTypingCtrl = StreamController<TypingPayload>.broadcast();
+  final _incomingCallCtrl = StreamController<IncomingCallPayload>.broadcast();
+  final _callAcceptedCtrl = StreamController<CallAcceptedPayload>.broadcast();
+  final _callDeclinedCtrl = StreamController<CallDeclinedPayload>.broadcast();
+  final _callEndedCtrl = StreamController<CallEndedPayload>.broadcast();
 
   Stream<NewMessageEvent> get onNewMessage => _newMessageCtrl.stream;
   Stream<NewMessageEvent> get onMessageUpdated => _messageUpdatedCtrl.stream;
@@ -36,6 +40,10 @@ class SocketService {
   Stream<String> get onConversationDeleted => _conversationDeletedCtrl.stream;
   Stream<TypingPayload> get onUserTyping => _typingCtrl.stream;
   Stream<TypingPayload> get onUserStopTyping => _stopTypingCtrl.stream;
+  Stream<IncomingCallPayload> get onIncomingCall => _incomingCallCtrl.stream;
+  Stream<CallAcceptedPayload> get onCallAccepted => _callAcceptedCtrl.stream;
+  Stream<CallDeclinedPayload> get onCallDeclined => _callDeclinedCtrl.stream;
+  Stream<CallEndedPayload> get onCallEnded => _callEndedCtrl.stream;
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -106,6 +114,18 @@ class SocketService {
       case WsEventType.userStopTyping:
         _stopTypingCtrl.add(TypingPayload.fromJson(payload));
         break;
+      case WsEventType.incomingCall:
+        _incomingCallCtrl.add(IncomingCallPayload.fromJson(payload));
+        break;
+      case WsEventType.callAccepted:
+        _callAcceptedCtrl.add(CallAcceptedPayload.fromJson(payload));
+        break;
+      case WsEventType.callDeclined:
+        _callDeclinedCtrl.add(CallDeclinedPayload.fromJson(payload));
+        break;
+      case WsEventType.callEnded:
+        _callEndedCtrl.add(CallEndedPayload.fromJson(payload));
+        break;
     }
   }
 
@@ -126,5 +146,9 @@ class SocketService {
     _conversationDeletedCtrl.close();
     _typingCtrl.close();
     _stopTypingCtrl.close();
+    _incomingCallCtrl.close();
+    _callAcceptedCtrl.close();
+    _callDeclinedCtrl.close();
+    _callEndedCtrl.close();
   }
 }

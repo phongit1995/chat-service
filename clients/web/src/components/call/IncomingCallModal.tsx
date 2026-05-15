@@ -1,10 +1,17 @@
 import { useEffect } from 'react'
-import { useCallStore } from '../../store/callStore'
+import { useCallStore, peerDisplayName } from '../../store/callStore'
+import { useDraggable } from '../../hooks/useDraggable'
 import { Avatar } from '../ui'
 import { PhoneIcon, VideoIcon } from './icons'
 
 export const IncomingCallModal = () => {
-  const { mode, incoming, answerIncoming, declineIncoming } = useCallStore()
+  const { mode, incoming, answerIncoming, declineIncoming, incomingPos, setIncomingPos } = useCallStore()
+  const { dragStyle, dragHandleProps, nodeRef } = useDraggable({
+    initialRight: 24,
+    initialTop: 24,
+    position: incomingPos,
+    onChange: setIncomingPos,
+  })
 
   useEffect(() => {
     if (mode !== 'incoming') return
@@ -35,19 +42,45 @@ export const IncomingCallModal = () => {
 
   if (mode !== 'incoming' || !incoming) return null
 
-  const name = incoming.caller.fullName || incoming.caller.username || 'Unknown caller'
+  const name = peerDisplayName(incoming.caller)
   const isVideo = incoming.callType === 'video'
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] w-[340px] animate-slideInRight">
-      <div className="relative bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden">
+    <div
+      ref={nodeRef}
+      style={{ ...dragStyle, zIndex: 10000 }}
+      className="w-[340px] animate-slideInRight"
+    >
+      <div className="relative bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden select-none">
         <div className="absolute inset-0 bg-gradient-signature opacity-10 pointer-events-none" />
 
-        <div className="relative p-5 flex flex-col items-center text-white">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-white/60 mb-3 animate-pulse">
+        {/* ── Drag handle ── */}
+        <div
+          {...dragHandleProps}
+          className="relative px-4 pt-3 pb-1 flex items-center justify-between cursor-grab active:cursor-grabbing"
+        >
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/60 animate-pulse flex-1 text-center">
             Incoming {isVideo ? 'video' : 'voice'} call
           </p>
+          <svg
+            className="w-3.5 h-3.5 text-white/30 shrink-0"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+          >
+            <rect x="3" y="4" width="2" height="2" rx="1" />
+            <rect x="7" y="4" width="2" height="2" rx="1" />
+            <rect x="11" y="4" width="2" height="2" rx="1" />
+            <rect x="3" y="8" width="2" height="2" rx="1" />
+            <rect x="7" y="8" width="2" height="2" rx="1" />
+            <rect x="11" y="8" width="2" height="2" rx="1" />
+            <rect x="3" y="12" width="2" height="2" rx="1" />
+            <rect x="7" y="12" width="2" height="2" rx="1" />
+            <rect x="11" y="12" width="2" height="2" rx="1" />
+          </svg>
+        </div>
 
+        {/* ── Content ── */}
+        <div className="relative px-5 pb-5 flex flex-col items-center text-white">
           <div className="relative mb-3">
             <div className="absolute inset-0 rounded-full bg-gradient-signature opacity-30 blur-xl animate-pulse" />
             <div className="absolute inset-0 rounded-full ring-2 ring-white/20 animate-ping" />

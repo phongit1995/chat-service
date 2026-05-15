@@ -59,3 +59,36 @@ TypingPayload _$TypingPayloadFromJson(Map<String, dynamic> json) =>
       username: json['username'] as String?,
       time: json['time'] as String?,
     );
+
+IncomingCallPayload _$IncomingCallPayloadFromJson(Map<String, dynamic> json) =>
+    IncomingCallPayload(
+      callId: json['callId'] as String,
+      conversationId: json['conversationId'] as String,
+      callerId: json['callerId'] as String,
+      callType: json['callType'] as String,
+      roomName: json['roomName'] as String,
+      startedAt: json['startedAt'] as String,
+    );
+
+CallAcceptedPayload _$CallAcceptedPayloadFromJson(Map<String, dynamic> json) =>
+    CallAcceptedPayload(
+      callId: json['callId'] as String,
+      conversationId: json['conversationId'] as String,
+      answeredBy: json['answeredBy'] as String,
+    );
+
+CallDeclinedPayload _$CallDeclinedPayloadFromJson(Map<String, dynamic> json) =>
+    CallDeclinedPayload(
+      callId: json['callId'] as String,
+      conversationId: json['conversationId'] as String,
+      declinedBy: json['declinedBy'] as String,
+    );
+
+CallEndedPayload _$CallEndedPayloadFromJson(Map<String, dynamic> json) =>
+    CallEndedPayload(
+      callId: json['callId'] as String,
+      conversationId: json['conversationId'] as String,
+      endedBy: json['endedBy'] as String?,
+      status: json['status'] as String,
+      durationSeconds: (json['durationSeconds'] as num).toInt(),
+    );

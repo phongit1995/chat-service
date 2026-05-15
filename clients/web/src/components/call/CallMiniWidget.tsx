@@ -1,4 +1,5 @@
-import { useCallStore } from '../../store/callStore'
+import { useCallStore, peerDisplayName } from '../../store/callStore'
+import { useDraggable } from '../../hooks/useDraggable'
 import { Avatar } from '../ui'
 import { PhoneIcon } from './icons'
 
@@ -7,21 +8,29 @@ interface CallMiniWidgetProps {
 }
 
 export const CallMiniWidget = ({ statusLabel }: CallMiniWidgetProps) => {
-  const { active, endActive, setExpanded } = useCallStore()
+  const { active, endActive, setExpanded, miniPos, setMiniPos } = useCallStore()
+  const { dragStyle, dragHandleProps, nodeRef } = useDraggable({
+    initialRight: 24,
+    initialBottom: 24,
+    position: miniPos,
+    onChange: setMiniPos,
+  })
+
   if (!active) return null
 
-  const name = active.peer.fullName || active.peer.username || 'Unknown'
+  const name = peerDisplayName(active.peer)
   const isVideo = active.callType === 'video'
 
   return (
-    <div className="fixed bottom-6 right-6 z-[95] w-[300px] animate-slideInRight">
-      <div className="relative bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden">
-        <button
-          onClick={() => setExpanded(true)}
-          className="absolute inset-0 cursor-pointer"
-          aria-label="Expand call"
-        />
-
+    <div
+      ref={nodeRef}
+      style={{ ...dragStyle, zIndex: 95 }}
+      className="w-[300px] animate-slideInRight select-none"
+    >
+      <div
+        {...dragHandleProps}
+        className="relative bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden cursor-grab active:cursor-grabbing"
+      >
         <div className="absolute inset-0 bg-gradient-signature opacity-10 pointer-events-none" />
 
         <div className="relative p-3 flex items-center gap-3">
@@ -41,12 +50,10 @@ export const CallMiniWidget = ({ statusLabel }: CallMiniWidgetProps) => {
 
           <div className="flex items-center gap-1.5 relative z-10">
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setExpanded(true)
-              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setExpanded(true) }}
               title="Expand"
-              className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-transform duration-fast ease-ease-bounce hover:scale-110 active:scale-95"
+              className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-transform duration-fast ease-ease-bounce hover:scale-110 active:scale-95 cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -54,16 +61,20 @@ export const CallMiniWidget = ({ statusLabel }: CallMiniWidgetProps) => {
               </svg>
             </button>
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                endActive()
-              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); endActive() }}
               title="End call"
-              className="w-9 h-9 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-500/40 transition-transform duration-fast ease-ease-bounce hover:scale-110 active:scale-95"
+              className="w-9 h-9 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-500/40 transition-transform duration-fast ease-ease-bounce hover:scale-110 active:scale-95 cursor-pointer"
             >
               <PhoneIcon className="w-4 h-4 rotate-[135deg]" />
             </button>
           </div>
+        </div>
+
+        <div className="flex justify-center gap-1 pb-1.5">
+          {[0,1,2,3,4].map((i) => (
+            <span key={i} className="w-1 h-1 rounded-full bg-white/20" />
+          ))}
         </div>
       </div>
     </div>
