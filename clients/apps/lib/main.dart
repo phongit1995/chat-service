@@ -146,7 +146,8 @@ class _CallLayer extends ConsumerWidget {
       children: [
         Offstage(offstage: fullScreen, child: child),
         if (inCall && !useSubWindow) const Positioned.fill(child: CallScreen()),
-        const Positioned.fill(child: IncomingCallOverlay()),
+        // Desktop spawns a small sub-window for incoming ringing instead.
+        if (!useSubWindow) const Positioned.fill(child: IncomingCallOverlay()),
       ],
     );
   }

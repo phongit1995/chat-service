@@ -17,27 +17,23 @@ bool get _isDesktop =>
     defaultTargetPlatform == TargetPlatform.macOS ||
     defaultTargetPlatform == TargetPlatform.linux;
 
+const Size _kSmallSize = Size(380, 540);
+const Size _kLargeSize = Size(960, 640);
+
 Future<int?> _openCallWindow({
-  required ActiveCall active,
-  required bool isOutgoing,
+  required Map<String, dynamic> args,
+  required Size size,
+  required String title,
 }) async {
   if (!_isDesktop) return null;
   try {
-    final controller = await DesktopMultiWindow.createWindow(jsonEncode({
-      'type': 'call',
-      'callId': active.callId,
-      'token': active.token,
-      'wsUrl': active.wsUrl,
-      'roomName': active.roomName,
-      'callType': active.callType == CallType.video ? 'video' : 'audio',
-      'peerName': active.peer.displayName,
-      'peerAvatar': active.peer.avatar,
-      'mode': isOutgoing ? 'outgoing' : 'active',
-    }));
+    final controller = await DesktopMultiWindow.createWindow(
+      jsonEncode({'type': 'call', ...args}),
+    );
     controller
-      ..setFrame(const Offset(0, 0) & const Size(960, 640))
+      ..setFrame(Offset.zero & size)
       ..center()
-      ..setTitle(active.peer.displayName)
+      ..setTitle(title)
       ..show();
     return controller.windowId;
   } catch (_) {
@@ -45,10 +41,65 @@ Future<int?> _openCallWindow({
   }
 }
 
+Future<int?> _openActiveCallWindow(ActiveCall active, bool isOutgoing) =>
+    _openCallWindow(
+      args: {
+        'callId': active.callId,
+        'token': active.token,
+        'wsUrl': active.wsUrl,
+        'roomName': active.roomName,
+        'callType': active.callType == CallType.video ? 'video' : 'audio',
+        'peerName': active.peer.displayName,
+        'peerAvatar': active.peer.avatar,
+        'mode': isOutgoing ? 'outgoing' : 'active',
+      },
+      size: _kLargeSize,
+      title: active.peer.displayName,
+    );
+
+Future<int?> _openIncomingCallWindow(IncomingCall incoming) =>
+    _openCallWindow(
+      args: {
+        'callId': incoming.callId,
+        'roomName': incoming.roomName,
+        'callType': incoming.callType == CallType.video ? 'video' : 'audio',
+        'peerName': incoming.caller.displayName,
+        'peerUsername': incoming.caller.username,
+        'peerAvatar': incoming.caller.avatar,
+        'mode': 'incoming',
+      },
+      size: _kSmallSize,
+      title: 'Incoming · ${incoming.caller.displayName}',
+    );
+
 Future<void> _closeCallWindow(int? windowId) async {
   if (windowId == null) return;
   try {
     await WindowController.fromWindowId(windowId).close();
+  } catch (_) {}
+}
+
+/// Tell the existing incoming sub-window to switch to active call mode and
+/// resize itself. Used after the user answers — we keep the same window
+/// instead of spawning a new one.
+Future<void> _switchWindowToActive({
+  required int windowId,
+  required ActiveCall active,
+}) async {
+  try {
+    await DesktopMultiWindow.invokeMethod(windowId, 'call.switchToActive', {
+      'callId': active.callId,
+      'token': active.token,
+      'wsUrl': active.wsUrl,
+      'roomName': active.roomName,
+      'callType': active.callType == CallType.video ? 'video' : 'audio',
+      'peerName': active.peer.displayName,
+      'peerAvatar': active.peer.avatar,
+    });
+    final ctrl = WindowController.fromWindowId(windowId);
+    ctrl
+      ..setFrame(Offset.zero & _kLargeSize)
+      ..center();
   } catch (_) {}
 }
 
@@ -235,20 +286,21 @@ class CallNotifier extends Notifier<CallState> {
   }
 
   /// IPC from the call sub-window (desktop only). The sub-window owns the
-  /// LiveKit Room — when the user ends the call there, this is how main
-  /// learns about it.
+  /// LiveKit Room and the incoming-ringing UI — main learns about user
+  /// actions there via these messages.
   Future<dynamic> _handleSubWindowMessage(call, fromWindowId) async {
     switch (call.method) {
+      case 'call.accept':
+        await answerIncoming();
+        break;
+      case 'call.decline':
+        await declineIncoming();
+        break;
       case 'call.ended':
         await endActive();
         break;
     }
     return null;
-  }
-
-  Future<void> _spawnCallWindow(ActiveCall active, bool isOutgoing) async {
-    final id = await _openCallWindow(active: active, isOutgoing: isOutgoing);
-    if (id != null) state = state.copyWith(callWindowId: id);
   }
 
   Future<void> startCall(
@@ -266,7 +318,9 @@ class CallNotifier extends Notifier<CallState> {
         active: active,
         expanded: true,
       );
-      await _spawnCallWindow(active, true);
+      // Outgoing: open large window right away — the user is the one calling.
+      final id = await _openActiveCallWindow(active, true);
+      if (id != null) state = state.copyWith(callWindowId: id);
     } catch (_) {
       showErrorToast('Failed to start call');
       state = CallState.idle;
@@ -282,12 +336,24 @@ class CallNotifier extends Notifier<CallState> {
           .read(callServiceProvider)
           .answer(incoming.callId);
       final active = _toActiveCall(data, incoming.caller);
+      final existingWindowId = state.callWindowId;
       state = CallState(
         mode: CallMode.active,
         active: active,
         expanded: true,
+        callWindowId: existingWindowId,
       );
-      await _spawnCallWindow(active, false);
+      // Desktop: the small ringing window was already open — resize and
+      // switch it to active call mode in-place. Otherwise spawn fresh.
+      if (existingWindowId != null) {
+        await _switchWindowToActive(
+          windowId: existingWindowId,
+          active: active,
+        );
+      } else {
+        final id = await _openActiveCallWindow(active, false);
+        if (id != null) state = state.copyWith(callWindowId: id);
+      }
     } catch (_) {
       showErrorToast('Failed to answer call');
       state = CallState.idle;
@@ -360,6 +426,13 @@ class CallNotifier extends Notifier<CallState> {
 
     state = CallState(mode: CallMode.incoming, incoming: incoming);
     await _showCallkitUI(incoming);
+
+    // Desktop: spawn a small ringing sub-window. iOS / web render the
+    // IncomingCallOverlay in the main window instead.
+    if (_isDesktop) {
+      final id = await _openIncomingCallWindow(incoming);
+      if (id != null) state = state.copyWith(callWindowId: id);
+    }
   }
 
   void onAccepted(CallAcceptedPayload data) {
