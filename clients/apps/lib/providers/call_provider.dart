@@ -88,9 +88,10 @@ class CallState {
   static const idle = CallState();
 }
 
-bool get _useCallkit =>
-    defaultTargetPlatform == TargetPlatform.android ||
-    defaultTargetPlatform == TargetPlatform.iOS;
+/// Native CallKit incoming UI — Android only.
+/// iOS uses an in-app full-screen incoming page (Apple CallKit requires
+/// VoIP push setup which is out of scope for this build).
+bool get _useCallkit => defaultTargetPlatform == TargetPlatform.android;
 
 Future<void> _showCallkitUI(IncomingCall incoming) async {
   if (!_useCallkit) return;

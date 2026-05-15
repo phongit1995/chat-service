@@ -137,24 +137,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     }
   }
 
-  // Sync LiveKit track mute state to match persisted store state.
-  // Called after room connects or when expanding from mini widget.
-  void _syncTrackStates() {
-    final s = ref.read(callProvider);
-    final audioTrack = _room?.localParticipant
-        ?.audioTrackPublications.firstOrNull?.track;
-    if (audioTrack != null) {
-      if (s.micMuted && !audioTrack.muted) audioTrack.mute();
-      if (!s.micMuted && audioTrack.muted) audioTrack.unmute();
-    }
-    final videoTrack = _room?.localParticipant
-        ?.videoTrackPublications.firstOrNull?.track;
-    if (videoTrack != null) {
-      if (s.camOff && !videoTrack.muted) videoTrack.mute();
-      if (!s.camOff && videoTrack.muted) videoTrack.unmute();
-    }
-  }
-
   String _statusLabel(CallMode mode) {
     if (mode == CallMode.outgoing) return 'Ringing…';
     if (_connState == lk.ConnectionState.connecting) return 'Connecting…';
@@ -195,18 +177,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       _elapsed = 0;
     }
 
-    if (!state.expanded) {
-      return _CallMiniWidget(
-        active: active,
-        statusLabel: _statusLabel(state.mode),
-        onExpand: () {
-          ref.read(callProvider.notifier).setExpanded(true);
-          Future.microtask(_syncTrackStates);
-        },
-        onEnd: () => ref.read(callProvider.notifier).endActive(),
-      );
-    }
-
     return _ExpandedCall(
       active: active,
       room: _room,
@@ -214,7 +184,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       micMuted: state.micMuted,
       camOff: state.camOff,
       statusLabel: _statusLabel(state.mode),
-      onMinimize: () => ref.read(callProvider.notifier).setExpanded(false),
       onToggleMic: _toggleMic,
       onToggleCam: _toggleCam,
       onEnd: () => ref.read(callProvider.notifier).endActive(),
@@ -229,7 +198,6 @@ class _ExpandedCall extends StatelessWidget {
   final bool micMuted;
   final bool camOff;
   final String statusLabel;
-  final VoidCallback onMinimize;
   final VoidCallback onToggleMic;
   final VoidCallback onToggleCam;
   final VoidCallback onEnd;
@@ -241,7 +209,6 @@ class _ExpandedCall extends StatelessWidget {
     required this.micMuted,
     required this.camOff,
     required this.statusLabel,
-    required this.onMinimize,
     required this.onToggleMic,
     required this.onToggleCam,
     required this.onEnd,
@@ -276,19 +243,12 @@ class _ExpandedCall extends StatelessWidget {
             children: [
               // Top bar
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
-                    IconButton(
-                      tooltip: 'Minimize',
-                      onPressed: onMinimize,
-                      icon: const Icon(Icons.remove_rounded, color: Colors.white),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.1),
-                      ),
-                    ),
                     Expanded(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             name,
@@ -504,116 +464,3 @@ class _EndButton extends StatelessWidget {
   }
 }
 
-class _CallMiniWidget extends StatelessWidget {
-  final ActiveCall active;
-  final String statusLabel;
-  final VoidCallback onExpand;
-  final VoidCallback onEnd;
-
-  const _CallMiniWidget({
-    required this.active,
-    required this.statusLabel,
-    required this.onExpand,
-    required this.onEnd,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isVideo = active.callType == CallType.video;
-    final name = active.peer.displayName;
-
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.bottomRight,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onExpand,
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                width: 280,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF1E293B), Color(0xFF1E1B4B)],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x66000000),
-                      blurRadius: 20,
-                      offset: Offset(0, 8),
-                    ),
-                  ],
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                ),
-                child: Row(
-                  children: [
-                    GradientAvatar(
-                      imageUrl: active.peer.avatar,
-                      name: name,
-                      size: 44,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            '${isVideo ? "📹" : "📞"} $statusLabel',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0x99FFFFFF),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Expand',
-                      onPressed: onExpand,
-                      icon: const Icon(Icons.open_in_full_rounded, color: Colors.white, size: 18),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.15),
-                        minimumSize: const Size(36, 36),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      tooltip: 'End call',
-                      onPressed: onEnd,
-                      icon: const Icon(Icons.call_end_rounded, color: Colors.white, size: 18),
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
-                        minimumSize: const Size(36, 36),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
