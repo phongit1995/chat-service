@@ -108,7 +108,7 @@ export const ProfileEditModal = ({ isOpen, onClose }: ProfileEditModalProps) => 
           <div className="flex flex-col items-center">
             <div className="relative group">
               <div
-                className="w-28 h-28 rounded-full bg-gradient-signature flex items-center justify-center text-white text-3xl font-bold cursor-pointer overflow-hidden shadow-soft-md ring-4 ring-surface"
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-signature flex items-center justify-center text-white text-3xl font-bold cursor-pointer overflow-hidden shadow-soft-md ring-4 ring-surface"
                 onClick={handleImageClick}
               >
                 {previewUrl ? (

@@ -72,7 +72,7 @@ export const UserProfilePage = ({ userId, onBack, onStartChat }: UserProfilePage
 
   return (
     <div className="flex flex-col h-full bg-surface-base animate-fadeIn">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-line-subtle bg-surface">
+      <div className="flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 border-b border-line-subtle bg-surface">
         <button
           onClick={onBack}
           className="p-2 rounded-full hover:bg-surface-overlay transition-colors text-ink-secondary"
@@ -106,9 +106,9 @@ export const UserProfilePage = ({ userId, onBack, onStartChat }: UserProfilePage
 
       {!loading && !error && profile && (
         <div className="flex-1 overflow-y-auto">
-          <div className="relative h-36 bg-gradient-signature flex-shrink-0" />
+          <div className="relative h-28 sm:h-36 bg-gradient-signature flex-shrink-0" />
 
-          <div className="px-6 -mt-14 pb-8">
+          <div className="px-4 sm:px-6 -mt-12 sm:-mt-14 pb-8 max-w-2xl mx-auto w-full">
             <div className="flex flex-col items-center mb-6">
               <div className="ring-4 ring-surface-base rounded-full mb-3">
                 <Avatar
@@ -116,11 +116,11 @@ export const UserProfilePage = ({ userId, onBack, onStartChat }: UserProfilePage
                   src={profile.avatar}
                   size="xl"
                   status={profile.isOnline ? 'online' : undefined}
-                  className="w-24 h-24 text-2xl"
+                  className="w-20 h-20 sm:w-24 sm:h-24 text-2xl"
                 />
               </div>
 
-              <h1 className="text-2xl font-bold text-ink-primary text-center">{displayName}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-ink-primary text-center">{displayName}</h1>
               <p className="text-sm text-ink-tertiary mt-0.5">@{profile.username}</p>
 
               <div className={`mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold

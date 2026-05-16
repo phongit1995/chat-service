@@ -49,7 +49,7 @@ export const IncomingCallModal = () => {
     <div
       ref={nodeRef}
       style={{ ...dragStyle, zIndex: 10000 }}
-      className="w-[340px] animate-slideInRight"
+      className="w-[calc(100vw-24px)] max-w-[340px] sm:w-[340px] animate-slideInRight"
     >
       <div className="relative bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden select-none">
         <div className="absolute inset-0 bg-gradient-signature opacity-10 pointer-events-none" />
@@ -127,7 +127,7 @@ const AnswerButton = ({ variant, onClick, label, children }: AnswerButtonProps) 
     <button onClick={onClick} className="group flex flex-col items-center gap-1">
       <span
         className={[
-          'w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-transform duration-fast ease-ease-bounce group-hover:scale-110 group-active:scale-95',
+          'w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-xl transition-transform duration-fast ease-ease-bounce group-hover:scale-110 group-active:scale-95',
           isAccept
             ? 'bg-green-500 hover:bg-green-600 shadow-green-500/50 animate-pulse'
             : 'bg-red-500 hover:bg-red-600 shadow-red-500/50',

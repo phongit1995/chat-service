@@ -138,7 +138,7 @@ const CallContent = ({ enableAudioOnJoin, enableVideoOnJoin }: CallContentProps)
   }
 
   return (
-    <div className="fixed inset-0 z-[90] bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white overflow-hidden">
+    <div className="fixed inset-0 z-[90] h-[100dvh] bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white overflow-hidden">
       <CallVideoArea
         camOff={camOff}
         peerName={name}

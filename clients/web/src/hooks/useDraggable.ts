@@ -6,27 +6,16 @@ export interface Position {
 }
 
 interface UseDraggableOptions {
-  /** Initial offset from right edge in px. Used only if initialLeft is omitted. */
   initialRight?: number
-  /** Initial offset from left edge in px. Overrides initialRight. */
   initialLeft?: number
-  /** Initial offset from bottom edge in px. Used only if initialTop is omitted. */
   initialBottom?: number
-  /** Initial offset from top edge in px. Overrides initialBottom. */
   initialTop?: number
-  /** Controlled position. If null, hook places element at the initial corner. */
   position: Position | null
-  /** Called whenever the position changes (drag or auto-clamp on resize). */
   onChange: (pos: Position) => void
 }
 
 const MARGIN = 12
 
-/**
- * Makes a fixed-position element freely draggable. Position is CONTROLLED:
- * pass `position` + `onChange` from the parent (typically a store) so the
- * position survives unmount/remount cycles (e.g. minimize/expand).
- */
 export function useDraggable({
   initialRight = 24,
   initialLeft,
@@ -38,6 +27,8 @@ export function useDraggable({
   const dragging = useRef(false)
   const startMouse = useRef({ x: 0, y: 0 })
   const startPos = useRef({ x: 0, y: 0 })
+  const livePos = useRef<Position>({ x: 0, y: 0 })
+  const rafId = useRef<number | null>(null)
   const nodeRef = useRef<HTMLDivElement | null>(null)
 
   const clamp = useCallback((x: number, y: number, w: number, h: number) => {
@@ -47,6 +38,12 @@ export function useDraggable({
       x: Math.max(MARGIN, Math.min(maxX, x)),
       y: Math.max(MARGIN, Math.min(maxY, y)),
     }
+  }, [])
+
+  const applyTransform = useCallback((x: number, y: number) => {
+    const node = nodeRef.current
+    if (!node) return
+    node.style.transform = `translate3d(${x}px, ${y}px, 0)`
   }, [])
 
   const resolveInitial = useCallback(() => {
@@ -62,7 +59,6 @@ export function useDraggable({
     return clamp(x, y, w, h)
   }, [initialLeft, initialRight, initialTop, initialBottom, clamp])
 
-  // If no position yet, compute one from the initial corner after mount.
   useLayoutEffect(() => {
     if (position === null) {
       onChange(resolveInitial())
@@ -70,7 +66,12 @@ export function useDraggable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position === null])
 
-  // Keep within viewport on resize.
+  useLayoutEffect(() => {
+    if (!position) return
+    livePos.current = position
+    if (!dragging.current) applyTransform(position.x, position.y)
+  }, [position, applyTransform])
+
   useEffect(() => {
     const onResize = () => {
       if (dragging.current || !position) return
@@ -91,6 +92,7 @@ export function useDraggable({
     dragging.current = true
     startMouse.current = { x: e.clientX, y: e.clientY }
     startPos.current = { ...position }
+    livePos.current = { ...position }
     e.currentTarget.setPointerCapture(e.pointerId)
     e.preventDefault()
   }, [position])
@@ -102,18 +104,41 @@ export function useDraggable({
     const node = nodeRef.current
     const w = node?.offsetWidth ?? 320
     const h = node?.offsetHeight ?? 240
-    onChange(clamp(startPos.current.x + dx, startPos.current.y + dy, w, h))
-  }, [clamp, onChange])
+    const next = clamp(startPos.current.x + dx, startPos.current.y + dy, w, h)
+    livePos.current = next
+    if (rafId.current === null) {
+      rafId.current = requestAnimationFrame(() => {
+        rafId.current = null
+        applyTransform(livePos.current.x, livePos.current.y)
+      })
+    }
+  }, [clamp, applyTransform])
 
   const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return
     dragging.current = false
-    e.currentTarget.releasePointerCapture(e.pointerId)
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch {}
+    if (rafId.current !== null) {
+      cancelAnimationFrame(rafId.current)
+      rafId.current = null
+    }
+    onChange(livePos.current)
+  }, [onChange])
+
+  useEffect(() => () => {
+    if (rafId.current !== null) cancelAnimationFrame(rafId.current)
   }, [])
 
   const dragStyle: React.CSSProperties = position
-    ? { position: 'fixed', left: position.x, top: position.y }
+    ? {
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+        willChange: 'transform',
+        touchAction: 'none',
+      }
     : {
-        // Pre-mount: render off-screen until useLayoutEffect runs.
         position: 'fixed',
         visibility: 'hidden',
         left: -9999,

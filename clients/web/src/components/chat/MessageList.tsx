@@ -37,7 +37,7 @@ export const MessageList = ({ conversation, messages, typingUsers, user }: Messa
   const isGroup = conversation.type === 'group'
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin bg-surface-base">
+    <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 scrollbar-thin bg-surface-base">
       {sortedMessages.map((message, idx) => {
         const prev = sortedMessages[idx - 1]
         const next = sortedMessages[idx + 1]

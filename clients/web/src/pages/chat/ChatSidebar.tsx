@@ -25,7 +25,10 @@ export const ChatSidebar = ({
 }: ChatSidebarProps) => {
   return (
     <>
-      <div className="p-4 border-b border-line-subtle bg-gradient-signature relative overflow-hidden">
+      <div
+        className="px-3 sm:px-4 pt-3 sm:pt-4 pb-3 sm:pb-4 border-b border-line-subtle bg-gradient-signature relative overflow-hidden"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
+      >
         <div className="absolute inset-0 bg-white/10 pointer-events-none" />
         <div className="flex items-center justify-between relative z-10">
           <button

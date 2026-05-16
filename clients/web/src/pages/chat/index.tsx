@@ -110,9 +110,20 @@ export const Chat = () => {
     handleConversationClick(conversationId)
   }
 
+  const showRightPane = !!(viewProfileUserId || tempChatUser || currentConversation)
+  const clearRightPane = () => {
+    if (viewProfileUserId) setViewProfileUserId(null)
+    else if (currentConversation) useChatStore.setState({ currentConversation: null })
+    else if (tempChatUser) useChatUIStore.setState({ tempChatUser: null })
+  }
+
   return (
-    <div className="flex h-screen bg-surface-base">
-      <div className="w-80 bg-surface border-r border-line-subtle flex flex-col shadow-soft-md">
+    <div className="flex h-[100dvh] bg-surface-base overflow-hidden">
+      <div
+        className={`${
+          showRightPane ? 'hidden md:flex' : 'flex'
+        } w-full md:w-80 lg:w-96 bg-surface md:border-r border-line-subtle flex-col shadow-soft-md`}
+      >
         <ChatSidebar
           user={user}
           conversations={conversations}
@@ -125,7 +136,11 @@ export const Chat = () => {
         />
       </div>
 
-      <div className="flex-1 flex flex-col bg-surface-base">
+      <div
+        className={`${
+          showRightPane ? 'flex' : 'hidden md:flex'
+        } flex-1 flex-col bg-surface-base min-w-0`}
+      >
         {viewProfileUserId ? (
           <UserProfilePage
             userId={viewProfileUserId}
@@ -139,6 +154,7 @@ export const Chat = () => {
             isCreatingConversation={isCreatingConversation}
             onMessageChange={(val) => setMessageInput(val)}
             onSendMessage={(e) => { e.preventDefault(); handleSendMessage(); }}
+            onBack={clearRightPane}
           />
         ) : currentConversation ? (
           <ChatArea
@@ -149,6 +165,7 @@ export const Chat = () => {
             user={user}
             onMessageChange={(e) => handleInputChange(e.target.value)}
             onSendMessage={(e) => { e.preventDefault(); handleSendMessage(); }}
+            onBack={clearRightPane}
           />
         ) : (
           <EmptyState />

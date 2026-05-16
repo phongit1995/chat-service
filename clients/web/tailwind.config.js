@@ -96,9 +96,20 @@ export default {
           '0%': { transform: 'translateX(120%)', opacity: '0' },
           '100%': { transform: 'translateX(0)', opacity: '1' },
         },
+        slideInUp: {
+          '0%': { transform: 'translateY(100%)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
       },
       animation: {
         slideInRight: 'slideInRight 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+        slideInUp: 'slideInUp 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+      },
+      spacing: {
+        'safe-b': 'env(safe-area-inset-bottom)',
+        'safe-t': 'env(safe-area-inset-top)',
+        'safe-l': 'env(safe-area-inset-left)',
+        'safe-r': 'env(safe-area-inset-right)',
       },
     },
   },

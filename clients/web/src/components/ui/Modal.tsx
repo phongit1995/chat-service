@@ -21,11 +21,11 @@ const sizeClasses: Record<ModalSize, string> = {
 }
 
 const positionClasses: Record<ModalSize, string> = {
-  sm: 'items-center',
-  md: 'items-center',
-  lg: 'items-center',
-  xl: 'items-center',
-  spotlight: 'items-start pt-[15vh]',
+  sm: 'items-end sm:items-center',
+  md: 'items-end sm:items-center',
+  lg: 'items-end sm:items-center',
+  xl: 'items-end sm:items-center',
+  spotlight: 'items-start pt-[8vh] sm:pt-[15vh]',
 }
 
 export const Modal = ({
@@ -66,11 +66,12 @@ export const Modal = ({
       role="dialog"
       aria-modal="true"
       aria-label={ariaLabel}
-      className={`fixed inset-0 z-50 flex justify-center px-4 ${positionClasses[size]} bg-black/40 backdrop-blur-sm animate-fadeIn`}
+      className={`fixed inset-0 z-50 flex justify-center px-0 sm:px-4 ${positionClasses[size]} bg-black/40 backdrop-blur-sm animate-fadeIn`}
       onClick={handleBackdrop}
     >
       <div
-        className={`w-full ${sizeClasses[size]} bg-surface rounded-2xl shadow-soft-xl max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn`}
+        className={`w-full ${sizeClasses[size]} bg-surface rounded-t-2xl sm:rounded-2xl shadow-soft-xl max-h-[92dvh] sm:max-h-[85vh] flex flex-col overflow-hidden animate-slideInUp sm:animate-scaleIn`}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -86,7 +87,7 @@ interface ModalHeaderProps {
 }
 
 export const ModalHeader = ({ title, subtitle, onClose }: ModalHeaderProps) => (
-  <div className="flex items-start justify-between px-6 py-4 border-b border-line-subtle">
+  <div className="flex items-start justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-line-subtle sticky top-0 bg-surface z-10">
     <div className="min-w-0 flex-1">
       <h2 className="text-lg font-semibold text-ink-primary truncate">{title}</h2>
       {subtitle && <p className="text-sm text-ink-tertiary mt-0.5 truncate">{subtitle}</p>}
@@ -106,11 +107,11 @@ export const ModalHeader = ({ title, subtitle, onClose }: ModalHeaderProps) => (
 )
 
 export const ModalBody = ({ children, className = '' }: { children: ReactNode; className?: string }) => (
-  <div className={`flex-1 overflow-y-auto scrollbar-thin px-6 py-5 ${className}`}>{children}</div>
+  <div className={`flex-1 overflow-y-auto scrollbar-thin px-4 sm:px-6 py-4 sm:py-5 ${className}`}>{children}</div>
 )
 
 export const ModalFooter = ({ children, className = '' }: { children: ReactNode; className?: string }) => (
-  <div className={`flex items-center justify-end gap-2 px-6 py-4 border-t border-line-subtle bg-surface-elevated ${className}`}>
+  <div className={`flex flex-wrap items-center justify-end gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t border-line-subtle bg-surface-elevated ${className}`}>
     {children}
   </div>
 )

@@ -97,7 +97,7 @@ export const MessageBubble = ({
         </div>
       )}
 
-      <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[75%]`}>
+      <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[80%] sm:max-w-[75%] md:max-w-[65%]`}>
         {showName && (
           <p className="text-[11px] font-semibold mb-0.5 ml-2 text-ink-tertiary">
             {message.senderName}
@@ -115,7 +115,7 @@ export const MessageBubble = ({
             isFirstInStreak ? 'animate-slideIn' : '',
           ].join(' ')}
         >
-          <p className="leading-relaxed text-[15px] whitespace-pre-wrap">{message.content}</p>
+          <p className="leading-relaxed text-[14px] sm:text-[15px] whitespace-pre-wrap">{message.content}</p>
         </div>
 
         {(showTime || message.status === 'sending' || message.status === 'failed') && (

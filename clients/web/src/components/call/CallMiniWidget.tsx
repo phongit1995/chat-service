@@ -42,7 +42,7 @@ export const CallMiniWidget = ({ statusLabel }: CallMiniWidgetProps) => {
     <div
       ref={nodeRef}
       style={{ ...dragStyle, zIndex: 95 }}
-      className={`${showVideo ? 'w-[220px]' : 'w-[300px]'} animate-slideInRight select-none`}
+      className={`${showVideo ? 'w-[160px] sm:w-[220px]' : 'w-[240px] sm:w-[300px]'} max-w-[calc(100vw-24px)] animate-slideInRight select-none`}
     >
       <div
         {...dragHandleProps}

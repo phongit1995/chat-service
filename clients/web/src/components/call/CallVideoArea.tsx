@@ -10,7 +10,14 @@ import { Track } from 'livekit-client'
 import { useCallStore } from '../../store/callStore'
 import { useDraggable } from '../../hooks/useDraggable'
 import { useSpeaking } from './hooks/useSpeaking'
+import { usePipResize } from './hooks/usePipResize'
+import { PipResizeHandles } from './PipResizeHandles'
 import { Avatar } from '../ui'
+
+const PIP_ASPECT = 4 / 3
+const PIP_MIN_WIDTH = 96
+const PIP_MAX_WIDTH = 280
+const PIP_DEFAULT_WIDTH = 144
 
 interface CallVideoAreaProps {
   camOff?: boolean
@@ -25,7 +32,15 @@ export const CallVideoArea = ({
   peerAvatar,
   statusLabel,
 }: CallVideoAreaProps) => {
-  const { localVideoPos, setLocalVideoPos } = useCallStore()
+  const {
+    localVideoPos,
+    setLocalVideoPos,
+    localVideoWidth,
+    setLocalVideoWidth,
+  } = useCallStore()
+  const pipWidth = localVideoWidth ?? PIP_DEFAULT_WIDTH
+  const pipHeight = pipWidth * PIP_ASPECT
+
   const tracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: false }],
     { onlySubscribed: false },
@@ -47,6 +62,15 @@ export const CallVideoArea = ({
     onChange: setLocalVideoPos,
   })
 
+  const { makeHandlers } = usePipResize({
+    nodeRef,
+    width: pipWidth,
+    minWidth: PIP_MIN_WIDTH,
+    maxWidth: PIP_MAX_WIDTH,
+    aspect: PIP_ASPECT,
+    onCommit: setLocalVideoWidth,
+  })
+
   return (
     <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
       {remoteCamera ? (
@@ -64,9 +88,9 @@ export const CallVideoArea = ({
         <TrackRefContext.Provider value={localCamera}>
           <div
             ref={nodeRef}
-            style={{ ...dragStyle, zIndex: 50 }}
+            style={{ ...dragStyle, width: pipWidth, height: pipHeight, zIndex: 50 }}
             {...dragHandleProps}
-            className={`w-36 h-48 rounded-xl overflow-hidden shadow-2xl bg-black cursor-grab active:cursor-grabbing select-none transition-all duration-200 ${
+            className={`relative rounded-xl overflow-hidden shadow-2xl bg-black cursor-grab active:cursor-grabbing select-none transition-[box-shadow,border-color] duration-200 ${
               localSpeaking
                 ? 'ring-4 ring-green-400 shadow-[0_0_24px_rgba(74,222,128,0.55)]'
                 : 'ring-2 ring-white/30'
@@ -76,6 +100,7 @@ export const CallVideoArea = ({
               trackRef={localCamera}
               className="w-full h-full object-cover scale-x-[-1] pointer-events-none"
             />
+            <PipResizeHandles makeHandlers={makeHandlers} />
           </div>
         </TrackRefContext.Provider>
       )}
@@ -114,7 +139,7 @@ const PeerAvatar = ({
   speaking: boolean
 }) => (
   <div className="relative z-10 flex flex-col items-center pointer-events-none">
-    <div className="relative mb-6 scale-150">
+    <div className="relative mb-4 sm:mb-6 scale-110 sm:scale-150">
       <div className="absolute inset-0 rounded-full bg-gradient-signature opacity-30 blur-2xl animate-pulse" />
       <div
         className={`relative rounded-full transition-all duration-200 ${
@@ -126,10 +151,10 @@ const PeerAvatar = ({
         <Avatar src={avatar} name={name} size="xl" />
       </div>
     </div>
-    <h2 className="text-3xl font-bold text-white mt-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+    <h2 className="text-2xl sm:text-3xl font-bold text-white mt-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-center px-4">
       {name}
     </h2>
-    <p className="text-white/90 text-lg font-medium mt-3 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+    <p className="text-white/90 text-base sm:text-lg font-medium mt-2 sm:mt-3 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
       {statusLabel}
     </p>
   </div>
