@@ -46,6 +46,7 @@ dependencies:
   file_selector: ^1.0.3
   fluttertoast: ^9.0.0
   livekit_client: ^2.4.8
+  flutter_webrtc: ^0.14.2
   wakelock_plus: ^1.4.0
   flutter_callkit_incoming: ^3.0.0
   permission_handler: ^11.3.1

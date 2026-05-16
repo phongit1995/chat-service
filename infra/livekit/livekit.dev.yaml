@@ -1,13 +1,13 @@
 port: 7880
 bind_addresses:
   - ""
-log_level: info
+log_level: debug
 
 rtc:
   tcp_port: 7881
   udp_port: 7882
   use_external_ip: false
-  use_ice_lite: true
+  use_ice_lite: false
   node_ip: 127.0.0.1
 
 keys:
@@ -17,6 +17,12 @@ room:
   auto_create: true
   empty_timeout: 60
   max_participants: 2
+
+audio:
+  active_level: 35
+  min_percentile: 40
+  update_interval: 400
+  smooth_intervals: 2
 
 turn:
   enabled: false

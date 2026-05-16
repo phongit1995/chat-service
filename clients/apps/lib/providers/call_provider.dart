@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
+import 'dart:ui' show Offset;
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,6 +57,11 @@ class CallState {
   final bool micMuted;
   final bool camOff;
   final bool localEnded;
+  final Offset? localVideoPos;
+  final Offset? miniPos;
+  final String? selectedMicId;
+  final String? selectedCamId;
+  final String? selectedSpeakerId;
 
   const CallState({
     this.mode = CallMode.idle,
@@ -65,6 +71,11 @@ class CallState {
     this.micMuted = false,
     this.camOff = false,
     this.localEnded = false,
+    this.localVideoPos,
+    this.miniPos,
+    this.selectedMicId,
+    this.selectedCamId,
+    this.selectedSpeakerId,
   });
 
   CallState copyWith({
@@ -75,6 +86,11 @@ class CallState {
     bool? micMuted,
     bool? camOff,
     bool? localEnded,
+    Offset? localVideoPos,
+    Offset? miniPos,
+    String? selectedMicId,
+    String? selectedCamId,
+    String? selectedSpeakerId,
     bool clearIncoming = false,
     bool clearActive = false,
   }) => CallState(
@@ -85,6 +101,11 @@ class CallState {
         micMuted: micMuted ?? this.micMuted,
         camOff: camOff ?? this.camOff,
         localEnded: localEnded ?? this.localEnded,
+        localVideoPos: localVideoPos ?? this.localVideoPos,
+        miniPos: miniPos ?? this.miniPos,
+        selectedMicId: selectedMicId ?? this.selectedMicId,
+        selectedCamId: selectedCamId ?? this.selectedCamId,
+        selectedSpeakerId: selectedSpeakerId ?? this.selectedSpeakerId,
       );
 
   static const idle = CallState();
@@ -308,6 +329,20 @@ class CallNotifier extends Notifier<CallState> {
   void setMicMuted(bool muted) => state = state.copyWith(micMuted: muted);
 
   void setCamOff(bool off) => state = state.copyWith(camOff: off);
+
+  void setLocalVideoPos(Offset pos) =>
+      state = state.copyWith(localVideoPos: pos);
+
+  void setMiniPos(Offset pos) => state = state.copyWith(miniPos: pos);
+
+  void setSelectedMicId(String id) =>
+      state = state.copyWith(selectedMicId: id);
+
+  void setSelectedCamId(String id) =>
+      state = state.copyWith(selectedCamId: id);
+
+  void setSelectedSpeakerId(String id) =>
+      state = state.copyWith(selectedSpeakerId: id);
 
   // ── WS event handlers ──────────────────────────────────────────────────
 
