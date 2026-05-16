@@ -55,19 +55,24 @@ const CallContent = ({ enableAudioOnJoin, enableVideoOnJoin }: CallContentProps)
 
   // Bật mic/cam tuần tự sau khi room connect (sequential để tránh getUserMedia
   // chạy song song và Chrome gộp 2 prompt thành 1, gây NotAllowedError).
+  // Mỗi enable có try/catch riêng để một bên fail không kéo theo bên kia.
   useEffect(() => {
     if (!room) return
     let cancelled = false
     const arm = async () => {
-      try {
-        if (enableAudioOnJoin && !cancelled) {
+      if (enableAudioOnJoin && !cancelled) {
+        try {
           await room.localParticipant.setMicrophoneEnabled(true)
+        } catch (e) {
+          console.warn('[Call] auto-enable mic failed:', e)
         }
-        if (enableVideoOnJoin && !cancelled) {
+      }
+      if (enableVideoOnJoin && !cancelled) {
+        try {
           await room.localParticipant.setCameraEnabled(true)
+        } catch (e) {
+          console.warn('[Call] auto-enable camera failed:', e)
         }
-      } catch {
-        // User chưa cấp quyền — sẽ bật bằng nút mic/cam (user gesture).
       }
     }
     arm()
