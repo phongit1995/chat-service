@@ -137,6 +137,20 @@ export const useCallStore = create<CallState>((set, get) => ({
   ...IDLE_STATE,
 
   startCall: async (conversationId, callType, peer) => {
+    // Prime mic/cam permission from the user gesture (click "Call" button).
+    // Without this, Chrome publishes a silent track later when LiveKit auto-
+    // enables them inside a useEffect (no fresh gesture), and the peer hears
+    // nothing until the user toggles mute.
+    try {
+      const constraints: MediaStreamConstraints = {
+        audio: true,
+        video: callType === 'video',
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      stream.getTracks().forEach((t) => t.stop())
+    } catch {
+      // Permission denied or no device — let LiveKit handle the fallback.
+    }
     try {
       const res = await callService.start(conversationId, callType)
       const active = toActiveCall(res.data as CallTokenResponse, peer)

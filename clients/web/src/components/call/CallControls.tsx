@@ -1,5 +1,5 @@
 import { useLocalParticipant } from '@livekit/components-react'
-import { Track } from 'livekit-client'
+import { ParticipantEvent, Track } from 'livekit-client'
 import { useEffect, type ReactNode } from 'react'
 import { useCallStore } from '../../store/callStore'
 import { usePermissionStatus } from './hooks/usePermissionStatus'
@@ -101,10 +101,17 @@ export const CallControls = ({ isVideo, onEnd, onOpenSettings }: CallControlsPro
 const useTrackMuteSync = (source: MediaSource, muted: boolean) => {
   const { localParticipant } = useLocalParticipant()
   useEffect(() => {
-    const pub = localParticipant.getTrackPublication(source)
-    if (!pub?.track) return
-    if (muted && !pub.track.isMuted) pub.track.mute()
-    else if (!muted && pub.track.isMuted) pub.track.unmute()
+    const apply = () => {
+      const pub = localParticipant.getTrackPublication(source)
+      if (!pub?.track) return
+      if (muted && !pub.track.isMuted) pub.track.mute()
+      else if (!muted && pub.track.isMuted) pub.track.unmute()
+    }
+    apply()
+    localParticipant.on(ParticipantEvent.LocalTrackPublished, apply)
+    return () => {
+      localParticipant.off(ParticipantEvent.LocalTrackPublished, apply)
+    }
   }, [localParticipant, source, muted])
 }
 

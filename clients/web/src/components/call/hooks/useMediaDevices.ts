@@ -10,9 +10,12 @@ export function useMediaDevices(): DeviceList {
   const [devices, setDevices] = useState<DeviceList>(EMPTY)
 
   useEffect(() => {
+    const md = navigator.mediaDevices
+    if (!md?.enumerateDevices) return
+
     const refresh = async () => {
       try {
-        const list = await navigator.mediaDevices.enumerateDevices()
+        const list = await md.enumerateDevices()
         setDevices({
           audioinput: list.filter((d) => d.kind === DEVICE_KIND.AUDIO_INPUT),
           videoinput: list.filter((d) => d.kind === DEVICE_KIND.VIDEO_INPUT),
@@ -23,9 +26,9 @@ export function useMediaDevices(): DeviceList {
       }
     }
     refresh()
-    navigator.mediaDevices.addEventListener('devicechange', refresh)
+    md.addEventListener?.('devicechange', refresh)
     return () => {
-      navigator.mediaDevices.removeEventListener('devicechange', refresh)
+      md.removeEventListener?.('devicechange', refresh)
     }
   }, [])
 

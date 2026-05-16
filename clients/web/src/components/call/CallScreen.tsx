@@ -4,7 +4,7 @@ import {
   RoomAudioRenderer,
   useRoomContext,
 } from '@livekit/components-react'
-import { ConnectionState, RoomEvent } from 'livekit-client'
+import { ConnectionState, RoomEvent, Track } from 'livekit-client'
 import '@livekit/components-styles'
 import { useCallStore, formatCallDuration, peerDisplayName } from '../../store/callStore'
 import { useConnectionState, useElapsedSeconds } from './hooks/useCallTelemetry'
@@ -60,18 +60,36 @@ const CallContent = ({ enableAudioOnJoin, enableVideoOnJoin }: CallContentProps)
     if (!room) return
     let cancelled = false
     const arm = async () => {
-      if (enableAudioOnJoin && !cancelled) {
-        try {
-          await room.localParticipant.setMicrophoneEnabled(true)
-        } catch (e) {
-          console.warn('[Call] auto-enable mic failed:', e)
+      // Wait until PeerConnection is fully connected before publishing
+      // (otherwise audio packets are produced before SDP negotiation completes
+      // and the peer never hears the first seconds — sometimes never).
+      if (room.state !== ConnectionState.Connected) {
+        await new Promise<void>((resolve) => {
+          const onConn = (s: ConnectionState) => {
+            if (s === ConnectionState.Connected) {
+              room.off(RoomEvent.ConnectionStateChanged, onConn)
+              resolve()
+            }
+          }
+          room.on(RoomEvent.ConnectionStateChanged, onConn)
+        })
+      }
+      if (cancelled) return
+      if (enableAudioOnJoin) {
+        const existing = room.localParticipant.getTrackPublication(Track.Source.Microphone)
+        if (!existing?.track) {
+          try {
+            await room.localParticipant.setMicrophoneEnabled(true)
+          } catch {}
         }
       }
-      if (enableVideoOnJoin && !cancelled) {
-        try {
-          await room.localParticipant.setCameraEnabled(true)
-        } catch (e) {
-          console.warn('[Call] auto-enable camera failed:', e)
+      if (cancelled) return
+      if (enableVideoOnJoin) {
+        const existing = room.localParticipant.getTrackPublication(Track.Source.Camera)
+        if (!existing?.track) {
+          try {
+            await room.localParticipant.setCameraEnabled(true)
+          } catch {}
         }
       }
     }
@@ -84,9 +102,28 @@ const CallContent = ({ enableAudioOnJoin, enableVideoOnJoin }: CallContentProps)
   useEffect(() => {
     if (!room) return
     const onLeft = () => endActive()
+    // Belt-and-suspenders: RoomAudioRenderer already attaches subscribed audio,
+    // but on some browsers (Chrome 120+ HTTP, mobile Safari) it may skip play
+    // when there is no user gesture in scope. Attach a duplicate hidden element
+    // here and call play() directly so the peer's audio is audible from the
+    // moment the track is subscribed.
+    const onTrackSubscribed = (track: unknown) => {
+      const t = track as { kind: string; attach?: () => HTMLMediaElement }
+      if (t.kind !== 'audio' || typeof t.attach !== 'function') return
+      try {
+        const el = t.attach() as HTMLAudioElement
+        el.autoplay = true
+        el.volume = 1
+        el.muted = false
+        document.body.appendChild(el)
+        el.play().catch(() => {})
+      } catch {}
+    }
     room.on(RoomEvent.ParticipantDisconnected, onLeft)
+    room.on(RoomEvent.TrackSubscribed, onTrackSubscribed)
     return () => {
       room.off(RoomEvent.ParticipantDisconnected, onLeft)
+      room.off(RoomEvent.TrackSubscribed, onTrackSubscribed)
     }
   }, [room, endActive])
 
