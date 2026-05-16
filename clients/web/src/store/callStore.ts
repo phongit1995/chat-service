@@ -48,6 +48,12 @@ interface CallState {
   miniPos: WidgetPosition | null
   /** Persisted position of the incoming call popup */
   incomingPos: WidgetPosition | null
+  /** Persisted position of the local-camera PiP inside the expanded call screen */
+  localVideoPos: WidgetPosition | null
+  /** Persisted device selection across minimize/expand */
+  selectedMicId: string | null
+  selectedCamId: string | null
+  selectedSpeakerId: string | null
   /** Persisted mic/cam state across minimize/expand */
   micMuted: boolean
   camOff: boolean
@@ -61,6 +67,10 @@ interface CallState {
   setExpanded: (expanded: boolean) => void
   setMiniPos: (pos: WidgetPosition) => void
   setIncomingPos: (pos: WidgetPosition) => void
+  setLocalVideoPos: (pos: WidgetPosition) => void
+  setSelectedMicId: (id: string | null) => void
+  setSelectedCamId: (id: string | null) => void
+  setSelectedSpeakerId: (id: string | null) => void
   setMicMuted: (muted: boolean) => void
   setCamOff: (off: boolean) => void
 
@@ -77,6 +87,10 @@ const IDLE_STATE = {
   expanded: false,
   miniPos: null,
   incomingPos: null,
+  localVideoPos: null,
+  selectedMicId: null,
+  selectedCamId: null,
+  selectedSpeakerId: null,
   micMuted: false,
   camOff: false,
   localEnded: false,
@@ -148,6 +162,10 @@ export const useCallStore = create<CallState>((set, get) => ({
   setExpanded: (expanded) => set({ expanded }),
   setMiniPos: (miniPos) => set({ miniPos }),
   setIncomingPos: (incomingPos) => set({ incomingPos }),
+  setLocalVideoPos: (localVideoPos) => set({ localVideoPos }),
+  setSelectedMicId: (selectedMicId) => set({ selectedMicId }),
+  setSelectedCamId: (selectedCamId) => set({ selectedCamId }),
+  setSelectedSpeakerId: (selectedSpeakerId) => set({ selectedSpeakerId }),
   setMicMuted: (micMuted) => set({ micMuted }),
   setCamOff: (camOff) => set({ camOff }),
 

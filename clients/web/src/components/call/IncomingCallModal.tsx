@@ -54,16 +54,16 @@ export const IncomingCallModal = () => {
       <div className="relative bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden select-none">
         <div className="absolute inset-0 bg-gradient-signature opacity-10 pointer-events-none" />
 
-        {/* ── Drag handle ── */}
         <div
           {...dragHandleProps}
-          className="relative px-4 pt-3 pb-1 flex items-center justify-between cursor-grab active:cursor-grabbing"
+          className="relative px-4 pt-4 pb-2 flex items-center gap-2 cursor-grab active:cursor-grabbing"
         >
-          <p className="text-[10px] uppercase tracking-[0.2em] text-white/60 animate-pulse flex-1 text-center">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
+          <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-white/80 flex-1">
             Incoming {isVideo ? 'video' : 'voice'} call
           </p>
           <svg
-            className="w-3.5 h-3.5 text-white/30 shrink-0"
+            className="w-3.5 h-3.5 text-white/40 shrink-0"
             viewBox="0 0 16 16"
             fill="currentColor"
           >
@@ -79,31 +79,33 @@ export const IncomingCallModal = () => {
           </svg>
         </div>
 
-        {/* ── Content ── */}
         <div className="relative px-5 pb-5 flex flex-col items-center text-white">
-          <div className="relative mb-3">
-            <div className="absolute inset-0 rounded-full bg-gradient-signature opacity-30 blur-xl animate-pulse" />
-            <div className="absolute inset-0 rounded-full ring-2 ring-white/20 animate-ping" />
+          <div className="relative mb-4">
+            <div className="absolute inset-0 rounded-full bg-gradient-signature opacity-40 blur-xl animate-pulse" />
+            <div className="absolute inset-0 rounded-full ring-2 ring-white/30 animate-ping" />
             <div className="relative">
               <Avatar src={incoming.caller.avatar} name={name} size="xl" />
             </div>
           </div>
 
-          <h2 className="text-lg font-semibold leading-tight">{name}</h2>
-          {incoming.caller.username && (
-            <p className="text-white/50 text-xs mt-0.5 mb-4">@{incoming.caller.username}</p>
+          <h2 className="text-xl font-semibold leading-tight text-white text-center">
+            {name}
+          </h2>
+          {incoming.caller.username ? (
+            <p className="text-white/60 text-sm mt-1 mb-5">@{incoming.caller.username}</p>
+          ) : (
+            <div className="mb-5" />
           )}
-          {!incoming.caller.username && <div className="mb-4" />}
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-10">
             <AnswerButton variant="decline" onClick={declineIncoming} label="Decline">
-              <PhoneIcon className="w-5 h-5 text-white rotate-[135deg]" />
+              <PhoneIcon className="w-6 h-6 text-white rotate-[135deg]" />
             </AnswerButton>
 
             <AnswerButton variant="accept" onClick={answerIncoming} label="Accept">
               {isVideo
-                ? <VideoIcon className="w-5 h-5 text-white" />
-                : <PhoneIcon className="w-5 h-5 text-white" />}
+                ? <VideoIcon className="w-6 h-6 text-white" />
+                : <PhoneIcon className="w-6 h-6 text-white" />}
             </AnswerButton>
           </div>
         </div>
@@ -125,15 +127,15 @@ const AnswerButton = ({ variant, onClick, label, children }: AnswerButtonProps) 
     <button onClick={onClick} className="group flex flex-col items-center gap-1">
       <span
         className={[
-          'w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform duration-fast ease-ease-bounce group-hover:scale-110 group-active:scale-95',
+          'w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-transform duration-fast ease-ease-bounce group-hover:scale-110 group-active:scale-95',
           isAccept
-            ? 'bg-green-500 hover:bg-green-600 shadow-green-500/40 animate-pulse'
-            : 'bg-red-500 hover:bg-red-600 shadow-red-500/40',
+            ? 'bg-green-500 hover:bg-green-600 shadow-green-500/50 animate-pulse'
+            : 'bg-red-500 hover:bg-red-600 shadow-red-500/50',
         ].join(' ')}
       >
         {children}
       </span>
-      <span className="text-[10px] text-white/70">{label}</span>
+      <span className="text-xs font-medium text-white/90 mt-0.5">{label}</span>
     </button>
   )
 }

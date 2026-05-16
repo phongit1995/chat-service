@@ -70,15 +70,21 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       ref.read(callProvider.notifier).endActive();
     });
 
+    var connected = false;
     try {
       await room.connect(call.wsUrl, call.token);
-      await room.localParticipant?.setMicrophoneEnabled(true);
+      connected = true;
+      try {
+        await room.localParticipant?.setMicrophoneEnabled(true);
+      } catch (_) {}
       if (call.callType == CallType.video) {
-        await room.localParticipant?.setCameraEnabled(true);
+        try {
+          await room.localParticipant?.setCameraEnabled(true);
+        } catch (_) {}
       }
       WakelockPlus.enable();
     } catch (_) {
-      if (mounted) ref.read(callProvider.notifier).endActive();
+      if (!connected && mounted) ref.read(callProvider.notifier).endActive();
     } finally {
       _connecting = false;
       if (mounted) setState(() => _connState = room.connectionState);

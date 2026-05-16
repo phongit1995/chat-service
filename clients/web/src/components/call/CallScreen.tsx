@@ -4,12 +4,15 @@ import {
   RoomAudioRenderer,
   useRoomContext,
 } from '@livekit/components-react'
-import { RoomEvent, ConnectionState } from 'livekit-client'
+import { ConnectionState, RoomEvent } from 'livekit-client'
 import '@livekit/components-styles'
 import { useCallStore, formatCallDuration, peerDisplayName } from '../../store/callStore'
+import { useConnectionState, useElapsedSeconds } from './hooks/useCallTelemetry'
 import { CallControls } from './CallControls'
 import { CallVideoArea } from './CallVideoArea'
 import { CallMiniWidget } from './CallMiniWidget'
+import { CallHeader } from './CallHeader'
+import { CallSettingsPanel } from './CallSettingsPanel'
 
 const ROOM_OPTIONS = { adaptiveStream: true, dynacast: true }
 const ROOM_STYLE = { background: 'transparent' }
@@ -26,39 +29,52 @@ export const CallScreen = () => {
       serverUrl={active.wsUrl}
       token={active.token}
       connect={true}
-      audio={true}
-      video={isVideo}
+      audio={false}
+      video={false}
       options={ROOM_OPTIONS}
       data-lk-theme="default"
       style={ROOM_STYLE}
     >
       <RoomAudioRenderer />
-      <CallContent />
+      <CallContent enableAudioOnJoin enableVideoOnJoin={isVideo} />
     </LiveKitRoom>
   )
 }
 
-const CallContent = () => {
+interface CallContentProps {
+  enableAudioOnJoin: boolean
+  enableVideoOnJoin: boolean
+}
+
+const CallContent = ({ enableAudioOnJoin, enableVideoOnJoin }: CallContentProps) => {
   const { active, mode, expanded, endActive, setExpanded, camOff } = useCallStore()
   const room = useRoomContext()
-  const [elapsed, setElapsed] = useState(0)
-  const [connState, setConnState] = useState<ConnectionState>(ConnectionState.Connecting)
+  const connState = useConnectionState(room)
+  const elapsed = useElapsedSeconds(mode === 'active')
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
+  // Bật mic/cam tuần tự sau khi room connect (sequential để tránh getUserMedia
+  // chạy song song và Chrome gộp 2 prompt thành 1, gây NotAllowedError).
   useEffect(() => {
     if (!room) return
-    const onConn = (s: ConnectionState) => setConnState(s)
-    room.on(RoomEvent.ConnectionStateChanged, onConn)
-    setConnState(room.state)
-    return () => {
-      room.off(RoomEvent.ConnectionStateChanged, onConn)
+    let cancelled = false
+    const arm = async () => {
+      try {
+        if (enableAudioOnJoin && !cancelled) {
+          await room.localParticipant.setMicrophoneEnabled(true)
+        }
+        if (enableVideoOnJoin && !cancelled) {
+          await room.localParticipant.setCameraEnabled(true)
+        }
+      } catch {
+        // User chưa cấp quyền — sẽ bật bằng nút mic/cam (user gesture).
+      }
     }
-  }, [room])
-
-  useEffect(() => {
-    if (mode !== 'active') return
-    const t = setInterval(() => setElapsed((e) => e + 1), 1000)
-    return () => clearInterval(t)
-  }, [mode])
+    arm()
+    return () => {
+      cancelled = true
+    }
+  }, [room, enableAudioOnJoin, enableVideoOnJoin])
 
   useEffect(() => {
     if (!room) return
@@ -73,49 +89,49 @@ const CallContent = () => {
 
   const name = peerDisplayName(active.peer)
   const isVideo = active.callType === 'video'
-
-  const statusLabel =
-    mode === 'outgoing' ? 'Ringing…'
-    : connState === ConnectionState.Connecting ? 'Connecting…'
-    : connState === ConnectionState.Reconnecting ? 'Reconnecting…'
-    : mode === 'active' ? formatCallDuration(elapsed)
-    : 'Connected'
+  const statusLabel = computeStatusLabel(mode, connState, elapsed)
 
   if (!expanded) {
     return <CallMiniWidget statusLabel={statusLabel} />
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white">
-      <div className="px-6 py-4 flex items-center justify-between bg-gradient-to-b from-black/50 to-transparent">
-        <button
-          onClick={() => setExpanded(false)}
-          title="Minimize"
-          className="p-2 rounded-full bg-white/10 hover:bg-white/25 text-white transition-transform duration-fast ease-ease-bounce hover:scale-110 active:scale-95"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M20 12H4" />
-          </svg>
-        </button>
-        <div className="text-center">
-          <h2 className="font-semibold text-lg text-white">{name}</h2>
-          <p className="text-sm text-white/90 font-medium mt-0.5">{statusLabel}</p>
-        </div>
-        <span className="text-[11px] uppercase tracking-wider text-white/70 font-medium">
-          {isVideo ? 'Video call' : 'Voice call'}
-        </span>
-      </div>
-
+    <div className="fixed inset-0 z-[90] bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white overflow-hidden">
       <CallVideoArea
-        isVideo={isVideo}
         camOff={camOff}
         peerName={name}
         peerAvatar={active.peer.avatar}
         statusLabel={statusLabel}
       />
 
-      <CallControls isVideo={isVideo} onEnd={endActive} />
+      <CallHeader
+        name={name}
+        statusLabel={statusLabel}
+        isVideo={isVideo}
+        onMinimize={() => setExpanded(false)}
+      />
+
+      <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/70 via-black/30 to-transparent pt-8">
+        <CallControls
+          isVideo={isVideo}
+          onEnd={endActive}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      </div>
+
+      <CallSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   )
+}
+
+const computeStatusLabel = (
+  mode: string,
+  connState: ConnectionState,
+  elapsed: number,
+): string => {
+  if (mode === 'outgoing') return 'Ringing…'
+  if (connState === ConnectionState.Connecting) return 'Connecting…'
+  if (connState === ConnectionState.Reconnecting) return 'Reconnecting…'
+  if (mode === 'active') return formatCallDuration(elapsed)
+  return 'Connected'
 }
