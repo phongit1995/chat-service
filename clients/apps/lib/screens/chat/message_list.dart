@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../models/models.dart';
 import '../../theme/widgets.dart';
+import 'hover_reaction_wrapper.dart';
 
 class MessageList extends StatelessWidget {
   final Conversation conversation;
   final List<Message> messages;
   final User? user;
   final ScrollController scrollController;
+  final Future<void> Function(String messageId, String type)? onReact;
 
   const MessageList({
     super.key,
@@ -15,6 +17,7 @@ class MessageList extends StatelessWidget {
     required this.messages,
     required this.user,
     required this.scrollController,
+    this.onReact,
   });
 
   @override
@@ -64,19 +67,36 @@ class MessageList extends StatelessWidget {
               (nextTime - currentTime) < streakGapMs;
         }
 
-        return MessageBubble(
-          content: message.content,
+        final myId = user?.id ?? '';
+        final myReacted = <String>{
+          for (final e in (message.reactions ?? {}).entries)
+            if (e.value.contains(myId)) e.key
+        };
+        return HoverReactionWrapper(
           isMine: isMine,
-          senderName: isMine ? null : message.senderName,
-          senderAvatar: isMine ? null : message.senderAvatar,
-          time: _formatTime(message.createdAt),
-          status: message.status,
-          isLastOwnMessage: i == lastOwnIdx,
-          conversationSeen: convSeen,
-          isGroup: conversation.type == 'group',
-          isFirstInStreak: !sameAsPrev,
-          isLastInStreak: !sameAsNext,
-          showTime: !sameAsNext,
+          enabled: onReact != null && message.status == 'sent',
+          myReactedTypes: myReacted,
+          onReact: onReact == null ? null : (type) => onReact!(message.id, type),
+          child: MessageBubble(
+            messageId: message.id,
+            content: message.content,
+            messageType: message.type,
+            metadata: message.metadata,
+            isMine: isMine,
+            senderName: isMine ? null : message.senderName,
+            senderAvatar: isMine ? null : message.senderAvatar,
+            time: _formatTime(message.createdAt),
+            status: message.status,
+            isLastOwnMessage: i == lastOwnIdx,
+            conversationSeen: convSeen,
+            isGroup: conversation.type == 'group',
+            isFirstInStreak: !sameAsPrev,
+            isLastInStreak: !sameAsNext,
+            showTime: !sameAsNext,
+            reactions: message.reactions,
+            myUserId: myId,
+            onReact: onReact,
+          ),
         );
       },
     );

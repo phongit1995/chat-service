@@ -85,6 +85,15 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     }
   }
 
+  String _buildPreview(Message m) {
+    final c = m.content.trim();
+    if (m.type == 'image') return c.isEmpty ? '📷 Photo' : '📷 $c';
+    if (m.type == 'file') return c.isEmpty ? '📎 File' : '📎 $c';
+    if (m.type == 'video') return c.isEmpty ? '🎬 Video' : '🎬 $c';
+    if (m.type == 'audio') return c.isEmpty ? '🎵 Audio' : '🎵 $c';
+    return c;
+  }
+
   void handleNewMessage(NewMessageEvent event) {
     final msg = event.message;
     final list = state.value ?? [];
@@ -108,7 +117,7 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
 
     final old = list[idx];
     final updated = old.copyWith(
-      lastMessageText: msg.content,
+      lastMessageText: _buildPreview(msg),
       lastMessageAt: msg.createdAt,
       lastMessageSenderId: msg.senderId,
       lastMessageSenderName: msg.senderName,
@@ -152,7 +161,7 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
       type: base.type,
       name: base.name,
       avatar: base.avatar,
-      lastMessageText: msg.content,
+      lastMessageText: _buildPreview(msg),
       lastMessageAt: msg.createdAt,
       lastMessageSenderId: msg.senderId,
       lastMessageSenderName: msg.senderName,

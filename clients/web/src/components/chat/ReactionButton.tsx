@@ -6,10 +6,11 @@ interface ReactionButtonProps {
   reactions?: Record<string, string[]>
   visible: boolean
   myUserId: string
+  isOwnMessage?: boolean
   onSelect: (type: string) => void
 }
 
-export const ReactionButton = ({ reactions, visible, myUserId, onSelect }: ReactionButtonProps) => {
+export const ReactionButton = ({ reactions, visible, myUserId, isOwnMessage = false, onSelect }: ReactionButtonProps) => {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -34,13 +35,13 @@ export const ReactionButton = ({ reactions, visible, myUserId, onSelect }: React
   return (
     <div
       ref={wrapRef}
-      className="absolute -bottom-3 -left-2 z-10"
+      className="absolute -bottom-3 -right-2 z-10"
+      onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
       {open && (
-        <div className="absolute bottom-full left-0 mb-1">
+        <div className={`absolute bottom-full pb-2 ${isOwnMessage ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
           <ReactionPicker
-            align="left"
             myReactedTypes={myReactedTypes}
             onSelect={(type) => {
               onSelect(type)

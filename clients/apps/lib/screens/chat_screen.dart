@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -154,6 +156,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  Future<void> _sendImage(File file) async {
+    _scrollToBottom();
+    final ok = await ref.read(messagesProvider.notifier).sendImage(file);
+    if (!ok && mounted) {
+      final err = ref.read(messagesProvider).error;
+      final msg = err is DioException
+          ? (err.message ?? err.response?.statusMessage ?? 'Failed to send image')
+          : 'Failed to send image';
+      showErrorToast(msg);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(authProvider).user;
@@ -204,6 +218,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       messages: messagesState.messages,
                       user: me,
                       scrollController: _scroll,
+                      onReact: (mid, type) async {
+                        await ref.read(messagesProvider.notifier).toggleReaction(mid, type);
+                      },
                     ),
             ),
             TypingIndicator(typingUsers: typingUsers),
@@ -211,6 +228,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               controller: _input,
               sending: messagesState.sending,
               onSend: _send,
+              onSendImage: _sendImage,
             ),
           ],
         ),

@@ -2,14 +2,13 @@ import { REACTION_EMOJIS, REACTION_ORDER } from '../../types'
 
 interface ReactionPickerProps {
   onSelect: (type: string) => void
-  align?: 'left' | 'right'
   myReactedTypes?: string[]
 }
 
-export const ReactionPicker = ({ onSelect, align = 'right', myReactedTypes = [] }: ReactionPickerProps) => {
+export const ReactionPicker = ({ onSelect, myReactedTypes = [] }: ReactionPickerProps) => {
   return (
     <div
-      className={`${align === 'right' ? 'right-0' : 'left-0'} z-20 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-surface shadow-soft-md border border-line-subtle animate-fadeIn`}
+      className="z-20 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-surface shadow-soft-md border border-line-subtle animate-fadeIn"
     >
       {REACTION_ORDER.map((type) => {
         const mine = myReactedTypes.includes(type)

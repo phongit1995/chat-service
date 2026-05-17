@@ -34,6 +34,10 @@ final socketListenerProvider = Provider<SocketListener>((ref) {
       ref.read(conversationsRawProvider.notifier).handleNewMessage(event);
       ref.read(messagesProvider.notifier).applyIncoming(event.message);
     }),
+    socket.onMessageReactionUpdated.listen((p) {
+      ref.read(messagesProvider.notifier)
+          .applyReactionUpdate(p.messageId, p.reactions);
+    }),
     socket.onIncomingCall.listen((p) {
       ref.read(callProvider.notifier).onIncoming(p);
     }),

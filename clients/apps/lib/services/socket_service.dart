@@ -19,6 +19,8 @@ class SocketService {
   final _messageUpdatedCtrl = StreamController<NewMessageEvent>.broadcast();
   final _messageDeletedCtrl =
       StreamController<MessageDeletedPayload>.broadcast();
+  final _messageReactionCtrl =
+      StreamController<MessageReactionUpdatedPayload>.broadcast();
   final _conversationCreatedCtrl = StreamController<String>.broadcast();
   final _conversationUpdatedCtrl =
       StreamController<ConversationUpdatedPayload>.broadcast();
@@ -34,6 +36,8 @@ class SocketService {
   Stream<NewMessageEvent> get onMessageUpdated => _messageUpdatedCtrl.stream;
   Stream<MessageDeletedPayload> get onMessageDeleted =>
       _messageDeletedCtrl.stream;
+  Stream<MessageReactionUpdatedPayload> get onMessageReactionUpdated =>
+      _messageReactionCtrl.stream;
   Stream<String> get onConversationCreated => _conversationCreatedCtrl.stream;
   Stream<ConversationUpdatedPayload> get onConversationUpdated =>
       _conversationUpdatedCtrl.stream;
@@ -95,6 +99,9 @@ class SocketService {
       case WsEventType.messageDeleted:
         _messageDeletedCtrl.add(MessageDeletedPayload.fromJson(payload));
         break;
+      case WsEventType.messageReactionUpdated:
+        _messageReactionCtrl.add(MessageReactionUpdatedPayload.fromJson(payload));
+        break;
       case WsEventType.conversationCreated:
         final id = payload['id'] as String?;
         if (id != null) _conversationCreatedCtrl.add(id);
@@ -141,6 +148,7 @@ class SocketService {
     _newMessageCtrl.close();
     _messageUpdatedCtrl.close();
     _messageDeletedCtrl.close();
+    _messageReactionCtrl.close();
     _conversationCreatedCtrl.close();
     _conversationUpdatedCtrl.close();
     _conversationDeletedCtrl.close();

@@ -11,6 +11,7 @@ class WsEventType {
   static const newMessage = 'NEW_MESSAGE';
   static const messageUpdated = 'MESSAGE_UPDATED';
   static const messageDeleted = 'MESSAGE_DELETED';
+  static const messageReactionUpdated = 'MESSAGE_REACTION_UPDATED';
   static const conversationCreated = 'CONVERSATION_CREATED';
   static const conversationUpdated = 'CONVERSATION_UPDATED';
   static const conversationDeleted = 'CONVERSATION_DELETED';
@@ -45,6 +46,42 @@ class NewMessagePayload {
 
   factory NewMessagePayload.fromJson(Map<String, dynamic> json) =>
       _$NewMessagePayloadFromJson(json);
+}
+
+class MessageReactionUpdatedPayload {
+  final String conversationId;
+  final String messageId;
+  final Map<String, List<String>> reactions;
+  final String? actorUserId;
+  final String? type;
+  final String? action;
+
+  MessageReactionUpdatedPayload({
+    required this.conversationId,
+    required this.messageId,
+    required this.reactions,
+    this.actorUserId,
+    this.type,
+    this.action,
+  });
+
+  factory MessageReactionUpdatedPayload.fromJson(Map<String, dynamic> json) {
+    final raw = json['reactions'];
+    final reactions = <String, List<String>>{};
+    if (raw is Map) {
+      raw.forEach((k, v) {
+        if (v is List) reactions[k.toString()] = v.map((e) => e.toString()).toList();
+      });
+    }
+    return MessageReactionUpdatedPayload(
+      conversationId: json['conversationId'] as String? ?? '',
+      messageId: json['messageId'] as String? ?? '',
+      reactions: reactions,
+      actorUserId: json['actorUserId'] as String?,
+      type: json['type'] as String?,
+      action: json['action'] as String?,
+    );
+  }
 }
 
 @JsonSerializable(createToJson: false)

@@ -18,6 +18,8 @@ class Message {
   @JsonKey(defaultValue: '')
   final String createdAt;
   final String? clientMsgId;
+  final String? metadata;
+  final Map<String, List<String>>? reactions;
 
   Message({
     required this.id,
@@ -30,19 +32,30 @@ class Message {
     this.status = 'sent',
     required this.createdAt,
     this.clientMsgId,
+    this.metadata,
+    this.reactions,
   });
 
-  Message copyWith({String? status, String? id}) => Message(
+  Message copyWith({
+    String? status,
+    String? id,
+    String? content,
+    String? type,
+    String? metadata,
+    Map<String, List<String>>? reactions,
+  }) => Message(
     id: id ?? this.id,
     conversationId: conversationId,
     senderId: senderId,
     senderName: senderName,
     senderAvatar: senderAvatar,
-    content: content,
-    type: type,
+    content: content ?? this.content,
+    type: type ?? this.type,
     status: status ?? this.status,
     createdAt: createdAt,
     clientMsgId: clientMsgId,
+    metadata: metadata ?? this.metadata,
+    reactions: reactions ?? this.reactions,
   );
 
   factory Message.fromJson(Map<String, dynamic> json) => _$MessageFromJson(json);

@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -73,6 +77,131 @@ class MessagesNotifier extends Notifier<MessagesState> {
     } else {
       state = state.copyWith(messages: [...state.messages, m]);
     }
+  }
+
+  Future<bool> sendImage(File file) async {
+    final convId = state.conversationId;
+    if (convId == null) return false;
+    final clientMsgId = const Uuid().v4();
+    final me = ref.read(authProvider).user;
+
+    final bytes = await file.readAsBytes();
+    int width = 0, height = 0;
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      width = frame.image.width;
+      height = frame.image.height;
+      frame.image.dispose();
+    } catch (_) {}
+
+    final localMeta = jsonEncode({
+      'url': 'file://${file.path}',
+      'mimeType': 'image/jpeg',
+      'size': bytes.length,
+      'width': width,
+      'height': height,
+      'fileName': file.uri.pathSegments.last,
+      '_localPath': file.path,
+    });
+
+    final optimistic = Message(
+      id: clientMsgId,
+      conversationId: convId,
+      senderId: me?.id ?? '',
+      senderName: me?.displayName,
+      senderAvatar: me?.avatar ?? me?.avatarURL,
+      content: '',
+      type: 'image',
+      status: 'uploading',
+      createdAt: DateTime.now().toIso8601String(),
+      clientMsgId: clientMsgId,
+      metadata: localMeta,
+    );
+
+    state = state.copyWith(messages: [...state.messages, optimistic]);
+
+    try {
+      final server = await ref
+          .read(messageServiceProvider)
+          .sendImageMessage(convId, file, clientMsgId: clientMsgId);
+      if (state.conversationId == convId) {
+        state = state.copyWith(
+          messages: state.messages
+              .map((m) => m.clientMsgId == clientMsgId ? server : m)
+              .toList(),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (state.conversationId == convId) {
+        state = state.copyWith(
+          messages: state.messages
+              .map((m) => m.clientMsgId == clientMsgId
+                  ? m.copyWith(status: 'failed')
+                  : m)
+              .toList(),
+          error: e,
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<bool> toggleReaction(String messageId, String type) async {
+    final convId = state.conversationId;
+    if (convId == null) return false;
+    final me = ref.read(authProvider).user;
+    final myId = me?.id ?? '';
+
+    final prev = state.messages;
+    final optimistic = prev.map((m) {
+      if (m.id != messageId) return m;
+      final next = Map<String, List<String>>.from(m.reactions ?? {});
+      final users = List<String>.from(next[type] ?? const []);
+      if (users.contains(myId)) {
+        users.remove(myId);
+        if (users.isEmpty) {
+          next.remove(type);
+        } else {
+          next[type] = users;
+        }
+      } else {
+        users.add(myId);
+        next[type] = users;
+      }
+      return m.copyWith(reactions: next);
+    }).toList();
+    state = state.copyWith(messages: optimistic);
+
+    try {
+      final server = await ref
+          .read(messageServiceProvider)
+          .toggleReaction(convId, messageId, type);
+      if (state.conversationId == convId) {
+        state = state.copyWith(
+          messages: state.messages
+              .map((m) => m.id == messageId
+                  ? m.copyWith(reactions: server.reactions)
+                  : m)
+              .toList(),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (state.conversationId == convId) {
+        state = state.copyWith(messages: prev, error: e);
+      }
+      return false;
+    }
+  }
+
+  void applyReactionUpdate(String messageId, Map<String, List<String>> reactions) {
+    state = state.copyWith(
+      messages: state.messages
+          .map((m) => m.id == messageId ? m.copyWith(reactions: reactions) : m)
+          .toList(),
+    );
   }
 
   Future<bool> send(String text) async {

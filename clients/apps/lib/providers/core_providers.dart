@@ -28,7 +28,7 @@ final conversationServiceProvider = Provider<ConversationService>(
 );
 
 final messageServiceProvider = Provider<MessageService>(
-  (ref) => MessageService(MessageApiClient(ref.read(_dioProvider))),
+  (ref) => MessageService(MessageApiClient(ref.read(_dioProvider)), ref.read(_dioProvider)),
 );
 
 final callServiceProvider = Provider<CallService>(

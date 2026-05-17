@@ -1,12 +1,21 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:photo_view/photo_view.dart';
+
+import '../../utils/image_meta.dart';
+import '../../utils/reactions.dart';
 import '../app_colors.dart';
 import '../app_gradients.dart';
 import '../app_typography.dart';
 import 'gradient_avatar.dart';
 
 class MessageBubble extends StatelessWidget {
+  final String messageId;
   final String content;
+  final String messageType;
+  final String? metadata;
   final bool isMine;
   final String? senderName;
   final String? senderAvatar;
@@ -18,10 +27,16 @@ class MessageBubble extends StatelessWidget {
   final bool isFirstInStreak;
   final bool isLastInStreak;
   final bool showTime;
+  final Map<String, List<String>>? reactions;
+  final String myUserId;
+  final Future<void> Function(String messageId, String type)? onReact;
 
   const MessageBubble({
     super.key,
+    required this.messageId,
     required this.content,
+    this.messageType = 'text',
+    this.metadata,
     required this.isMine,
     this.senderName,
     this.senderAvatar,
@@ -33,13 +48,15 @@ class MessageBubble extends StatelessWidget {
     this.isFirstInStreak = true,
     this.isLastInStreak = true,
     this.showTime = true,
+    this.reactions,
+    this.myUserId = '',
+    this.onReact,
   });
 
   Widget? _buildStatusIcon() {
     if (!isMine) return null;
-
-    if (status == 'sending') {
-      return SizedBox(
+    if (status == 'sending' || status == 'uploading') {
+      return const SizedBox(
         width: 12,
         height: 12,
         child: CircularProgressIndicator(
@@ -49,57 +66,96 @@ class MessageBubble extends StatelessWidget {
       );
     }
     if (status == 'failed') {
-      return Icon(
-        Icons.error_outline,
-        size: 14,
-        color: Colors.redAccent.shade100,
-      );
+      return Icon(Icons.error_outline, size: 14, color: Colors.redAccent.shade100);
     }
     if (!isLastOwnMessage) return null;
     if (conversationSeen) {
-      return const Text(
-        '✓✓',
-        style: TextStyle(
-          color: AppColors.primary,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      );
+      return const Text('✓✓',
+          style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700));
     }
-    return const Text(
-      '✓',
-      style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+    return const Text('✓', style: TextStyle(color: AppColors.textTertiary, fontSize: 12));
+  }
+
+  void _openLightbox(BuildContext context, String url) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        pageBuilder: (_, __, ___) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            iconTheme: const IconThemeData(color: Colors.white),
+            elevation: 0,
+          ),
+          body: PhotoView(
+            imageProvider: url.startsWith('file://')
+                ? FileImage(File(url.replaceFirst('file://', '')))
+                : CachedNetworkImageProvider(url) as ImageProvider,
+            backgroundDecoration: const BoxDecoration(color: Colors.black),
+            minScale: PhotoViewComputedScale.contained,
+          ),
+        ),
+      ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    const lg = Radius.circular(AppRadius.xl);
-    const sm = Radius.circular(AppRadius.sm);
-    final BorderRadius radius = isMine
-        ? BorderRadius.only(
-            topLeft: lg,
-            topRight: isFirstInStreak ? lg : sm,
-            bottomLeft: lg,
-            bottomRight: isLastInStreak ? lg : sm,
-          )
-        : BorderRadius.only(
-            topLeft: isFirstInStreak ? lg : sm,
-            topRight: lg,
-            bottomLeft: isLastInStreak ? lg : sm,
-            bottomRight: lg,
-          );
+  Widget _buildContent(BuildContext context, BorderRadius radius) {
+    if (messageType == 'image') {
+      final meta = ImageMetadata.parse(metadata);
+      if (meta == null) {
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: AppColors.bgOverlay, borderRadius: radius),
+          child: const Text('[image]'),
+        );
+      }
+      final ar = (meta.width != null && meta.height != null && meta.width! > 0 && meta.height! > 0)
+          ? meta.width! / meta.height!
+          : 4 / 3;
+      Widget img;
+      if (meta.url.startsWith('file://') || meta.localPath != null) {
+        final path = meta.localPath ?? meta.url.replaceFirst('file://', '');
+        img = Image.file(File(path), fit: BoxFit.cover);
+      } else {
+        img = CachedNetworkImage(
+          imageUrl: meta.url,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => Container(color: AppColors.bgOverlay),
+          errorWidget: (_, __, ___) => Container(
+            color: AppColors.bgOverlay,
+            child: const Icon(Icons.broken_image, color: AppColors.textTertiary),
+          ),
+        );
+      }
+      return GestureDetector(
+        onTap: status == 'uploading' ? null : () => _openLightbox(context, meta.url),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260, maxHeight: 320),
+            child: AspectRatio(
+              aspectRatio: ar,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  img,
+                  if (status == 'uploading')
+                    Container(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      child: const Center(
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
-    final statusIcon = _buildStatusIcon();
-    final isFailed = status == 'failed';
-    final showName =
-        !isMine &&
-        isGroup &&
-        isFirstInStreak &&
-        (senderName?.isNotEmpty ?? false);
-    final showAvatar = !isMine && isLastInStreak;
-
-    final bubble = Container(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         gradient: isMine ? AppGradients.signature : null,
@@ -116,11 +172,116 @@ class MessageBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildReactionsChip() {
+    final entries = (reactions ?? {}).entries.where((e) => e.value.isNotEmpty).toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+    final firstEmoji = reactionEmoji[entries.first.key] ?? '👍';
+    final total = entries.fold<int>(0, (s, e) => s + e.value.length);
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.bgSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.lineSubtle),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(firstEmoji, style: const TextStyle(fontSize: 14)),
+          if (total > 1) ...[
+            const SizedBox(width: 4),
+            Text('$total',
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showReactionMenu(BuildContext context) {
+    if (onReact == null) return;
+    final myReacted = <String>{
+      for (final e in (reactions ?? {}).entries)
+        if (e.value.contains(myUserId)) e.key
+    };
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.bgSurface,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: const [BoxShadow(blurRadius: 12, color: Colors.black26)],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: reactionTypes.map((type) {
+            final mine = myReacted.contains(type);
+            return GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+                onReact!(messageId, type);
+              },
+              child: Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: mine ? AppColors.primary100 : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: mine
+                      ? Border.all(color: AppColors.primary400, width: 2)
+                      : null,
+                ),
+                child: Text(reactionEmoji[type] ?? '',
+                    style: const TextStyle(fontSize: 26)),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const lg = Radius.circular(AppRadius.xl);
+    const sm = Radius.circular(AppRadius.sm);
+    final radius = isMine
+        ? BorderRadius.only(
+            topLeft: lg,
+            topRight: isFirstInStreak ? lg : sm,
+            bottomLeft: lg,
+            bottomRight: isLastInStreak ? lg : sm,
+          )
+        : BorderRadius.only(
+            topLeft: isFirstInStreak ? lg : sm,
+            topRight: lg,
+            bottomLeft: isLastInStreak ? lg : sm,
+            bottomRight: lg,
+          );
+
+    final statusIcon = _buildStatusIcon();
+    final isFailed = status == 'failed';
+    final showName = !isMine && isGroup && isFirstInStreak && (senderName?.isNotEmpty ?? false);
+    final showAvatar = !isMine && isLastInStreak;
+
+    final bubble = GestureDetector(
+      onLongPress: () => _showReactionMenu(context),
+      child: _buildContent(context, radius),
+    );
 
     final column = Column(
-      crossAxisAlignment: isMine
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
+      crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         if (showName)
@@ -129,30 +290,19 @@ class MessageBubble extends StatelessWidget {
             child: Text(
               senderName!,
               style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textTertiary,
-              ),
+                  fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textTertiary),
             ),
           ),
         bubble,
-        if (showTime || status == 'sending' || status == 'failed')
+        _buildReactionsChip(),
+        if (showTime || status == 'sending' || status == 'uploading' || status == 'failed')
           Padding(
             padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  time,
-                  style: const TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 11,
-                  ),
-                ),
-                if (statusIcon != null) ...[
-                  const SizedBox(width: 6),
-                  statusIcon,
-                ],
+                Text(time, style: const TextStyle(color: AppColors.textTertiary, fontSize: 11)),
+                if (statusIcon != null) ...[const SizedBox(width: 6), statusIcon],
               ],
             ),
           ),
@@ -162,28 +312,20 @@ class MessageBubble extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(top: isFirstInStreak ? 12 : 4),
       child: Row(
-        mainAxisAlignment: isMine
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment: isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMine)
             SizedBox(
               width: 32,
               child: showAvatar
-                  ? GradientAvatar(
-                      name: senderName ?? '',
-                      imageUrl: senderAvatar,
-                      size: 28,
-                    )
+                  ? GradientAvatar(name: senderName ?? '', imageUrl: senderAvatar, size: 28)
                   : null,
             ),
           if (!isMine) const SizedBox(width: 6),
           Flexible(
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.72,
-              ),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
               child: Opacity(opacity: isFailed ? 0.7 : 1.0, child: column),
             ),
           ),

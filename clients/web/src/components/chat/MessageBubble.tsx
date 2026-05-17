@@ -85,7 +85,7 @@ export const MessageBubble = ({
   const imageMeta = isImage ? parseImageMeta(message.metadata) : null
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [bubbleHover, setBubbleHover] = useState(false)
-  const canReact = !!onReact && message.status !== 'sending' && message.status !== 'uploading' && message.status !== 'failed'
+  const canReact = !!onReact && isLastInStreak && message.status !== 'sending' && message.status !== 'uploading' && message.status !== 'failed'
 
   const radius = (() => {
     const lg = '20px'
@@ -131,6 +131,7 @@ export const MessageBubble = ({
             reactions={message.reactions}
             visible={bubbleHover}
             myUserId={myUserId}
+            isOwnMessage={isOwnMessage}
             onSelect={(type) => onReact(message.id, type)}
           />
         )}

@@ -17,6 +17,11 @@ Message _$MessageFromJson(Map<String, dynamic> json) => Message(
       status: json['status'] as String? ?? 'sent',
       createdAt: json['createdAt'] as String? ?? '',
       clientMsgId: json['clientMsgId'] as String?,
+      metadata: json['metadata'] as String?,
+      reactions: (json['reactions'] as Map<String, dynamic>?)?.map(
+        (k, e) =>
+            MapEntry(k, (e as List<dynamic>).map((e) => e as String).toList()),
+      ),
     );
 
 Map<String, dynamic> _$MessageToJson(Message instance) => <String, dynamic>{
@@ -30,4 +35,6 @@ Map<String, dynamic> _$MessageToJson(Message instance) => <String, dynamic>{
       'status': instance.status,
       'createdAt': instance.createdAt,
       'clientMsgId': instance.clientMsgId,
+      'metadata': instance.metadata,
+      'reactions': instance.reactions,
     };
