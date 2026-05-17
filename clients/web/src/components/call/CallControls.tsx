@@ -1,12 +1,14 @@
 import { useLocalParticipant } from '@livekit/components-react'
 import { ParticipantEvent, Track } from 'livekit-client'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useCallStore } from '../../store/callStore'
 import { usePermissionStatus } from './hooks/usePermissionStatus'
+import { useMicLevel } from './hooks/useMicLevel'
 import { requestAndPublish, permDeniedHint, type MediaSource } from './lib/callMedia'
 import { PERM_MIC, PERM_CAM, PERM_STATE, REQUEST_RESULT } from './constants'
 import type { PermState } from './interfaces'
 import { MicIcon, MicOffIcon, VideoIcon, PhoneIcon } from './icons'
+import { MicLiveIcon } from './MicLiveIcon'
 
 interface CallControlsProps {
   isVideo: boolean
@@ -17,6 +19,7 @@ interface CallControlsProps {
 export const CallControls = ({ isVideo, onEnd, onOpenSettings }: CallControlsProps) => {
   const { localParticipant } = useLocalParticipant()
   const { micMuted, camOff, setMicMuted, setCamOff } = useCallStore()
+  const micLevel = useMicLevel(localParticipant)
   const micPerm = usePermissionStatus(PERM_MIC)
   const camPerm = usePermissionStatus(PERM_CAM)
 
@@ -53,16 +56,15 @@ export const CallControls = ({ isVideo, onEnd, onOpenSettings }: CallControlsPro
       className="px-4 sm:px-6 pt-4 sm:pt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-5"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
     >
-      <ControlButton
-        active={micMuted}
+      <MicControlButton
+        micMuted={micMuted}
+        micLevel={micLevel}
         title={permTitle('Microphone', micPerm, micMuted ? 'Unmute' : 'Mute')}
         onClick={() =>
           toggleSource(Track.Source.Microphone, micPerm, micMuted, setMicMuted)
         }
         perm={micPerm}
-      >
-        {micMuted ? <MicOffIcon /> : <MicIcon />}
-      </ControlButton>
+      />
 
       {isVideo && (
         <ControlButton
@@ -124,24 +126,97 @@ const permTitle = (label: string, perm: PermState, base: string) => {
   return base
 }
 
+interface MicControlButtonProps {
+  micMuted: boolean
+  micLevel: number
+  title: string
+  onClick: () => void
+  perm: PermState
+}
+
+const MicControlButton = ({ micMuted, micLevel, title, onClick, perm }: MicControlButtonProps) => {
+  const dotColor =
+    perm === PERM_STATE.DENIED ? 'bg-red-500'
+    : perm === PERM_STATE.GRANTED ? 'bg-green-500'
+    : perm === PERM_STATE.PROMPT ? 'bg-amber-400'
+    : null
+  const smoothLevel = useSmoothedLevel(micMuted ? 0 : micLevel)
+  const speaking = smoothLevel > 0.04
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={[
+        'relative h-12 sm:h-14 rounded-full flex items-center justify-center gap-3 sm:gap-4 px-4 sm:px-5 transition-colors duration-fast hover:scale-105 active:scale-95 backdrop-blur-sm',
+        micMuted ? 'bg-white text-slate-900' : 'bg-white/15 hover:bg-white/25 text-white',
+      ].join(' ')}
+    >
+      <MicLiveIcon
+        level={smoothLevel}
+        className={`w-4 h-6 transition-colors duration-fast ${speaking ? 'text-green-400' : ''}`}
+      />
+      {micMuted ? <MicOffIcon /> : <MicIcon />}
+      {dotColor && (
+        <span
+          className={`absolute top-0.5 right-0.5 w-3 h-3 rounded-full ring-2 ring-slate-900 ${dotColor}`}
+        />
+      )}
+    </button>
+  )
+}
+
+const useSmoothedLevel = (level: number) => {
+  const [smoothed, setSmoothed] = useState(0)
+  const targetRef = useRef(level)
+  const valueRef = useRef(0)
+  targetRef.current = level
+  useEffect(() => {
+    let rafId: number
+    const tick = () => {
+      const target = targetRef.current
+      const attack = 0.5
+      const release = 0.15
+      const k = target > valueRef.current ? attack : release
+      const next = valueRef.current + (target - valueRef.current) * k
+      valueRef.current = Math.abs(next) < 0.001 ? 0 : next
+      setSmoothed(valueRef.current)
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [])
+  return smoothed
+}
+
 interface ControlButtonProps {
   active: boolean
   title: string
   onClick: () => void
   children: ReactNode
   perm?: PermState
+  glowLevel?: number
 }
 
-const ControlButton = ({ active, title, onClick, children, perm }: ControlButtonProps) => {
+const ControlButton = ({ active, title, onClick, children, perm, glowLevel = 0 }: ControlButtonProps) => {
   const dotColor =
     perm === PERM_STATE.DENIED ? 'bg-red-500'
     : perm === PERM_STATE.GRANTED ? 'bg-green-500'
     : perm === PERM_STATE.PROMPT ? 'bg-amber-400'
     : null
+  const strength = Math.min(1, glowLevel * 2.5)
+  const borderWidth = strength * 4
   return (
     <button
       onClick={onClick}
       title={title}
+      style={
+        strength > 0.02
+          ? {
+              boxShadow: `0 0 0 ${borderWidth}px rgba(134,239,172,1)`,
+              transition: 'box-shadow 80ms ease-out',
+            }
+          : undefined
+      }
       className={[
         'relative w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-fast ease-ease-bounce hover:scale-110 active:scale-95 backdrop-blur-sm',
         active ? 'bg-white text-slate-900' : 'bg-white/15 hover:bg-white/25 text-white',

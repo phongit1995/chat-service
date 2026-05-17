@@ -14,15 +14,7 @@ import { CallMiniWidget } from './CallMiniWidget'
 import { CallHeader } from './CallHeader'
 import { CallSettingsPanel } from './CallSettingsPanel'
 
-const ROOM_OPTIONS = {
-  adaptiveStream: true,
-  dynacast: true,
-  publishDefaults: {
-    audioPreset: { maxBitrate: 24_000 },
-    red: false,
-    dtx: false,
-  },
-}
+const ROOM_OPTIONS = { adaptiveStream: true, dynacast: true }
 const ROOM_STYLE = { background: 'transparent' }
 
 export const CallScreen = () => {
@@ -127,25 +119,11 @@ const CallContent = ({ enableAudioOnJoin, enableVideoOnJoin }: CallContentProps)
         el.play().catch(() => {})
       } catch {}
     }
-    const onLocalPub = (pub: unknown) => {
-      const p = pub as { kind: string; source: string; sid: string; trackName: string }
-      console.log('[room] LocalTrackPublished kind=', p.kind, 'source=', p.source, 'sid=', p.sid, 'name=', p.trackName)
-    }
-    room.on(RoomEvent.LocalTrackPublished, onLocalPub)
-    const onActiveSpeakers = (speakers: unknown[]) => {
-      const list = (speakers as Array<{ identity: string; isSpeaking: boolean; audioLevel: number }>).map(
-        (p) => `${p.identity?.slice(0, 8)}(${p.isSpeaking}/${p.audioLevel?.toFixed(3)})`,
-      )
-      console.log('[room] ActiveSpeakersChanged count=', speakers.length, 'speakers=', list)
-    }
     room.on(RoomEvent.ParticipantDisconnected, onLeft)
     room.on(RoomEvent.TrackSubscribed, onTrackSubscribed)
-    room.on(RoomEvent.ActiveSpeakersChanged, onActiveSpeakers)
     return () => {
       room.off(RoomEvent.ParticipantDisconnected, onLeft)
       room.off(RoomEvent.TrackSubscribed, onTrackSubscribed)
-      room.off(RoomEvent.ActiveSpeakersChanged, onActiveSpeakers)
-      room.off(RoomEvent.LocalTrackPublished, onLocalPub)
     }
   }, [room, endActive])
 
