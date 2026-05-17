@@ -12,6 +12,7 @@ var (
 	ErrUnsupportedImage   = errors.New("unsupported image type")
 	ErrDecodeImage        = errors.New("failed to decode image")
 	ErrInvalidMetadata    = errors.New("invalid image metadata")
+	ErrMaxReactions       = errors.New("max reaction types per user reached")
 )
 
 func httpStatusForError(err error) int {
@@ -22,7 +23,7 @@ func httpStatusForError(err error) int {
 		return http.StatusTooManyRequests
 	case errors.Is(err, ErrNotMember):
 		return http.StatusForbidden
-	case errors.Is(err, ErrUnsupportedImage), errors.Is(err, ErrDecodeImage), errors.Is(err, ErrInvalidMetadata):
+	case errors.Is(err, ErrUnsupportedImage), errors.Is(err, ErrDecodeImage), errors.Is(err, ErrInvalidMetadata), errors.Is(err, ErrMaxReactions):
 		return http.StatusBadRequest
 	}
 	return http.StatusInternalServerError

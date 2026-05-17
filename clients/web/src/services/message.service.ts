@@ -3,7 +3,6 @@ import type {
   CreateMessageDTO,
   Message,
   MessagesListResponse,
-  UploadMessageImageResponse,
 } from '../types'
 import { http } from './http'
 
@@ -32,16 +31,30 @@ export const messageService = {
     return res.data
   },
 
-  async uploadImage(
+  async toggleReaction(
+    conversationId: string,
+    messageId: string,
+    type: string,
+  ): Promise<ApiResponse<Message>> {
+    const res = await http.post<ApiResponse<Message>>(
+      `/messages/${conversationId}/${messageId}/reactions`,
+      { type },
+    )
+    return res.data
+  },
+
+  async sendImageMessage(
     conversationId: string,
     file: File,
+    clientMsgId?: string,
     onProgress?: (pct: number) => void,
-  ): Promise<ApiResponse<UploadMessageImageResponse>> {
+  ): Promise<ApiResponse<Message>> {
     const form = new FormData()
     form.append('conversationId', conversationId)
     form.append('file', file)
-    const res = await http.post<ApiResponse<UploadMessageImageResponse>>(
-      '/messages/upload',
+    if (clientMsgId) form.append('clientMsgId', clientMsgId)
+    const res = await http.post<ApiResponse<Message>>(
+      '/messages/images',
       form,
       {
         headers: { 'Content-Type': 'multipart/form-data' },

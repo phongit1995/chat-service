@@ -325,3 +325,36 @@ func (h *EventHandler) validateUpdatedEvent(event *MessageUpdatedEvent) error {
 	}
 	return nil
 }
+
+func (h *EventHandler) OnReactionUpdated(ctx context.Context, message []byte) error {
+	var event MessageReactionUpdatedEvent
+	if err := json.Unmarshal(message, &event); err != nil {
+		h.logger.Errorw("Failed to unmarshal MessageReactionUpdated", "error", err)
+		return err
+	}
+	if event.ConversationID == "" || event.MessageID == "" {
+		return errors.New("conversation_id and message_id required")
+	}
+
+	userIDs, err := h.convCache.GetConversationMembers(event.ConversationID)
+	if err != nil {
+		h.logger.Errorw("Failed to get conversation members", "conversation_id", event.ConversationID, "error", err)
+		return err
+	}
+	if len(userIDs) == 0 {
+		return nil
+	}
+
+	payload := map[string]interface{}{
+		"conversationId": event.ConversationID,
+		"messageId":      event.MessageID,
+		"reactions":      event.Reactions,
+		"actorUserId":    event.ActorUserID,
+		"type":           event.Type,
+		"action":         event.Action,
+	}
+	wrapped := utils.WrapWebSocketMessage(constants.WebSocketEventMessageReactionUpdated, payload)
+	h.wsServer.EmitToUsers(userIDs, constants.WebSocketMessageEvent, wrapped)
+	h.logger.Infow("✅ Reaction broadcast", "conversation_id", event.ConversationID, "message_id", event.MessageID, "recipients", len(userIDs))
+	return nil
+}

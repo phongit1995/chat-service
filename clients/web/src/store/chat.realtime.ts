@@ -5,6 +5,7 @@ import type {
   ConversationUpdatedData,
   MessageCreatedEventData,
   MessageDeletedEventData,
+  MessageReactionUpdatedEventData,
   MessageUpdatedEventData,
   UserTypingData,
   IncomingCallData,
@@ -79,7 +80,7 @@ export const registerChatRealtimeListeners = (set: ChatSetState, get: ChatGetSta
     }
 
     const updates: Partial<Conversation> = {
-      lastMessageText: message.content,
+      lastMessageText: buildLastMessagePreview(message),
       lastMessageAt: message.createdAt,
       lastMessageSenderId: message.senderId,
       lastMessageSenderName: message.senderName,
@@ -134,6 +135,16 @@ export const registerChatRealtimeListeners = (set: ChatSetState, get: ChatGetSta
     if (eventData.conversation.id === currentConversation?.id) {
       set({ messages: messages.filter((message) => message.id !== eventData.messageId) })
     }
+  })
+
+  socketService.on(WebSocketEventType.MESSAGE_REACTION_UPDATED, (data: MessageReactionUpdatedEventData) => {
+    const { currentConversation, messages } = get()
+    if (currentConversation?.id !== data.conversationId) return
+    set({
+      messages: messages.map((m) =>
+        m.id === data.messageId ? { ...m, reactions: data.reactions } : m,
+      ),
+    })
   })
 
   socketService.on(WebSocketEventType.CONVERSATION_CREATED, (data: ConversationCreatedData) => {

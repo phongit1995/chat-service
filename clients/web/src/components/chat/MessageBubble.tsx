@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Message } from '../../types'
 import { Avatar } from '../ui'
 import { ImageLightbox } from './ImageLightbox'
+import { ReactionButton } from './ReactionButton'
 import { getEmojiJumboSize, splitIntoSegments } from '../../utils/emoji'
 import { parseImageMeta } from '../../utils/imageMeta'
 
@@ -14,6 +15,8 @@ interface MessageBubbleProps {
   isFirstInStreak?: boolean
   isLastInStreak?: boolean
   showTime?: boolean
+  myUserId?: string
+  onReact?: (messageId: string, type: string) => void
 }
 
 const formatTime = (dateString: string) => {
@@ -30,6 +33,8 @@ export const MessageBubble = ({
   isFirstInStreak = true,
   isLastInStreak = true,
   showTime = true,
+  myUserId = '',
+  onReact,
 }: MessageBubbleProps) => {
   const renderStatus = () => {
     if (!isOwnMessage) return null
@@ -79,6 +84,8 @@ export const MessageBubble = ({
   const isImage = message.type === 'image'
   const imageMeta = isImage ? parseImageMeta(message.metadata) : null
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [bubbleHover, setBubbleHover] = useState(false)
+  const canReact = !!onReact && message.status !== 'sending' && message.status !== 'uploading' && message.status !== 'failed'
 
   const radius = (() => {
     const lg = '20px'
@@ -114,6 +121,20 @@ export const MessageBubble = ({
           </p>
         )}
 
+        <div
+          className="relative"
+          onMouseEnter={() => setBubbleHover(true)}
+          onMouseLeave={() => setBubbleHover(false)}
+        >
+        {canReact && onReact && (
+          <ReactionButton
+            reactions={message.reactions}
+            visible={bubbleHover}
+            myUserId={myUserId}
+            onSelect={(type) => onReact(message.id, type)}
+          />
+        )}
+        <div className="relative">
         {isImage && imageMeta ? (
           <>
             <div
@@ -209,6 +230,8 @@ export const MessageBubble = ({
             </p>
           </div>
         )}
+        </div>
+        </div>
 
         {(showTime || message.status === 'sending' || message.status === 'failed') && (
           <div

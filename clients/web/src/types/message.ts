@@ -1,3 +1,16 @@
+export type ReactionType = 'LIKE' | 'LOVE' | 'HAHA' | 'WOW' | 'SAD' | 'ANGRY'
+
+export const REACTION_EMOJIS: Record<ReactionType, string> = {
+  LIKE: '👍',
+  LOVE: '❤️',
+  HAHA: '😂',
+  WOW: '😮',
+  SAD: '😢',
+  ANGRY: '😡',
+}
+
+export const REACTION_ORDER: ReactionType[] = ['LIKE', 'LOVE', 'HAHA', 'WOW', 'SAD', 'ANGRY']
+
 export interface Message {
   id: string
   conversationId: string
@@ -12,6 +25,7 @@ export interface Message {
   replyToId?: string
   metadata?: string
   clientMsgId?: string
+  reactions?: Record<string, string[]>
 }
 
 export interface MessagesListResponse {
@@ -37,11 +51,3 @@ export interface ImageMetadata {
   _localBlob?: boolean
 }
 
-export interface UploadMessageImageResponse {
-  url: string
-  mimeType: string
-  size: number
-  width: number
-  height: number
-  fileName: string
-}

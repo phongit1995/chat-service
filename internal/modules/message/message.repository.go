@@ -29,21 +29,21 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 	`)
 
 	r.preparedQueries["get_messages"] = session.Query(`
-		SELECT conversation_id, message_id, sender_id, sender_name, sender_avatar, message_type, content, metadata, created_at, updated_at, deleted_at, reply_to_id
+		SELECT conversation_id, message_id, sender_id, sender_name, sender_avatar, message_type, content, metadata, created_at, updated_at, deleted_at, reply_to_id, reactions
 		FROM messages_by_conversation
 		WHERE conversation_id = ?
 		LIMIT ?
 	`)
 
 	r.preparedQueries["get_messages_before"] = session.Query(`
-		SELECT conversation_id, message_id, sender_id, sender_name, sender_avatar, message_type, content, metadata, created_at, updated_at, deleted_at, reply_to_id
+		SELECT conversation_id, message_id, sender_id, sender_name, sender_avatar, message_type, content, metadata, created_at, updated_at, deleted_at, reply_to_id, reactions
 		FROM messages_by_conversation
 		WHERE conversation_id = ? AND message_id < ?
 		LIMIT ?
 	`)
 
 	r.preparedQueries["get_message_by_id"] = session.Query(`
-		SELECT conversation_id, message_id, sender_id, sender_name, sender_avatar, message_type, content, metadata, created_at, updated_at, deleted_at, reply_to_id
+		SELECT conversation_id, message_id, sender_id, sender_name, sender_avatar, message_type, content, metadata, created_at, updated_at, deleted_at, reply_to_id, reactions
 		FROM messages_by_conversation
 		WHERE conversation_id = ? AND message_id = ?
 	`)
@@ -89,6 +89,7 @@ type Message struct {
 	UpdatedAt      time.Time
 	DeletedAt      *time.Time
 	ReplyToID      *uuid.UUID
+	Reactions      string
 }
 
 func (r *Repository) CreateMessage(msg *Message) error {
@@ -144,11 +145,12 @@ func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMess
 		UpdatedAt      time.Time
 		DeletedAt      *time.Time
 		ReplyToID      *gocql.UUID
+		Reactions      string
 	}
 
 	for iter.Scan(&gocqlMsg.ConversationID, &gocqlMsg.MessageID, &gocqlMsg.SenderID, &gocqlMsg.SenderName, &gocqlMsg.SenderAvatar,
 		&gocqlMsg.MessageType, &gocqlMsg.Content, &gocqlMsg.Metadata, &gocqlMsg.CreatedAt, &gocqlMsg.UpdatedAt,
-		&gocqlMsg.DeletedAt, &gocqlMsg.ReplyToID) {
+		&gocqlMsg.DeletedAt, &gocqlMsg.ReplyToID, &gocqlMsg.Reactions) {
 
 		// Convert gocql.UUID to uuid.UUID
 		convID, err := uuid.Parse(gocqlMsg.ConversationID.String())
@@ -174,6 +176,7 @@ func (r *Repository) GetMessages(conversationID uuid.UUID, limit int, beforeMess
 			CreatedAt:      gocqlMsg.CreatedAt,
 			UpdatedAt:      gocqlMsg.UpdatedAt,
 			DeletedAt:      gocqlMsg.DeletedAt,
+			Reactions:      gocqlMsg.Reactions,
 		}
 
 		if gocqlMsg.ReplyToID != nil {
@@ -214,12 +217,13 @@ func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UU
 		UpdatedAt      time.Time
 		DeletedAt      *time.Time
 		ReplyToID      *gocql.UUID
+		Reactions      string
 	}
 
 	err = r.preparedQueries["get_message_by_id"].Bind(gocqlConvID, messageID).Scan(
 		&gocqlMsg.ConversationID, &gocqlMsg.MessageID, &gocqlMsg.SenderID, &gocqlMsg.SenderName, &gocqlMsg.SenderAvatar,
 		&gocqlMsg.MessageType, &gocqlMsg.Content, &gocqlMsg.Metadata, &gocqlMsg.CreatedAt, &gocqlMsg.UpdatedAt,
-		&gocqlMsg.DeletedAt, &gocqlMsg.ReplyToID,
+		&gocqlMsg.DeletedAt, &gocqlMsg.ReplyToID, &gocqlMsg.Reactions,
 	)
 	if err != nil {
 		return nil, err
@@ -246,6 +250,7 @@ func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UU
 		CreatedAt:      gocqlMsg.CreatedAt,
 		UpdatedAt:      gocqlMsg.UpdatedAt,
 		DeletedAt:      gocqlMsg.DeletedAt,
+		Reactions:      gocqlMsg.Reactions,
 	}
 
 	if gocqlMsg.ReplyToID != nil {
@@ -257,6 +262,18 @@ func (r *Repository) GetMessageByID(conversationID uuid.UUID, messageID gocql.UU
 	}
 
 	return msg, nil
+}
+
+func (r *Repository) UpdateReactions(conversationID uuid.UUID, messageID gocql.UUID, reactionsJSON string) error {
+	gocqlConvID, err := gocql.ParseUUID(conversationID.String())
+	if err != nil {
+		return fmt.Errorf("invalid conversation ID: %w", err)
+	}
+	now := time.Now()
+	return r.session.Query(
+		`UPDATE messages_by_conversation SET reactions = ?, updated_at = ? WHERE conversation_id = ? AND message_id = ?`,
+		reactionsJSON, now, gocqlConvID, messageID,
+	).Exec()
 }
 
 func (r *Repository) UpdateMessage(conversationID uuid.UUID, messageID gocql.UUID, newContent string) error {

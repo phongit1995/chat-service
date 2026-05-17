@@ -38,6 +38,10 @@ func (a *KafkaEventAdapter) HandleMessageUpdated(ctx context.Context, message []
 	return a.messageHandler.OnUpdated(ctx, message)
 }
 
+func (a *KafkaEventAdapter) HandleMessageReactionUpdated(ctx context.Context, message []byte) error {
+	return a.messageHandler.OnReactionUpdated(ctx, message)
+}
+
 func (a *KafkaEventAdapter) HandleConversationCreated(ctx context.Context, message []byte) error {
 	return a.conversationHandler.OnCreated(ctx, message)
 }
@@ -74,6 +78,7 @@ func RegisterEventHandlers(consumer *Consumer, adapter *KafkaEventAdapter) {
 	consumer.RegisterHandler(constants.KafkaTopicMessageCreated, adapter.HandleMessageCreated)
 	consumer.RegisterHandler(constants.KafkaTopicMessageDeleted, adapter.HandleMessageDeleted)
 	consumer.RegisterHandler(constants.KafkaTopicMessageUpdated, adapter.HandleMessageUpdated)
+	consumer.RegisterHandler(constants.KafkaTopicMessageReactionUpdated, adapter.HandleMessageReactionUpdated)
 	consumer.RegisterHandler(constants.KafkaTopicConversationCreated, adapter.HandleConversationCreated)
 	consumer.RegisterHandler(constants.KafkaTopicConversationUpdated, adapter.HandleConversationUpdated)
 	consumer.RegisterHandler(constants.KafkaTopicConversationDeleted, adapter.HandleConversationDeleted)

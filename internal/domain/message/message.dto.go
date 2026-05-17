@@ -58,3 +58,13 @@ type MessageUpdatedEvent struct {
 	Conversation *ConversationData `json:"conversation"`
 	Message      *MessageData      `json:"message"`
 }
+
+// MessageReactionUpdatedEvent — reaction toggle event broadcast over Kafka
+type MessageReactionUpdatedEvent struct {
+	ConversationID string              `json:"conversationId"`
+	MessageID      string              `json:"messageId"`
+	Reactions      map[string][]string `json:"reactions"`
+	ActorUserID    string              `json:"actorUserId"`
+	Type           string              `json:"type"`
+	Action         string              `json:"action"`
+}

@@ -165,7 +165,7 @@ export const Chat = () => {
             user={user}
             onSetMessageInput={setMessageInput}
             onSendMessage={(e) => { e.preventDefault(); handleSendMessage(); }}
-            onSendImage={(file, caption) => sendImageMessage(currentConversation.id, file, caption)}
+            onSendImage={(file) => sendImageMessage(currentConversation.id, file)}
             onBack={clearRightPane}
           />
         ) : (

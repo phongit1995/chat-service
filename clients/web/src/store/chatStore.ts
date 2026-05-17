@@ -5,6 +5,7 @@ import { messageService } from '../services/message.service'
 import { compressImage } from '../services/imageCompress'
 import { socketService } from '../services/socket'
 import { sendWithOptimistic, readImageDimensions } from './optimisticSend'
+import { useAuthStore } from './authStore'
 import { useChatUIStore } from './chatUIStore'
 import toast from 'react-hot-toast'
 import { updateConversationInList } from './chat.helpers'
@@ -130,7 +131,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
     },
 
-    sendImageMessage: async (conversationId: string, file: File, caption?: string) => {
+    sendImageMessage: async (conversationId: string, file: File) => {
       const localUrl = URL.createObjectURL(file)
       const dims = await readImageDimensions(localUrl)
 
@@ -142,7 +143,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           id: clientMsgId,
           conversationId,
           ...sender,
-          content: caption || '',
+          content: '',
           type: 'image',
           status: 'uploading',
           createdAt: now,
@@ -160,21 +161,57 @@ export const useChatStore = create<ChatState>((set, get) => {
         }),
         send: async (clientMsgId) => {
           const compressed = await compressImage(file)
-          const uploadRes = await messageService.uploadImage(conversationId, compressed.file)
-          const meta = uploadRes.data
-          if (!meta) throw new Error('upload failed: empty response')
-          return messageService.sendMessage({
-            conversationId,
-            content: caption || '',
-            messageType: 'image',
-            metadata: JSON.stringify(meta),
-            clientMsgId,
-          })
+          return messageService.sendImageMessage(conversationId, compressed.file, clientMsgId)
         },
         cleanup: () => URL.revokeObjectURL(localUrl),
         errorFallback: 'Failed to upload image',
         toastOnError: true,
       })
+    },
+
+    toggleReaction: async (messageId: string, type: string) => {
+      const { messages, currentConversation } = get()
+      if (!currentConversation) return
+      const me = useAuthStore.getState().user
+      const myId = me?.id || ''
+      const conversationId = currentConversation.id
+
+      // Optimistic
+      const prevMessages = messages
+      const optimisticMessages = messages.map((m) => {
+        if (m.id !== messageId) return m
+        const reactions = { ...(m.reactions || {}) }
+        const users = reactions[type] ? [...reactions[type]] : []
+        const idx = users.indexOf(myId)
+        if (idx >= 0) {
+          users.splice(idx, 1)
+          if (users.length === 0) delete reactions[type]
+          else reactions[type] = users
+        } else {
+          reactions[type] = [...users, myId]
+        }
+        return { ...m, reactions }
+      })
+      set({ messages: optimisticMessages })
+
+      try {
+        const res = await messageService.toggleReaction(conversationId, messageId, type)
+        const server = res.data
+        if (server) {
+          const { messages: latest } = get()
+          set({
+            messages: latest.map((m) =>
+              m.id === messageId ? { ...m, reactions: server.reactions || {} } : m,
+            ),
+          })
+        }
+      } catch (err: unknown) {
+        set({ messages: prevMessages })
+        const msg = (err as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error
+          || (err as { message?: string })?.message
+          || 'Failed to toggle reaction'
+        toast.error(msg)
+      }
     },
 
     createGroupConversation: async (name: string, participantIds: string[]) => {

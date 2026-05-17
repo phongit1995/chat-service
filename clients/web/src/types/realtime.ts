@@ -12,6 +12,7 @@ export const WebSocketEventType = {
   NEW_MESSAGE: 'NEW_MESSAGE',
   MESSAGE_UPDATED: 'MESSAGE_UPDATED',
   MESSAGE_DELETED: 'MESSAGE_DELETED',
+  MESSAGE_REACTION_UPDATED: 'MESSAGE_REACTION_UPDATED',
   CONVERSATION_CREATED: 'CONVERSATION_CREATED',
   CONVERSATION_UPDATED: 'CONVERSATION_UPDATED',
   CONVERSATION_DELETED: 'CONVERSATION_DELETED',
@@ -48,6 +49,15 @@ export interface MessageUpdatedEventData {
 export interface MessageDeletedEventData {
   conversation: Conversation
   messageId: string
+}
+
+export interface MessageReactionUpdatedEventData {
+  conversationId: string
+  messageId: string
+  reactions: Record<string, string[]>
+  actorUserId: string
+  type: string
+  action: 'added' | 'removed'
 }
 
 export interface UserTypingData {
@@ -108,6 +118,7 @@ export interface WebSocketEventPayloadMap {
   [WebSocketEventType.NEW_MESSAGE]: MessageCreatedEventData
   [WebSocketEventType.MESSAGE_UPDATED]: MessageUpdatedEventData
   [WebSocketEventType.MESSAGE_DELETED]: MessageDeletedEventData
+  [WebSocketEventType.MESSAGE_REACTION_UPDATED]: MessageReactionUpdatedEventData
   [WebSocketEventType.CONVERSATION_CREATED]: ConversationCreatedData
   [WebSocketEventType.CONVERSATION_UPDATED]: ConversationUpdatedData
   [WebSocketEventType.CONVERSATION_DELETED]: ConversationDeletedData

@@ -50,7 +50,7 @@ interface ChatAreaProps {
   user: User | null
   onSetMessageInput: (value: string) => void
   onSendMessage: (e: FormEvent) => void
-  onSendImage: (file: File, caption?: string) => Promise<void>
+  onSendImage: (file: File) => Promise<void>
   onBack?: () => void
 }
 
@@ -66,9 +66,9 @@ export const ChatArea = ({
   onBack,
 }: ChatAreaProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null)
 
   const handleFileSelect = (file: File | null | undefined) => {
+    if (fileInputRef.current) fileInputRef.current.value = ''
     if (!file) return
     if (!isAllowedImageMime(file.type)) {
       alert(`Định dạng không hỗ trợ: ${file.type || 'unknown'}. Chỉ chấp nhận ${ALLOWED_IMAGE_MIMES.map((m) => m.replace('image/', '').toUpperCase()).join(' / ')}.`)
@@ -78,31 +78,7 @@ export const ChatArea = ({
       alert(`Ảnh quá lớn (${(file.size / 1024 / 1024).toFixed(1)}MB). Tối đa ${HARD_UPLOAD_BYTES / 1024 / 1024}MB trước khi nén.`)
       return
     }
-    if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl)
-    setPendingImage({ file, previewUrl: URL.createObjectURL(file) })
-  }
-
-  const clearPendingImage = () => {
-    if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl)
-    setPendingImage(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
-  const handleSubmit = async (e: FormEvent) => {
-    if (pendingImage) {
-      e.preventDefault()
-      const file = pendingImage.file
-      const caption = messageInput
-      clearPendingImage()
-      onSetMessageInput('')
-      try {
-        await onSendImage(file, caption)
-      } catch (err) {
-        console.error('send image failed', err)
-      }
-      return
-    }
-    onSendMessage(e)
+    onSendImage(file).catch((err) => console.error('send image failed', err))
   }
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -210,8 +186,8 @@ export const ChatArea = ({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       const text = editableRef.current ? getPlainText(editableRef.current) : messageInput
-      if (!text.trim() && !pendingImage) return
-      handleSubmit(e as unknown as FormEvent)
+      if (!text.trim()) return
+      onSendMessage(e as unknown as FormEvent)
     }
   }
 
@@ -274,25 +250,6 @@ export const ChatArea = ({
         className="border-t border-line-subtle bg-surface/95 backdrop-blur-sm px-3 sm:px-4 pt-3 sm:pt-4"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
       >
-        {pendingImage && (
-          <div className="mb-2 flex items-center gap-3 p-2 rounded-lg bg-surface-overlay">
-            <img src={pendingImage.previewUrl} alt="" className="w-14 h-14 object-cover rounded-md flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm truncate text-ink-primary">{pendingImage.file.name}</p>
-              <p className="text-xs text-ink-tertiary">
-                {(pendingImage.file.size / 1024 / 1024).toFixed(2)} MB · sẽ tự nén về ≤ 2 MB
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={clearPendingImage}
-              aria-label="Remove image"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-ink-tertiary hover:bg-surface/60 hover:text-ink-primary"
-            >
-              ✕
-            </button>
-          </div>
-        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -300,7 +257,7 @@ export const ChatArea = ({
           hidden
           onChange={(e) => handleFileSelect(e.target.files?.[0])}
         />
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 sm:gap-3">
+        <form onSubmit={onSendMessage} className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -329,7 +286,7 @@ export const ChatArea = ({
               isComposing.current = false
               handleInput()
             }}
-            data-placeholder={pendingImage ? 'Add a caption…' : 'Type a message…'}
+            data-placeholder="Type a message…"
             className="message-input flex-1 min-w-0 min-h-[40px] max-h-[120px] overflow-y-auto cursor-text empty:before:content-[attr(data-placeholder)] empty:before:text-ink-tertiary empty:before:pointer-events-none"
             style={{ lineHeight: '1.5', wordBreak: 'break-word', outline: 'none', whiteSpace: 'pre-wrap' }}
           />
@@ -363,7 +320,7 @@ export const ChatArea = ({
 
           <Button
             type="submit"
-            disabled={!pendingImage && !messageInput.trim()}
+            disabled={!messageInput.trim()}
             variant="primary"
             size="md"
             aria-label="Send"

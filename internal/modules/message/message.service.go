@@ -63,7 +63,19 @@ func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Re
 	}
 }
 
-func (s *Service) UploadImage(ctx context.Context, userID, conversationID uuid.UUID, fileHeader *multipart.FileHeader) (*UploadImageResponse, error) {
+func (s *Service) SendImageMessage(ctx context.Context, userID, conversationID uuid.UUID, fileHeader *multipart.FileHeader, clientMsgID string) (*MessageResponse, error) {
+	meta, err := s.uploadImageFile(ctx, userID, conversationID, fileHeader)
+	if err != nil {
+		return nil, err
+	}
+	metaJSON, err := json.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal image metadata: %w", err)
+	}
+	return s.SendMessage(userID, conversationID, constants.MessageTypeImage, "", string(metaJSON), nil, clientMsgID)
+}
+
+func (s *Service) uploadImageFile(ctx context.Context, userID, conversationID uuid.UUID, fileHeader *multipart.FileHeader) (*ImageMetadata, error) {
 	if fileHeader.Size > constants.MaxImageUploadSize {
 		return nil, fmt.Errorf("%w: max %d bytes", ErrFileTooLarge, constants.MaxImageUploadSize)
 	}
@@ -126,7 +138,7 @@ func (s *Service) UploadImage(ctx context.Context, userID, conversationID uuid.U
 		return nil, fmt.Errorf("failed to upload to storage: %w", err)
 	}
 
-	return &UploadImageResponse{
+	return &ImageMetadata{
 		URL:      upload.URL,
 		MimeType: detectedMime,
 		Size:     int64(len(fullData)),
@@ -199,6 +211,29 @@ func validateImageMetadata(metadata string, allowedHosts []string) error {
 		}
 	}
 	return nil
+}
+
+func parseReactions(raw string) map[string][]string {
+	if strings.TrimSpace(raw) == "" {
+		return map[string][]string{}
+	}
+	var m map[string][]string
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return map[string][]string{}
+	}
+	if m == nil {
+		return map[string][]string{}
+	}
+	return m
+}
+
+func isAllowedReactionType(t string) bool {
+	for _, v := range constants.AllowedReactionTypes {
+		if v == t {
+			return true
+		}
+	}
+	return false
 }
 
 func isActiveMember(members []conversation.ConversationMember, userID uuid.UUID) bool {
@@ -753,6 +788,7 @@ func (s *Service) GetMessages(userID, conversationID uuid.UUID, limit int, befor
 			Metadata:       msg.Metadata,
 			CreatedAt:      msg.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:      msg.UpdatedAt.Format(time.RFC3339),
+			Reactions:      parseReactions(msg.Reactions),
 		}
 
 		if msg.ReplyToID != nil {
@@ -1249,4 +1285,138 @@ func (s *Service) recreateInboxEntry(userID, conversationID uuid.UUID, messageID
 	go s.convCache.DeleteUserConversations(userID)
 
 	return nil
+}
+
+func (s *Service) ToggleReaction(ctx context.Context, userID, conversationID uuid.UUID, messageIDStr, reactionType string) (*MessageResponse, error) {
+	if !isAllowedReactionType(reactionType) {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidMetadata, reactionType)
+	}
+
+	messageID, err := gocql.ParseUUID(messageIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid message ID: %w", err)
+	}
+
+	members, err := s.getMembersCached(conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get members: %w", err)
+	}
+	if !isActiveMember(members, userID) {
+		return nil, ErrNotMember
+	}
+
+	rateKey := fmt.Sprintf(constants.CacheKeyRateLimitReaction, userID.String())
+	if count, err := s.redis.Increment(rateKey); err == nil {
+		if count == 1 {
+			_ = s.redis.SetExpire(rateKey, time.Duration(constants.RateLimitReactionWindowSeconds)*time.Second)
+		}
+		if count > int64(constants.RateLimitReactionMaxRequests) {
+			return nil, ErrRateLimit
+		}
+	}
+
+	lockKey := fmt.Sprintf(constants.CacheKeyReactionLock, messageIDStr)
+	acquired, _ := s.redis.SetNX(lockKey, "1", time.Duration(constants.ReactionLockTTLSeconds)*time.Second)
+	if !acquired {
+		time.Sleep(time.Duration(constants.ReactionLockRetryMs) * time.Millisecond)
+		acquired, _ = s.redis.SetNX(lockKey, "1", time.Duration(constants.ReactionLockTTLSeconds)*time.Second)
+		if !acquired {
+			return nil, fmt.Errorf("reaction in progress, please retry")
+		}
+	}
+	defer s.redis.Delete(lockKey)
+
+	msg, err := s.repo.GetMessageByID(conversationID, messageID)
+	if err != nil {
+		return nil, fmt.Errorf("message not found: %w", err)
+	}
+	if msg.DeletedAt != nil {
+		return nil, fmt.Errorf("message deleted")
+	}
+
+	reactions := parseReactions(msg.Reactions)
+	userIDStr := userID.String()
+	users := reactions[reactionType]
+
+	hasReacted := false
+	filtered := users[:0]
+	for _, u := range users {
+		if u == userIDStr {
+			hasReacted = true
+			continue
+		}
+		filtered = append(filtered, u)
+	}
+
+	action := constants.ReactionActionAdded
+	if hasReacted {
+		action = constants.ReactionActionRemoved
+		if len(filtered) == 0 {
+			delete(reactions, reactionType)
+		} else {
+			reactions[reactionType] = filtered
+		}
+	} else {
+		typesByUser := 0
+		for _, ulist := range reactions {
+			for _, u := range ulist {
+				if u == userIDStr {
+					typesByUser++
+					break
+				}
+			}
+		}
+		if typesByUser >= constants.MaxReactionTypesPerUserPerMessage {
+			return nil, fmt.Errorf("%w: max %d", ErrMaxReactions, constants.MaxReactionTypesPerUserPerMessage)
+		}
+		reactions[reactionType] = append(users, userIDStr)
+	}
+
+	var newRaw string
+	if len(reactions) == 0 {
+		newRaw = ""
+	} else {
+		b, err := json.Marshal(reactions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal reactions: %w", err)
+		}
+		newRaw = string(b)
+	}
+
+	if err := s.repo.UpdateReactions(conversationID, messageID, newRaw); err != nil {
+		return nil, fmt.Errorf("failed to persist reactions: %w", err)
+	}
+
+	go func() {
+		event := &messageEvents.MessageReactionUpdatedEvent{
+			ConversationID: conversationID.String(),
+			MessageID:      messageIDStr,
+			Reactions:      reactions,
+			ActorUserID:    userIDStr,
+			Type:           reactionType,
+			Action:         action,
+		}
+		if err := s.kafkaProducer.PublishMessageReactionUpdated(context.Background(), event); err != nil {
+			s.logger.Warnw("Failed to publish reaction event", "error", err)
+		}
+	}()
+
+	senderUUID, _ := uuid.Parse(msg.SenderID.String())
+	resp := &MessageResponse{
+		ID:             messageID.String(),
+		ConversationID: conversationID.String(),
+		SenderID:       senderUUID.String(),
+		SenderName:     msg.SenderName,
+		SenderAvatar:   msg.SenderAvatar,
+		Type:           msg.MessageType,
+		Content:        msg.Content,
+		Metadata:       msg.Metadata,
+		CreatedAt:      msg.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      time.Now().Format(time.RFC3339),
+		Reactions:      reactions,
+	}
+	if msg.ReplyToID != nil {
+		resp.ReplyToID = msg.ReplyToID.String()
+	}
+	return resp, nil
 }

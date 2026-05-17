@@ -23,9 +23,10 @@ func (r *Router) Setup(router *utils.AppGroup) {
 	{
 		messages.POST("", r.controller.SendMessage)
 		messages.POST("/direct", r.controller.SendDirectMessage)
-		messages.POST("/upload", r.controller.UploadImage)
+		messages.POST("/images", r.controller.SendImageMessage)
 		messages.GET("/:conversationId", r.controller.GetMessages)
 		messages.PATCH("/:conversationId/:messageId", r.controller.UpdateMessage)
 		messages.DELETE("/:conversationId/:messageId", r.controller.DeleteMessage)
+		messages.POST("/:conversationId/:messageId/reactions", r.controller.ToggleReaction)
 	}
 }

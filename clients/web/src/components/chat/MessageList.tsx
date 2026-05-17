@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { MessageBubble } from './MessageBubble'
 import { TypingIndicator } from './TypingIndicator'
 import { useAutoScrollToBottom } from '../../hooks/useAutoScrollToBottom'
+import { useChatStore } from '../../store/chatStore'
 import type { Conversation, Message, User } from '../../types'
 import type { TypingUserInfo } from '../../store/chat.types'
 
@@ -35,6 +36,7 @@ export const MessageList = ({ conversation, messages, typingUsers, user }: Messa
   }
 
   const isGroup = conversation.type === 'group'
+  const toggleReaction = useChatStore((s) => s.toggleReaction)
 
   return (
     <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 scrollbar-thin bg-surface-base">
@@ -67,6 +69,8 @@ export const MessageList = ({ conversation, messages, typingUsers, user }: Messa
             isFirstInStreak={isFirstInStreak}
             isLastInStreak={isLastInStreak}
             showTime={isLastInStreak}
+            myUserId={user?.id || ''}
+            onReact={(mid, type) => toggleReaction(mid, type)}
           />
         )
       })}

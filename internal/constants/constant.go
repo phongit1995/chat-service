@@ -1,9 +1,10 @@
 package constants
 
 const (
-	KafkaTopicMessageCreated      = "CHAT.MESSAGE.CREATED"
-	KafkaTopicMessageDeleted      = "CHAT.MESSAGE.DELETED"
-	KafkaTopicMessageUpdated      = "CHAT.MESSAGE.UPDATED"
+	KafkaTopicMessageCreated         = "CHAT.MESSAGE.CREATED"
+	KafkaTopicMessageDeleted         = "CHAT.MESSAGE.DELETED"
+	KafkaTopicMessageUpdated         = "CHAT.MESSAGE.UPDATED"
+	KafkaTopicMessageReactionUpdated = "CHAT.MESSAGE.REACTION_UPDATED"
 	KafkaTopicConversationCreated = "CHAT.CONVERSATION.CREATED"
 	KafkaTopicConversationUpdated = "CHAT.CONVERSATION.UPDATED"
 	KafkaTopicConversationDeleted = "CHAT.CONVERSATION.DELETED"
@@ -19,6 +20,7 @@ func AllKafkaTopics() []string {
 		KafkaTopicMessageCreated,
 		KafkaTopicMessageDeleted,
 		KafkaTopicMessageUpdated,
+		KafkaTopicMessageReactionUpdated,
 		KafkaTopicConversationCreated,
 		KafkaTopicConversationUpdated,
 		KafkaTopicConversationDeleted,
@@ -62,8 +64,9 @@ const (
 	WebSocketEventConnect             = "CONNECT"
 	WebSocketEventDisconnect          = "DISCONNECT"
 	WebSocketEventNewMessage          = "NEW_MESSAGE"
-	WebSocketEventMessageDeleted      = "MESSAGE_DELETED"
-	WebSocketEventMessageUpdated      = "MESSAGE_UPDATED"
+	WebSocketEventMessageDeleted          = "MESSAGE_DELETED"
+	WebSocketEventMessageUpdated          = "MESSAGE_UPDATED"
+	WebSocketEventMessageReactionUpdated  = "MESSAGE_REACTION_UPDATED"
 	WebSocketEventConversationCreated = "CONVERSATION_CREATED"
 	WebSocketEventConversationUpdated = "CONVERSATION_UPDATED"
 	WebSocketEventConversationDeleted = "CONVERSATION_DELETED"
@@ -173,3 +176,34 @@ var AllowedImageMimes = []string{
 	"image/gif",
 	"image/webp",
 }
+
+const (
+	ReactionTypeLike  = "LIKE"
+	ReactionTypeLove  = "LOVE"
+	ReactionTypeHaha  = "HAHA"
+	ReactionTypeWow   = "WOW"
+	ReactionTypeSad   = "SAD"
+	ReactionTypeAngry = "ANGRY"
+)
+
+var AllowedReactionTypes = []string{
+	ReactionTypeLike,
+	ReactionTypeLove,
+	ReactionTypeHaha,
+	ReactionTypeWow,
+	ReactionTypeSad,
+	ReactionTypeAngry,
+}
+
+const (
+	MaxReactionTypesPerUserPerMessage = 5
+	CacheKeyRateLimitReaction         = "RATE_LIMIT:%s:REACTION"
+	RateLimitReactionMaxRequests      = 60
+	RateLimitReactionWindowSeconds    = 60
+	CacheKeyReactionLock              = "LOCK:REACTION:%s"
+	ReactionLockTTLSeconds            = 3
+	ReactionLockRetryMs               = 150
+
+	ReactionActionAdded   = "added"
+	ReactionActionRemoved = "removed"
+)

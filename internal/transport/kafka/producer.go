@@ -53,6 +53,10 @@ func (p *Producer) PublishMessageUpdated(ctx context.Context, event *messageEven
 	return p.publishKeyed(ctx, constants.KafkaTopicMessageUpdated, conversationKey(event.Conversation), event)
 }
 
+func (p *Producer) PublishMessageReactionUpdated(ctx context.Context, event *messageEvents.MessageReactionUpdatedEvent) error {
+	return p.publishKeyed(ctx, constants.KafkaTopicMessageReactionUpdated, event.ConversationID, event)
+}
+
 func (p *Producer) PublishConversationCreated(ctx context.Context, event *conversationEvents.CreatedEvent) error {
 	return p.publishKeyed(ctx, constants.KafkaTopicConversationCreated, event.ConversationID, event)
 }
