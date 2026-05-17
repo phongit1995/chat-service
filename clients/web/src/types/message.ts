@@ -23,5 +23,25 @@ export interface CreateMessageDTO {
   conversationId: string
   content: string
   messageType?: string
+  metadata?: string
   clientMsgId?: string
+}
+
+export interface ImageMetadata {
+  url: string
+  mimeType: string
+  size: number
+  width: number
+  height: number
+  fileName?: string
+  _localBlob?: boolean
+}
+
+export interface UploadMessageImageResponse {
+  url: string
+  mimeType: string
+  size: number
+  width: number
+  height: number
+  fileName: string
 }

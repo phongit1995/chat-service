@@ -2,6 +2,54 @@ import { useRef, useState } from 'react'
 import { Conversation } from '../../types'
 import { Avatar } from '../ui'
 
+// ── Emoji helpers for last-message preview ───────────────────────────────────
+const isEmojiGrapheme = (g: string): boolean => {
+  if (!g || /^\s+$/.test(g)) return false
+  for (const ch of g) {
+    const cp = ch.codePointAt(0)
+    if (cp === undefined) return false
+    if (cp === 0x200d || cp === 0xfe0f || cp === 0x20e3) continue
+    if (cp >= 0x1f1e6 && cp <= 0x1f1ff) continue
+    if (cp >= 0x1f3fb && cp <= 0x1f3ff) continue
+    if (cp >= 0x2300 && cp <= 0x27bf) continue
+    if (cp >= 0x2b00 && cp <= 0x2bff) continue
+    if (cp >= 0x1f000 && cp <= 0x1faff) continue
+    if (cp === 0x00a9 || cp === 0x00ae) continue
+    if (cp >= 0x203c && cp <= 0x2049) continue
+    return false
+  }
+  return true
+}
+
+type Seg = { text: string; isEmoji: boolean }
+const splitSegments = (text: string): Seg[] => {
+  const SegCtor = (Intl as unknown as { Segmenter?: new (l?: string, o?: object) => { segment: (s: string) => Iterable<{ segment: string }> } }).Segmenter
+  const graphemes: Seg[] = []
+  if (SegCtor) {
+    const seg = new SegCtor(undefined, { granularity: 'grapheme' })
+    for (const p of seg.segment(text)) graphemes.push({ text: p.segment, isEmoji: isEmojiGrapheme(p.segment) })
+  } else {
+    for (const ch of text) graphemes.push({ text: ch, isEmoji: isEmojiGrapheme(ch) })
+  }
+  const segs: Seg[] = []
+  for (const g of graphemes) {
+    const last = segs[segs.length - 1]
+    if (last && last.isEmoji === g.isEmoji) last.text += g.text
+    else segs.push({ text: g.text, isEmoji: g.isEmoji })
+  }
+  return segs
+}
+
+const RichText = ({ text }: { text: string }) => (
+  <>
+    {splitSegments(text).map((seg, i) =>
+      seg.isEmoji
+        ? <span key={i} style={{ fontSize: '1.25em', lineHeight: 1, verticalAlign: 'middle' }}>{seg.text}</span>
+        : <span key={i}>{seg.text}</span>
+    )}
+  </>
+)
+
 interface ConversationItemProps {
   conversation: Conversation
   isActive: boolean
@@ -174,7 +222,7 @@ export const ConversationItem = ({
                         {conversation.lastMessageSenderName}:{' '}
                       </span>
                     ) : null}
-                    {conversation.lastMessageText}
+                    <RichText text={conversation.lastMessageText} />
                   </p>
                 ) : (
                   <p className="text-[13px] text-ink-tertiary italic flex-1">No messages yet</p>

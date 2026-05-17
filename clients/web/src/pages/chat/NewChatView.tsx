@@ -1,6 +1,73 @@
-import { FormEvent } from 'react'
+import { FormEvent, useEffect, useRef } from 'react'
 import { Avatar, Button } from '../../components/ui'
 import type { TempChatUser } from '../../types'
+
+// ── Emoji helpers ──────────────────────────────────────────────────────────
+const isEmojiGrapheme = (g: string): boolean => {
+  if (!g || /^\s+$/.test(g)) return false
+  for (const ch of g) {
+    const cp = ch.codePointAt(0)
+    if (cp === undefined) return false
+    if (cp === 0x200d || cp === 0xfe0f || cp === 0x20e3) continue
+    if (cp >= 0x1f1e6 && cp <= 0x1f1ff) continue
+    if (cp >= 0x1f3fb && cp <= 0x1f3ff) continue
+    if (cp >= 0x2300 && cp <= 0x27bf) continue
+    if (cp >= 0x2b00 && cp <= 0x2bff) continue
+    if (cp >= 0x1f000 && cp <= 0x1faff) continue
+    if (cp === 0x00a9 || cp === 0x00ae) continue
+    if (cp >= 0x203c && cp <= 0x2049) continue
+    return false
+  }
+  return true
+}
+
+const getPlainText = (el: HTMLElement): string => {
+  let text = ''
+  for (const node of el.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) text += node.textContent ?? ''
+    else if ((node as HTMLElement).tagName === 'BR') text += '\n'
+    else text += getPlainText(node as HTMLElement)
+  }
+  return text
+}
+
+const renderEmojiContent = (el: HTMLElement, text: string) => {
+  const SegmenterCtor = (Intl as unknown as { Segmenter?: new (l?: string, o?: object) => { segment: (s: string) => Iterable<{ segment: string }> } }).Segmenter
+  el.innerHTML = ''
+  if (!text) return
+  const graphemes: { text: string; isEmoji: boolean }[] = []
+  if (SegmenterCtor) {
+    const seg = new SegmenterCtor(undefined, { granularity: 'grapheme' })
+    for (const p of seg.segment(text)) graphemes.push({ text: p.segment, isEmoji: isEmojiGrapheme(p.segment) })
+  } else {
+    for (const ch of text) graphemes.push({ text: ch, isEmoji: isEmojiGrapheme(ch) })
+  }
+  type Seg = { text: string; isEmoji: boolean }
+  const segs: Seg[] = []
+  for (const g of graphemes) {
+    const last = segs[segs.length - 1]
+    if (last && last.isEmoji === g.isEmoji) last.text += g.text
+    else segs.push({ text: g.text, isEmoji: g.isEmoji })
+  }
+  for (const seg of segs) {
+    if (seg.isEmoji) {
+      const span = document.createElement('span')
+      span.style.cssText = 'font-size:1.5em;line-height:1;vertical-align:middle;display:inline-block'
+      span.textContent = seg.text
+      el.appendChild(span)
+    } else {
+      el.appendChild(document.createTextNode(seg.text))
+    }
+  }
+}
+
+const moveCursorToEnd = (el: HTMLElement) => {
+  const range = document.createRange()
+  range.selectNodeContents(el); range.collapse(false)
+  const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(range)
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 
 interface NewChatViewProps {
   tempChatUser: TempChatUser
@@ -19,6 +86,56 @@ export const NewChatView = ({
   onSendMessage,
   onBack,
 }: NewChatViewProps) => {
+  const editableRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = editableRef.current
+    if (!el) return
+    if (getPlainText(el) !== messageInput) {
+      renderEmojiContent(el, messageInput)
+      if (messageInput) moveCursorToEnd(el)
+    }
+  }, [messageInput])
+
+  const handleInput = () => {
+    const el = editableRef.current
+    if (!el) return
+    const plain = getPlainText(el)
+    onMessageChange(plain)
+    const sel = window.getSelection()
+    const range = sel?.rangeCount ? sel.getRangeAt(0) : null
+    let offset = 0
+    if (range) {
+      const pre = document.createRange()
+      pre.selectNodeContents(el); pre.setEnd(range.endContainer, range.endOffset)
+      offset = pre.toString().length
+    }
+    renderEmojiContent(el, plain)
+    // restore cursor
+    let remaining = offset
+    const walk = (node: Node): boolean => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const len = (node.textContent ?? '').length
+        if (remaining <= len) {
+          const r = document.createRange(); r.setStart(node, remaining); r.collapse(true)
+          sel?.removeAllRanges(); sel?.addRange(r); return true
+        }
+        remaining -= len; return false
+      }
+      for (const c of Array.from(node.childNodes)) if (walk(c)) return true
+      return false
+    }
+    if (!walk(el)) moveCursorToEnd(el)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (!messageInput.trim() || isCreatingConversation) return
+      onSendMessage(e as unknown as FormEvent)
+    }
+  }
+
   return (
     <>
       <div className="bg-surface/90 backdrop-blur-sm border-b border-line-subtle px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-2">
@@ -58,17 +175,20 @@ export const NewChatView = ({
         className="border-t backdrop-blur-sm bg-white/95 px-3 sm:px-4 pt-3 sm:pt-4 shadow-lg"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
       >
-        <form onSubmit={onSendMessage} className="flex items-center gap-2 sm:gap-3">
-          <input
-            type="text"
-            value={messageInput}
-            onChange={(e) => onMessageChange(e.target.value)}
-            placeholder="Type your first message..."
-            className="flex-1 min-w-0 px-4 sm:px-5 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-base"
-            disabled={isCreatingConversation}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div
+            ref={editableRef}
+            contentEditable={!isCreatingConversation}
+            suppressContentEditableWarning
+            onInput={handleInput}
+            onKeyDown={handleKeyDown}
+            data-placeholder="Type your first message..."
+            className="flex-1 min-w-0 min-h-[42px] max-h-[120px] overflow-y-auto px-4 sm:px-5 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white cursor-text empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 empty:before:pointer-events-none"
+            style={{ lineHeight: '1.5', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
           />
           <Button
-            type="submit"
+            type="button"
+            onClick={(e) => onSendMessage(e as unknown as FormEvent)}
             disabled={!messageInput.trim() || isCreatingConversation}
             isLoading={isCreatingConversation}
             className="rounded-xl px-5 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold shadow-md hover:shadow-lg hover:scale-105 active:scale-95 shrink-0"
@@ -77,7 +197,7 @@ export const NewChatView = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
           </Button>
-        </form>
+        </div>
       </div>
     </>
   )

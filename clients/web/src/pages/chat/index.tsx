@@ -23,10 +23,10 @@ export const Chat = () => {
     typingUsers,
     handleConversationClick,
     handleSendMessage,
-    handleInputChange,
     handleSelectUser,
     hideConversation,
     initialize,
+    sendImageMessage,
   } = useChatStore()
 
   const conversations = useConversationsWithPresence()
@@ -163,8 +163,9 @@ export const Chat = () => {
             messageInput={messageInput}
             typingUsers={typingUsers}
             user={user}
-            onMessageChange={(e) => handleInputChange(e.target.value)}
+            onSetMessageInput={setMessageInput}
             onSendMessage={(e) => { e.preventDefault(); handleSendMessage(); }}
+            onSendImage={(file, caption) => sendImageMessage(currentConversation.id, file, caption)}
             onBack={clearRightPane}
           />
         ) : (

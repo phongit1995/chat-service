@@ -193,6 +193,53 @@ func (ctrl *Controller) UpdateMessage(c *gin.Context) (interface{}, error) {
 	return message, nil
 }
 
+// UploadImage godoc
+// @Summary      Upload image attachment
+// @Description  Upload an image file (≤2MB, jpeg/png/gif/webp) for use in a message
+// @Tags         messages
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        file formData file true "Image file"
+// @Param        conversationId formData string true "Conversation ID"
+// @Success      200  {object}  UploadImageSuccessResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Failure      403  {object}  utils.APIError
+// @Failure      413  {object}  utils.APIError
+// @Failure      429  {object}  utils.APIError
+// @Router       /messages/upload [post]
+func (ctrl *Controller) UploadImage(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	conversationIDStr := c.PostForm("conversationId")
+	conversationID, err := uuid.Parse(conversationIDStr)
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid conversation ID")
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "missing file")
+	}
+
+	result, err := ctrl.service.UploadImage(c.Request.Context(), userID, conversationID, fileHeader)
+	if err != nil {
+		ctrl.logger.Errorw("Failed to upload image", "error", err)
+		status := httpStatusForError(err)
+		msg := err.Error()
+		if status == http.StatusInternalServerError {
+			msg = "failed to upload image"
+		}
+		return nil, utils.NewHTTPError(status, msg)
+	}
+
+	return result, nil
+}
+
 // DeleteMessage godoc
 // @Summary      Delete message
 // @Description  Delete a message (soft delete)

@@ -150,3 +150,26 @@ const (
 	ContextKeyTraceID   = "TRACE_ID"
 	ContextKeyRequestID = "REQUEST_ID"
 )
+
+const (
+	MessageTypeText  = "text"
+	MessageTypeImage = "image"
+	MessageTypeFile  = "file"
+	MessageTypeVideo = "video"
+	MessageTypeAudio = "audio"
+)
+
+const (
+	MaxImageUploadSize             = 2 * 1024 * 1024
+	UploadFolderMessages           = "messages"
+	CacheKeyRateLimitUpload        = "RATE_LIMIT:%s:UPLOAD"
+	RateLimitUploadMaxRequests     = 30
+	RateLimitUploadWindowSeconds   = 60
+)
+
+var AllowedImageMimes = []string{
+	"image/jpeg",
+	"image/png",
+	"image/gif",
+	"image/webp",
+}

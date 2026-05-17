@@ -2,8 +2,9 @@ import { create } from 'zustand'
 import type { Conversation, Message, UserSearchResult } from '../types'
 import { conversationService } from '../services/conversation.service'
 import { messageService } from '../services/message.service'
+import { compressImage } from '../services/imageCompress'
 import { socketService } from '../services/socket'
-import { useAuthStore } from './authStore'
+import { sendWithOptimistic, readImageDimensions } from './optimisticSend'
 import { useChatUIStore } from './chatUIStore'
 import toast from 'react-hot-toast'
 import { updateConversationInList } from './chat.helpers'
@@ -107,58 +108,73 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     sendMessage: async (conversationId: string, content: string) => {
-      const clientMsgId = crypto.randomUUID()
-      const currentUser = useAuthStore.getState().user
-      const now = new Date().toISOString()
-      const optimistic: Message = {
-        id: clientMsgId,
+      await sendWithOptimistic({
         conversationId,
-        senderId: currentUser?.id || '',
-        senderName: currentUser?.fullName || currentUser?.username,
-        senderAvatar: currentUser?.avatarURL || currentUser?.avatar,
-        content,
-        type: 'text',
-        status: 'sending',
-        createdAt: now,
-        updatedAt: now,
-        clientMsgId,
-      }
-      const { currentConversation, messages } = get()
-      if (currentConversation?.id === conversationId) {
-        set({ messages: [...messages, optimistic] })
-      }
-
-      try {
-        const res = await messageService.sendMessage({
+        get,
+        set,
+        build: (clientMsgId, now, sender) => ({
+          id: clientMsgId,
           conversationId,
+          ...sender,
           content,
-          messageType: 'text',
+          type: 'text',
+          status: 'sending',
+          createdAt: now,
+          updatedAt: now,
           clientMsgId,
-        })
-        const serverMsg = res.data
-        if (serverMsg) {
-          const { messages: latest, currentConversation: cc } = get()
-          if (cc?.id === conversationId) {
-            const replaced = latest.map((m) =>
-              m.clientMsgId && m.clientMsgId === clientMsgId
-                ? { ...serverMsg, status: 'sent' }
-                : m,
-            )
-            set({ messages: replaced })
-          }
-        }
-      } catch (error: any) {
-        const { messages: latest, currentConversation: cc } = get()
-        if (cc?.id === conversationId) {
-          set({
-            messages: latest.map((m) =>
-              m.clientMsgId === clientMsgId ? { ...m, status: 'failed' } : m,
-            ),
+        }),
+        send: (clientMsgId) =>
+          messageService.sendMessage({ conversationId, content, messageType: 'text', clientMsgId }),
+        errorFallback: 'Failed to send message',
+        rethrow: true,
+      })
+    },
+
+    sendImageMessage: async (conversationId: string, file: File, caption?: string) => {
+      const localUrl = URL.createObjectURL(file)
+      const dims = await readImageDimensions(localUrl)
+
+      await sendWithOptimistic({
+        conversationId,
+        get,
+        set,
+        build: (clientMsgId, now, sender) => ({
+          id: clientMsgId,
+          conversationId,
+          ...sender,
+          content: caption || '',
+          type: 'image',
+          status: 'uploading',
+          createdAt: now,
+          updatedAt: now,
+          clientMsgId,
+          metadata: JSON.stringify({
+            url: localUrl,
+            mimeType: file.type || 'image/jpeg',
+            size: file.size,
+            width: dims.w,
+            height: dims.h,
+            fileName: file.name,
+            _localBlob: true,
+          }),
+        }),
+        send: async (clientMsgId) => {
+          const compressed = await compressImage(file)
+          const uploadRes = await messageService.uploadImage(conversationId, compressed.file)
+          const meta = uploadRes.data
+          if (!meta) throw new Error('upload failed: empty response')
+          return messageService.sendMessage({
+            conversationId,
+            content: caption || '',
+            messageType: 'image',
+            metadata: JSON.stringify(meta),
+            clientMsgId,
           })
-        }
-        set({ error: error.response?.data?.error || 'Failed to send message' })
-        throw error
-      }
+        },
+        cleanup: () => URL.revokeObjectURL(localUrl),
+        errorFallback: 'Failed to upload image',
+        toastOnError: true,
+      })
     },
 
     createGroupConversation: async (name: string, participantIds: string[]) => {

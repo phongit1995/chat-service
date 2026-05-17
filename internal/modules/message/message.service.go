@@ -4,15 +4,30 @@ import (
 	conversationEvents "chat-server/internal/domain/conversation"
 	messageEvents "chat-server/internal/domain/message"
 	"chat-server/internal/constants"
+	"chat-server/internal/services"
 	"chat-server/internal/transport/kafka"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
 	userModule "chat-server/internal/modules/user"
 	"chat-server/internal/utils"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"net/url"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	_ "golang.org/x/image/webp"
 
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
@@ -28,10 +43,12 @@ type Service struct {
 	userCache     *userModule.CacheService
 	db            *gorm.DB
 	kafkaProducer *kafka.Producer
+	minio         *services.MinIOService
+	redis         *services.CacheService
 	logger        *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, userCache *userModule.CacheService, db *gorm.DB, kafkaProducer *kafka.Producer, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, userCache *userModule.CacheService, db *gorm.DB, kafkaProducer *kafka.Producer, minio *services.MinIOService, redis *services.CacheService, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repo:          repo,
 		cache:         cache,
@@ -40,8 +57,182 @@ func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Re
 		userCache:     userCache,
 		db:            db,
 		kafkaProducer: kafkaProducer,
+		minio:         minio,
+		redis:         redis,
 		logger:        logger.Named("[message_service]"),
 	}
+}
+
+func (s *Service) UploadImage(ctx context.Context, userID, conversationID uuid.UUID, fileHeader *multipart.FileHeader) (*UploadImageResponse, error) {
+	if fileHeader.Size > constants.MaxImageUploadSize {
+		return nil, fmt.Errorf("%w: max %d bytes", ErrFileTooLarge, constants.MaxImageUploadSize)
+	}
+
+	if _, err := s.getConversationByIDCached(conversationID); err != nil {
+		return nil, fmt.Errorf("conversation not found: %w", err)
+	}
+	members, err := s.getMembersCached(conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get members: %w", err)
+	}
+	if !isActiveMember(members, userID) {
+		return nil, ErrNotMember
+	}
+
+	rateKey := fmt.Sprintf(constants.CacheKeyRateLimitUpload, userID.String())
+	if count, err := s.redis.Increment(rateKey); err == nil {
+		if count == 1 {
+			_ = s.redis.SetExpire(rateKey, time.Duration(constants.RateLimitUploadWindowSeconds)*time.Second)
+		}
+		if count > int64(constants.RateLimitUploadMaxRequests) {
+			return nil, ErrRateLimit
+		}
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	head := make([]byte, 512)
+	n, _ := io.ReadFull(file, head)
+	head = head[:n]
+	detectedMime := http.DetectContentType(head)
+	if !isAllowedImageMime(detectedMime) {
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedImage, detectedMime)
+	}
+
+	rest, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	fullData := append(head, rest...)
+	if int64(len(fullData)) > constants.MaxImageUploadSize {
+		return nil, ErrFileTooLarge
+	}
+
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(fullData))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDecodeImage, err)
+	}
+
+	ext := pickExtension(detectedMime, fileHeader.Filename)
+	safeName := fmt.Sprintf("image%s", ext)
+	folder := fmt.Sprintf("%s/%s", constants.UploadFolderMessages, conversationID.String())
+
+	upload, err := s.minio.UploadFile(ctx, &multipartFileReader{Reader: bytes.NewReader(fullData), size: int64(len(fullData))}, safeName, folder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload to storage: %w", err)
+	}
+
+	return &UploadImageResponse{
+		URL:      upload.URL,
+		MimeType: detectedMime,
+		Size:     int64(len(fullData)),
+		Width:    cfg.Width,
+		Height:   cfg.Height,
+		FileName: filepath.Base(fileHeader.Filename),
+	}, nil
+}
+
+func isAllowedImageMime(mime string) bool {
+	for _, m := range constants.AllowedImageMimes {
+		if strings.EqualFold(m, mime) {
+			return true
+		}
+	}
+	return false
+}
+
+func pickExtension(mime, originalName string) string {
+	switch strings.ToLower(mime) {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/gif":
+		return ".gif"
+	case "image/webp":
+		return ".webp"
+	}
+	return strings.ToLower(filepath.Ext(originalName))
+}
+
+type multipartFileReader struct {
+	*bytes.Reader
+	size int64
+}
+
+func (r *multipartFileReader) Close() error { return nil }
+
+var _ multipart.File = (*multipartFileReader)(nil)
+
+func validateImageMetadata(metadata string, allowedHosts []string) error {
+	if strings.TrimSpace(metadata) == "" {
+		return fmt.Errorf("%w: required", ErrInvalidMetadata)
+	}
+	var meta ImageMetadata
+	if err := json.Unmarshal([]byte(metadata), &meta); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidMetadata, err)
+	}
+	if meta.URL == "" {
+		return fmt.Errorf("%w: url required", ErrInvalidMetadata)
+	}
+	if !isAllowedImageMime(meta.MimeType) {
+		return fmt.Errorf("%w: mimeType %s", ErrInvalidMetadata, meta.MimeType)
+	}
+	if len(allowedHosts) > 0 {
+		u, err := url.Parse(meta.URL)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrInvalidMetadata, err)
+		}
+		ok := false
+		for _, h := range allowedHosts {
+			if strings.EqualFold(u.Host, h) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf("%w: host %s not allowed", ErrInvalidMetadata, u.Host)
+		}
+	}
+	return nil
+}
+
+func isActiveMember(members []conversation.ConversationMember, userID uuid.UUID) bool {
+	for _, m := range members {
+		if m.UserID == userID && m.IsActive {
+			return true
+		}
+	}
+	return false
+}
+
+func isMember(members []conversation.ConversationMember, userID uuid.UUID) bool {
+	for _, m := range members {
+		if m.UserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func truncatePreview(content string, maxRunes int) string {
+	runes := []rune(content)
+	if len(runes) <= maxRunes {
+		return content
+	}
+	return string(runes[:maxRunes]) + "…"
+}
+
+func imagePreviewText(content string) string {
+	c := strings.TrimSpace(content)
+	if c == "" {
+		return "📷 Photo"
+	}
+	return "📷 " + truncatePreview(c, 50)
 }
 
 func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType, content, metadata, clientMsgID string) (*MessageResponse, error) {
@@ -229,16 +420,18 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		return nil, fmt.Errorf("failed to get members: %w", err)
 	}
 
-	isMember := false
-	for _, m := range members {
-		if m.UserID == senderID && m.IsActive {
-			isMember = true
-			break
-		}
+	if !isActiveMember(members, senderID) {
+		return nil, fmt.Errorf("user is not a member of this conversation")
 	}
 
-	if !isMember {
-		return nil, fmt.Errorf("user is not a member of this conversation")
+	if messageType == constants.MessageTypeImage {
+		if err := validateImageMetadata(metadata, nil); err != nil {
+			return nil, err
+		}
+	} else if messageType == constants.MessageTypeText {
+		if strings.TrimSpace(content) == "" {
+			return nil, fmt.Errorf("content required for text message")
+		}
 	}
 
 	now := time.Now()
@@ -267,9 +460,11 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		return nil, fmt.Errorf("failed to create message: %w", err)
 	}
 
-	shortContent := content
-	if len(shortContent) > 100 {
-		shortContent = shortContent[:100] + "..."
+	var shortContent string
+	if messageType == constants.MessageTypeImage {
+		shortContent = imagePreviewText(content)
+	} else {
+		shortContent = truncatePreview(content, 100)
 	}
 
 	memberIDs := make([]uuid.UUID, 0, len(members))
@@ -483,15 +678,7 @@ func (s *Service) GetMessages(userID, conversationID uuid.UUID, limit int, befor
 		return nil, fmt.Errorf("failed to get members: %w", err)
 	}
 
-	isMember := false
-	for _, m := range members {
-		if m.UserID == userID && m.IsActive {
-			isMember = true
-			break
-		}
-	}
-
-	if !isMember {
+	if !isActiveMember(members, userID) {
 		return nil, fmt.Errorf("user is not a member of this conversation")
 	}
 
@@ -623,14 +810,7 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 	if err != nil {
 		return nil, fmt.Errorf("failed to check conversation membership: %w", err)
 	}
-	isMember := false
-	for _, m := range members {
-		if m.UserID == userID {
-			isMember = true
-			break
-		}
-	}
-	if !isMember {
+	if !isMember(members, userID) {
 		return nil, fmt.Errorf("you are not a member of this conversation")
 	}
 
@@ -743,19 +923,11 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		return fmt.Errorf("you can only delete your own messages")
 	}
 
-	// Check membership
 	members, err := s.getMembersCached(conversationID)
 	if err != nil {
 		return fmt.Errorf("failed to check conversation membership: %w", err)
 	}
-	isMember := false
-	for _, m := range members {
-		if m.UserID == userID {
-			isMember = true
-			break
-		}
-	}
-	if !isMember {
+	if !isMember(members, userID) {
 		return fmt.Errorf("you are not a member of this conversation")
 	}
 
@@ -948,10 +1120,7 @@ func (s *Service) updateInboxPreviewAfterDelete(conversationID uuid.UUID, delete
 }
 
 func (s *Service) updateInboxPreviewIfLastMessage(conversationID uuid.UUID, messageID gocql.UUID, newContent string, members []conversation.ConversationMember) {
-	shortContent := newContent
-	if len(shortContent) > 100 {
-		shortContent = shortContent[:100] + "..."
-	}
+	shortContent := truncatePreview(newContent, 100)
 
 	for _, m := range members {
 		inboxEntry, _, err := s.repo.GetConversationInboxEntry(m.UserID, conversationID)

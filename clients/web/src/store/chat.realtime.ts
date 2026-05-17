@@ -28,6 +28,15 @@ type ChatGetState = StoreApi<ChatState>['getState']
 
 let registered = false
 
+const buildLastMessagePreview = (message: { type?: string; content?: string }): string => {
+  const content = (message.content || '').trim()
+  if (message.type === 'image') return content ? `📷 ${content}` : '📷 Photo'
+  if (message.type === 'file') return content ? `📎 ${content}` : '📎 File'
+  if (message.type === 'video') return content ? `🎬 ${content}` : '🎬 Video'
+  if (message.type === 'audio') return content ? `🎵 ${content}` : '🎵 Audio'
+  return content
+}
+
 export const registerChatRealtimeListeners = (set: ChatSetState, get: ChatGetState) => {
   if (registered) return
   registered = true
@@ -57,7 +66,7 @@ export const registerChatRealtimeListeners = (set: ChatSetState, get: ChatGetSta
     if (!existingConversation) {
       const newConversation: Conversation = {
         ...conversation,
-        lastMessageText: message.content,
+        lastMessageText: buildLastMessagePreview(message),
         lastMessageAt: message.createdAt,
         lastMessageSenderId: message.senderId,
         lastMessageSenderName: message.senderName,
@@ -110,7 +119,7 @@ export const registerChatRealtimeListeners = (set: ChatSetState, get: ChatGetSta
     set({
       conversations: moveConversationToTop(
         updateConversationInList(conversations, message.conversationId, {
-          lastMessageText: message.content,
+          lastMessageText: buildLastMessagePreview(message),
           lastMessageAt: message.updatedAt,
           participantCount: conversation.participantCount,
         }),

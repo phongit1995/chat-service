@@ -26,6 +26,7 @@ export interface ChatState {
   selectConversation: (conversationId: string | null) => Promise<void>
   loadMessages: (conversationId: string) => Promise<void>
   sendMessage: (conversationId: string, content: string) => Promise<void>
+  sendImageMessage: (conversationId: string, file: File, caption?: string) => Promise<void>
   createGroupConversation: (name: string, participantIds: string[]) => Promise<void>
   addMessage: (message: Message) => void
   setTyping: (userId: string, isTyping: boolean, username?: string) => void

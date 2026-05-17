@@ -1,5 +1,9 @@
+import { useState } from 'react'
 import { Message } from '../../types'
 import { Avatar } from '../ui'
+import { ImageLightbox } from './ImageLightbox'
+import { getEmojiJumboSize, splitIntoSegments } from '../../utils/emoji'
+import { parseImageMeta } from '../../utils/imageMeta'
 
 interface MessageBubbleProps {
   message: Message
@@ -70,6 +74,12 @@ export const MessageBubble = ({
     )
   }
 
+  const emojiJumboSize = getEmojiJumboSize(message.content)
+  const isEmojiOnly = emojiJumboSize > 0
+  const isImage = message.type === 'image'
+  const imageMeta = isImage ? parseImageMeta(message.metadata) : null
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+
   const radius = (() => {
     const lg = '20px'
     const sm = '6px'
@@ -104,19 +114,101 @@ export const MessageBubble = ({
           </p>
         )}
 
-        <div
-          style={{ borderRadius: radius }}
-          className={[
-            'px-3.5 py-2 break-words shadow-soft-sm',
-            isOwnMessage
-              ? 'bg-gradient-signature text-on-gradient'
-              : 'bg-surface-overlay text-ink-primary',
-            message.status === 'failed' ? 'opacity-70' : '',
-            isFirstInStreak ? 'animate-slideIn' : '',
-          ].join(' ')}
-        >
-          <p className="leading-relaxed text-[14px] sm:text-[15px] whitespace-pre-wrap">{message.content}</p>
-        </div>
+        {isImage && imageMeta ? (
+          <>
+            <div
+              style={{ borderRadius: radius }}
+              className={[
+                'overflow-hidden relative shadow-soft-sm',
+                message.status === 'failed' ? 'opacity-70' : '',
+                isFirstInStreak ? 'animate-slideIn' : '',
+              ].join(' ')}
+            >
+              <img
+                src={imageMeta.url}
+                alt={imageMeta.fileName || 'image'}
+                onClick={() => message.status !== 'uploading' && setLightboxOpen(true)}
+                style={{
+                  aspectRatio: imageMeta.width && imageMeta.height ? `${imageMeta.width} / ${imageMeta.height}` : '4 / 3',
+                  width: 280,
+                  maxWidth: '100%',
+                  maxHeight: 360,
+                  cursor: message.status === 'uploading' ? 'default' : 'zoom-in',
+                }}
+                className="block object-cover bg-surface-overlay"
+              />
+              {message.status === 'uploading' && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <svg className="w-8 h-8 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            {message.content.trim() && (
+              <div
+                style={{ borderRadius: radius }}
+                className={[
+                  'mt-1 px-3.5 py-2 break-words shadow-soft-sm',
+                  isOwnMessage ? 'bg-gradient-signature text-on-gradient' : 'bg-surface-overlay text-ink-primary',
+                ].join(' ')}
+              >
+                <p className="leading-relaxed text-[14px] sm:text-[15px] whitespace-pre-wrap">{message.content}</p>
+              </div>
+            )}
+            {lightboxOpen && (
+              <ImageLightbox
+                url={imageMeta.url}
+                alt={imageMeta.fileName}
+                onClose={() => setLightboxOpen(false)}
+              />
+            )}
+          </>
+        ) : (
+          <div
+            style={{ borderRadius: isEmojiOnly ? 0 : radius }}
+            className={[
+              'break-words',
+              isEmojiOnly
+                ? 'px-1 py-0 bg-transparent shadow-none'
+                : [
+                    'px-3.5 py-2 shadow-soft-sm',
+                    isOwnMessage
+                      ? 'bg-gradient-signature text-on-gradient'
+                      : 'bg-surface-overlay text-ink-primary',
+                  ].join(' '),
+              message.status === 'failed' ? 'opacity-70' : '',
+              isFirstInStreak ? 'animate-slideIn' : '',
+            ].join(' ')}
+          >
+            <p
+              className={
+                isEmojiOnly
+                  ? 'leading-tight whitespace-pre-wrap'
+                  : 'leading-relaxed text-[14px] sm:text-[15px] whitespace-pre-wrap'
+              }
+              style={isEmojiOnly ? { fontSize: `${emojiJumboSize}rem`, lineHeight: 1.15, letterSpacing: '0.18em' } : undefined}
+            >
+              {isEmojiOnly
+                ? message.content
+                : splitIntoSegments(message.content).map((seg, i) =>
+                    seg.isEmoji ? (
+                      <span
+                        key={i}
+                        style={{ fontSize: '1.6em', lineHeight: 1, verticalAlign: 'middle', display: 'inline-block' }}
+                      >
+                        {seg.text}
+                      </span>
+                    ) : (
+                      <span key={i}>{seg.text}</span>
+                    )
+                  )
+              }
+            </p>
+          </div>
+        )}
 
         {(showTime || message.status === 'sending' || message.status === 'failed') && (
           <div
