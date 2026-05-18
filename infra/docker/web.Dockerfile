@@ -1,23 +1,27 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
-WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@11.1.2 --activate
 
-COPY clients/web/package.json clients/web/yarn.lock ./
+WORKDIR /workspace
 
-RUN yarn install --frozen-lockfile
+COPY clients/package.json clients/pnpm-workspace.yaml clients/pnpm-lock.yaml clients/.npmrc ./
+COPY clients/packages ./packages
+COPY clients/web ./web
 
-COPY clients/web/ .
+RUN pnpm install --frozen-lockfile --filter web... --filter web
 
+ARG VITE_API_BASE_URL
+ARG VITE_WS_URL
 ARG VITE_LIVEKIT_URL
-
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_WS_URL=${VITE_WS_URL}
 ENV VITE_LIVEKIT_URL=${VITE_LIVEKIT_URL}
 
-RUN yarn build
+RUN pnpm --filter web build
 
 FROM nginx:alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html
-
+COPY --from=builder /workspace/web/dist /usr/share/nginx/html
 COPY clients/web/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

@@ -1,0 +1,34 @@
+{
+  "name": "@chat/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./chat": "./src/chat/index.ts",
+    "./call": "./src/call/index.ts",
+    "./common": "./src/common/index.ts",
+    "./modals": "./src/modals/index.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./tailwind.preset.js": "./tailwind.preset.js"
+  },
+  "dependencies": {
+    "@chat/shared": "workspace:*",
+    "@livekit/components-react": "^2.9.21",
+    "@livekit/components-styles": "^1.2.0",
+    "emoji-picker-react": "^4.19.1",
+    "livekit-client": "^2.19.0",
+    "react-hot-toast": "^2.6.0"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}

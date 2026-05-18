@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -63,11 +62,6 @@ class _MessageComposerState extends State<MessageComposer> {
     );
   }
 
-  bool get _isDesktop =>
-      Theme.of(context).platform == TargetPlatform.macOS ||
-      Theme.of(context).platform == TargetPlatform.windows ||
-      Theme.of(context).platform == TargetPlatform.linux;
-
   Future<void> _processFile(File file) async {
     final size = await file.length();
     if (size > 20 * 1024 * 1024) {
@@ -79,25 +73,6 @@ class _MessageComposerState extends State<MessageComposer> {
       return;
     }
     await widget.onSendImage(file);
-  }
-
-  Future<void> _pickFromDesktopFinder() async {
-    try {
-      const typeGroup = XTypeGroup(
-        label: 'images',
-        extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-        mimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-      );
-      final picked = await openFile(acceptedTypeGroups: [typeGroup]);
-      if (picked == null) return;
-      await _processFile(File(picked.path));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick image: $e')),
-        );
-      }
-    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -120,10 +95,6 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 
   void _openAttachSheet() {
-    if (_isDesktop) {
-      _pickFromDesktopFinder();
-      return;
-    }
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(

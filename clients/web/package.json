@@ -1,5 +1,5 @@
 {
-  "name": "chat-server-web",
+  "name": "web",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -10,6 +10,8 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@chat/shared": "workspace:*",
+    "@chat/ui": "workspace:*",
     "@livekit/components-react": "^2.9.21",
     "@livekit/components-styles": "^1.2.0",
     "axios": "^1.7.9",

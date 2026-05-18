@@ -5,8 +5,8 @@ import { Login } from './pages/login'
 import { Register } from './pages/register'
 import { Chat } from './pages/chat'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { IncomingCallModal, CallScreen } from './components/call'
-import env from './config/env'
+import { IncomingCallModal, CallScreen } from '@chat/ui'
+import { env } from '@chat/shared'
 
 function App() {
   useEffect(() => {
