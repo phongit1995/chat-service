@@ -15,14 +15,22 @@ import { CallHeader } from './CallHeader'
 import { CallSettingsPanel } from './CallSettingsPanel'
 
 const ROOM_OPTIONS = { adaptiveStream: true, dynacast: true }
-const ROOM_STYLE = { background: 'transparent' }
 
 export const CallScreen = () => {
-  const { mode, active } = useCallStore()
+  const { mode, active, expanded } = useCallStore()
 
   if (!active || (mode !== 'active' && mode !== 'outgoing')) return null
 
   const isVideo = active.callType === 'video'
+  const roomStyle: React.CSSProperties = expanded
+    ? { background: 'transparent' }
+    : {
+        position: 'fixed',
+        inset: 'auto',
+        width: 0,
+        height: 0,
+        background: 'transparent',
+      }
 
   return (
     <LiveKitRoom
@@ -33,7 +41,7 @@ export const CallScreen = () => {
       video={false}
       options={ROOM_OPTIONS}
       data-lk-theme="default"
-      style={ROOM_STYLE}
+      style={roomStyle}
     >
       <RoomAudioRenderer />
       <CallContent enableAudioOnJoin enableVideoOnJoin={isVideo} />

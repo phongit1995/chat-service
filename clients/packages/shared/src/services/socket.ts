@@ -13,9 +13,11 @@ class SocketService {
 
   connect(token: string) {
     if (this.socket) {
+      console.log('Socket already connected, skipping')
       return
     }
 
+    console.log('Socket connecting to', env.wsUrl, 'with token', token?.slice(0, 20) + '...')
     this.socket = io(env.wsUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],

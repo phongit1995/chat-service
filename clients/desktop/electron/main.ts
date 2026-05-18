@@ -12,8 +12,11 @@ function createWindow() {
     minWidth: 960,
     minHeight: 600,
     show: false,
+    icon: path.join(__dirname, '../../build/icon.png'),
     autoHideMenuBar: true,
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    titleBarStyle: 'hidden',
+    trafficLightPosition: process.platform === 'darwin' ? { x: 12, y: 10 } : undefined,
+    frame: process.platform !== 'darwin' ? false : true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -50,6 +53,9 @@ if (!gotLock) {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(path.join(__dirname, '../../build/icon.png'))
+  }
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -62,6 +68,14 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('app:version', () => app.getVersion())
 ipcMain.handle('app:platform', () => process.platform)
+ipcMain.handle('window:minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize())
+ipcMain.handle('window:maximize', (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender)
+  if (!w) return
+  if (w.isMaximized()) w.unmaximize()
+  else w.maximize()
+})
+ipcMain.handle('window:close', (e) => BrowserWindow.fromWebContents(e.sender)?.close())
 ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
 ipcMain.handle('notification:show', (_e, title: string, body: string) => {
   if (Notification.isSupported()) {

@@ -41,8 +41,8 @@ export const CallMiniWidget = ({ statusLabel }: CallMiniWidgetProps) => {
   return (
     <div
       ref={nodeRef}
-      style={{ ...dragStyle, zIndex: 95 }}
-      className={`${showVideo ? 'w-[160px] sm:w-[220px]' : 'w-[240px] sm:w-[300px]'} max-w-[calc(100vw-24px)] animate-slideInRight select-none`}
+      style={{ ...dragStyle, zIndex: 10000 }}
+      className={`${showVideo ? 'w-[160px] sm:w-[220px]' : 'w-[240px] sm:w-[300px]'} max-w-[calc(100vw-24px)] select-none`}
     >
       <div
         {...dragHandleProps}
@@ -101,9 +101,9 @@ export const CallMiniWidget = ({ statusLabel }: CallMiniWidgetProps) => {
                 </div>
               </div>
 
-              <div className="flex-1 min-w-0 text-white">
-                <h3 className="text-sm font-semibold truncate">{name}</h3>
-                <p className="text-[11px] text-white/60 truncate">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold truncate" style={{ color: '#fff' }}>{name}</h3>
+                <p className="text-[11px] truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>
                   {isVideo ? '📹' : '📞'} {statusLabel}
                 </p>
               </div>

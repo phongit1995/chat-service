@@ -7,6 +7,7 @@ import { Chat } from './pages/chat'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { IncomingCallModal, CallScreen } from '@chat/ui'
 import { env } from '@chat/shared'
+import { TitleBar } from './components/TitleBar'
 
 function App() {
   useEffect(() => {
@@ -17,7 +18,8 @@ function App() {
   }, [])
 
   return (
-    <>
+    <div className="h-screen flex flex-col">
+      <TitleBar />
       <Toaster
         position="top-right"
         toastOptions={{
@@ -31,24 +33,26 @@ function App() {
           },
         }}
       />
-      <Router>
-        <Routes>
-          <Route path="/" element={<Navigate to="/chat" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route
-            path="/chat"
-            element={
-              <ProtectedRoute>
-                <Chat />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Router>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <Router>
+          <Routes>
+            <Route path="/" element={<Navigate to="/chat" replace />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <Chat />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Router>
+      </div>
       <IncomingCallModal />
       <CallScreen />
-    </>
+    </div>
   )
 }
 
