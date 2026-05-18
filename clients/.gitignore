@@ -1,0 +1,12 @@
+node_modules/
+.pnpm-store/
+
+web/dist/
+desktop/out/
+desktop/release/
+desktop/dist/
+
+packages/*/dist/
+
+*.log
+.DS_Store
