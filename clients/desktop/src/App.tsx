@@ -8,8 +8,10 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { IncomingCallModal, CallScreen } from '@chat/ui'
 import { env } from '@chat/shared'
 import { TitleBar } from './components/TitleBar'
+import { useDesktopNotifications } from './hooks/useDesktopNotifications'
 
 function App() {
+  useDesktopNotifications()
   useEffect(() => {
     document.title = 'Chat'
     if (env.isDevelopment) {
