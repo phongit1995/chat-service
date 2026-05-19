@@ -26,8 +26,31 @@ export const messageService = {
       type: data.messageType || 'text',
       ...(data.metadata ? { metadata: data.metadata } : {}),
       ...(data.clientMsgId ? { clientMsgId: data.clientMsgId } : {}),
+      ...(data.replyToId ? { replyToId: data.replyToId } : {}),
     }
     const res = await http.post<ApiResponse<Message>>('/messages', body)
+    return res.data
+  },
+
+  async updateMessage(
+    conversationId: string,
+    messageId: string,
+    content: string,
+  ): Promise<ApiResponse<Message>> {
+    const res = await http.patch<ApiResponse<Message>>(
+      `/messages/${conversationId}/${messageId}`,
+      { content },
+    )
+    return res.data
+  },
+
+  async deleteMessage(
+    conversationId: string,
+    messageId: string,
+  ): Promise<ApiResponse<void>> {
+    const res = await http.delete<ApiResponse<void>>(
+      `/messages/${conversationId}/${messageId}`,
+    )
     return res.data
   },
 

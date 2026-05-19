@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState, lazy, Suspense, KeyboardEvent } from 'react'
 import { Button } from '@chat/ui'
-import { ChatHeader, MessageList } from '@chat/ui'
+import { ChatHeader, MessageList, ComposerPreview } from '@chat/ui'
 import type { Conversation, Message, User } from '@chat/shared'
 import type { TypingUserInfo } from '@chat/shared'
 
@@ -257,6 +257,7 @@ export const ChatArea = ({
           hidden
           onChange={(e) => handleFileSelect(e.target.files?.[0])}
         />
+        <ComposerPreview />
         <form onSubmit={onSendMessage} className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"

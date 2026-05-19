@@ -108,7 +108,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
     },
 
-    sendMessage: async (conversationId: string, content: string) => {
+    sendMessage: async (conversationId: string, content: string, replyToId?: string) => {
       await sendWithOptimistic({
         conversationId,
         get,
@@ -123,9 +123,10 @@ export const useChatStore = create<ChatState>((set, get) => {
           createdAt: now,
           updatedAt: now,
           clientMsgId,
+          replyToId,
         }),
         send: (clientMsgId) =>
-          messageService.sendMessage({ conversationId, content, messageType: 'text', clientMsgId }),
+          messageService.sendMessage({ conversationId, content, messageType: 'text', clientMsgId, replyToId }),
         errorFallback: 'Failed to send message',
         rethrow: true,
       })
@@ -167,6 +168,37 @@ export const useChatStore = create<ChatState>((set, get) => {
         errorFallback: 'Failed to upload image',
         toastOnError: true,
       })
+    },
+
+    editMessage: async (messageId: string, content: string) => {
+      const { currentConversation, messages } = get()
+      if (!currentConversation) return
+      const prev = messages
+      const next = messages.map((m) =>
+        m.id === messageId ? { ...m, content, updatedAt: new Date().toISOString() } : m,
+      )
+      set({ messages: next })
+      try {
+        await messageService.updateMessage(currentConversation.id, messageId, content)
+      } catch (e: any) {
+        set({ messages: prev })
+        toast.error(e?.response?.data?.error || 'Failed to edit message')
+        throw e
+      }
+    },
+
+    deleteMessage: async (messageId: string) => {
+      const { currentConversation, messages } = get()
+      if (!currentConversation) return
+      const prev = messages
+      set({ messages: messages.filter((m) => m.id !== messageId) })
+      try {
+        await messageService.deleteMessage(currentConversation.id, messageId)
+      } catch (e: any) {
+        set({ messages: prev })
+        toast.error(e?.response?.data?.error || 'Failed to delete message')
+        throw e
+      }
     },
 
     toggleReaction: async (messageId: string, type: string) => {
@@ -288,7 +320,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     handleSendMessage: async () => {
       const ui = useChatUIStore.getState()
-      const { tempChatUser, messageInput } = ui
+      const { tempChatUser, messageInput, replyTo, editingMessageId } = ui
       const { currentConversation } = get()
 
       if (tempChatUser && !currentConversation) {
@@ -299,7 +331,13 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (!messageInput.trim() || !currentConversation) return
 
       try {
-        await get().sendMessage(currentConversation.id, messageInput.trim())
+        if (editingMessageId) {
+          await get().editMessage(editingMessageId, messageInput.trim())
+          ui.setEditingMessageId(null)
+        } else {
+          await get().sendMessage(currentConversation.id, messageInput.trim(), replyTo?.id)
+          if (replyTo) ui.setReplyTo(null)
+        }
         ui.setMessageInput('')
         await get().handleTyping(false)
       } catch (error) {

@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Message } from '@chat/shared'
+import { Message, useChatStore } from '@chat/shared'
 import { Avatar } from '../common'
 import { ImageLightbox } from './ImageLightbox'
 import { ReactionButton } from './ReactionButton'
+import { MessageActionsMenu } from './MessageActionsMenu'
 import { getEmojiJumboSize, splitIntoSegments } from '@chat/shared'
 import { parseImageMeta } from '@chat/shared'
 
@@ -86,6 +87,9 @@ export const MessageBubble = ({
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [bubbleHover, setBubbleHover] = useState(false)
   const canReact = !!onReact && isLastInStreak && message.status !== 'sending' && message.status !== 'uploading' && message.status !== 'failed'
+  const isSent = message.status === 'sent' || !message.status
+  const replyToMessage = useChatStore((s) => message.replyToId ? s.messages.find((m) => m.id === message.replyToId) : null)
+  const isEdited = message.updatedAt && message.createdAt && message.updatedAt !== message.createdAt && (message.type === 'text')
 
   const radius = (() => {
     const lg = '20px'
@@ -121,11 +125,34 @@ export const MessageBubble = ({
           </p>
         )}
 
+        {replyToMessage && (
+          <div
+            className={`mb-1 px-2 py-1 text-[11px] rounded-md border-l-2 ${
+              isOwnMessage
+                ? 'border-primary-400 bg-surface-overlay text-ink-secondary mr-1'
+                : 'border-primary-400 bg-surface-overlay text-ink-secondary ml-1'
+            } max-w-[260px] truncate`}
+            title={replyToMessage.content}
+          >
+            <span className="font-semibold mr-1">↪ {replyToMessage.senderName || 'You'}:</span>
+            <span className="opacity-80">
+              {replyToMessage.type === 'image' ? '📷 Photo' : replyToMessage.content}
+            </span>
+          </div>
+        )}
+
         <div
           className="relative"
           onMouseEnter={() => setBubbleHover(true)}
           onMouseLeave={() => setBubbleHover(false)}
         >
+        {isSent && (
+          <MessageActionsMenu
+            message={message}
+            isOwnMessage={isOwnMessage}
+            visible={bubbleHover}
+          />
+        )}
         {canReact && onReact && (
           <ReactionButton
             reactions={message.reactions}
@@ -241,6 +268,7 @@ export const MessageBubble = ({
             }`}
           >
             <span className="text-ink-tertiary">{formatTime(message.createdAt)}</span>
+            {isEdited && <span className="text-ink-tertiary italic">edited</span>}
             {renderStatus()}
           </div>
         )}

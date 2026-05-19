@@ -39,6 +39,7 @@ export interface CreateMessageDTO {
   messageType?: string
   metadata?: string
   clientMsgId?: string
+  replyToId?: string
 }
 
 export interface ImageMetadata {
