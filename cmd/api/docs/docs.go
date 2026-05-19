@@ -166,6 +166,168 @@ const docTemplate = `{
                 }
             }
         },
+        "/calls/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a LiveKit room and notify other participants",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "calls"
+                ],
+                "summary": "Start a call",
+                "parameters": [
+                    {
+                        "description": "Start call",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_call.StartCallRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_call.CallTokenSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/calls/{id}/answer": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "calls"
+                ],
+                "summary": "Answer a call",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Call ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_call.CallTokenSuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/calls/{id}/decline": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "calls"
+                ],
+                "summary": "Decline a call",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Call ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_call.SimpleSuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/calls/{id}/end": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "calls"
+                ],
+                "summary": "End a call",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Call ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_call.SimpleSuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/conversations": {
             "get": {
                 "security": [
@@ -771,6 +933,86 @@ const docTemplate = `{
                 }
             }
         },
+        "/messages/images": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload an image and create a message of type=image in one call (≤2MB jpeg/png/gif/webp)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Send image message",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Image file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Idempotency key",
+                        "name": "clientMsgId",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_message.MessageSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/messages/{conversationId}": {
             "get": {
                 "security": [
@@ -982,6 +1224,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/messages/{conversationId}/{messageId}/reactions": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Toggle a reaction (LIKE/LOVE/HAHA/WOW/SAD/ANGRY) on a message. Idempotent per (user, message, type).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Toggle reaction",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message ID (timeuuid)",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reaction type",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_message.ToggleReactionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_message.MessageSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/relationships/block": {
             "post": {
                 "security": [
@@ -1040,7 +1359,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all users blocked by the user",
+                "description": "Get users blocked by the user (paginated)",
                 "produces": [
                     "application/json"
                 ],
@@ -1048,6 +1367,22 @@ const docTemplate = `{
                     "relationships"
                 ],
                 "summary": "Get blocked users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit results (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1071,7 +1406,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all friends of the user",
+                "description": "Get friends of the user (paginated)",
                 "produces": [
                     "application/json"
                 ],
@@ -1079,6 +1414,22 @@ const docTemplate = `{
                     "relationships"
                 ],
                 "summary": "Get friends list",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Limit results (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1102,7 +1453,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all pending friend requests received by the user",
+                "description": "Get pending friend requests received by the user (paginated)",
                 "produces": [
                     "application/json"
                 ],
@@ -1110,6 +1461,22 @@ const docTemplate = `{
                     "relationships"
                 ],
                 "summary": "Get pending friend requests",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit results (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1190,7 +1557,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all friend requests sent by the user",
+                "description": "Get friend requests sent by the user (paginated)",
                 "produces": [
                     "application/json"
                 ],
@@ -1198,6 +1565,22 @@ const docTemplate = `{
                     "relationships"
                 ],
                 "summary": "Get sent friend requests",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit results (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1911,6 +2294,96 @@ const docTemplate = `{
         "internal_modules_auth.UserResponse": {
             "type": "object"
         },
+        "internal_modules_call.CallTokenResponse": {
+            "type": "object",
+            "properties": {
+                "callId": {
+                    "type": "string"
+                },
+                "callType": {
+                    "type": "string"
+                },
+                "callerId": {
+                    "type": "string"
+                },
+                "conversationId": {
+                    "type": "string"
+                },
+                "roomName": {
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "wsUrl": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_call.CallTokenSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_call.CallTokenResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_call.SimpleSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "OK"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_modules_call.StartCallRequest": {
+            "type": "object",
+            "required": [
+                "callType",
+                "conversationId"
+            ],
+            "properties": {
+                "callType": {
+                    "type": "string",
+                    "enum": [
+                        "audio",
+                        "video"
+                    ]
+                },
+                "conversationId": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_modules_conversation.ConversationResponse": {
             "type": "object",
             "properties": {
@@ -2253,6 +2726,15 @@ const docTemplate = `{
                     "type": "string",
                     "example": "{\"fileName\":\"image.png\"}"
                 },
+                "reactions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "replyToId": {
                     "type": "string",
                     "example": "ga8g0h98-cb4g-8b79-f3e0-ggi49e48eihf"
@@ -2353,7 +2835,6 @@ const docTemplate = `{
         "internal_modules_message.SendDirectMessageRequest": {
             "type": "object",
             "required": [
-                "content",
                 "recipientId",
                 "type"
             ],
@@ -2366,7 +2847,6 @@ const docTemplate = `{
                 "content": {
                     "type": "string",
                     "maxLength": 4000,
-                    "minLength": 1,
                     "example": "Hello, how are you?"
                 },
                 "metadata": {
@@ -2393,7 +2873,6 @@ const docTemplate = `{
         "internal_modules_message.SendMessageRequest": {
             "type": "object",
             "required": [
-                "content",
                 "conversationId",
                 "type"
             ],
@@ -2406,7 +2885,6 @@ const docTemplate = `{
                 "content": {
                     "type": "string",
                     "maxLength": 4000,
-                    "minLength": 1,
                     "example": "Hello, how are you?"
                 },
                 "conversationId": {
@@ -2447,6 +2925,26 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_modules_message.ToggleReactionRequest": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "LIKE",
+                        "LOVE",
+                        "HAHA",
+                        "WOW",
+                        "SAD",
+                        "ANGRY"
+                    ],
+                    "example": "LIKE"
+                }
+            }
+        },
         "internal_modules_message.UpdateMessageRequest": {
             "type": "object",
             "required": [
@@ -2481,6 +2979,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/internal_modules_relationships.FriendResponse"
                     }
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
                 },
                 "total": {
                     "type": "integer",
@@ -2546,6 +3052,14 @@ const docTemplate = `{
         "internal_modules_relationships.RelationshipListResponse": {
             "type": "object",
             "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
                 "relationships": {
                     "type": "array",
                     "items": {

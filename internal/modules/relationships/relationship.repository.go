@@ -49,46 +49,90 @@ func (r *Repository) Delete(relationship *models.Relationship) error {
 	return r.db.Delete(relationship).Error
 }
 
-func (r *Repository) GetPendingRequests(userID uuid.UUID) ([]models.Relationship, error) {
+func (r *Repository) GetPendingRequests(userID uuid.UUID, limit, offset int) ([]models.Relationship, int64, error) {
 	var relationships []models.Relationship
-	err := r.db.Where("addressee_id = ? AND status = ?", userID, models.RelationshipStatusPending).
+	var total int64
+
+	base := r.db.Model(&models.Relationship{}).
+		Where("addressee_id = ? AND status = ?", userID, models.RelationshipStatusPending)
+
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := base.
 		Preload("Requester").
 		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&relationships).Error
 
-	return relationships, err
+	return relationships, total, err
 }
 
-func (r *Repository) GetSentRequests(userID uuid.UUID) ([]models.Relationship, error) {
+func (r *Repository) GetSentRequests(userID uuid.UUID, limit, offset int) ([]models.Relationship, int64, error) {
 	var relationships []models.Relationship
-	err := r.db.Where("requester_id = ? AND status = ?", userID, models.RelationshipStatusPending).
+	var total int64
+
+	base := r.db.Model(&models.Relationship{}).
+		Where("requester_id = ? AND status = ?", userID, models.RelationshipStatusPending)
+
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := base.
 		Preload("Addressee").
 		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&relationships).Error
 
-	return relationships, err
+	return relationships, total, err
 }
 
-func (r *Repository) GetFriends(userID uuid.UUID) ([]models.Relationship, error) {
+func (r *Repository) GetFriends(userID uuid.UUID, limit, offset int) ([]models.Relationship, int64, error) {
 	var relationships []models.Relationship
-	err := r.db.Where(
+	var total int64
+
+	base := r.db.Model(&models.Relationship{}).Where(
 		"(requester_id = ? OR addressee_id = ?) AND status = ?",
 		userID, userID, models.RelationshipStatusAccepted,
-	).Preload("Requester").Preload("Addressee").
+	)
+
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := base.
+		Preload("Requester").Preload("Addressee").
 		Order("actioned_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&relationships).Error
 
-	return relationships, err
+	return relationships, total, err
 }
 
-func (r *Repository) GetBlockedUsers(userID uuid.UUID) ([]models.Relationship, error) {
+func (r *Repository) GetBlockedUsers(userID uuid.UUID, limit, offset int) ([]models.Relationship, int64, error) {
 	var relationships []models.Relationship
-	err := r.db.Where("requester_id = ? AND status = ?", userID, models.RelationshipStatusBlocked).
+	var total int64
+
+	base := r.db.Model(&models.Relationship{}).
+		Where("requester_id = ? AND status = ?", userID, models.RelationshipStatusBlocked)
+
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := base.
 		Preload("Addressee").
 		Order("actioned_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&relationships).Error
 
-	return relationships, err
+	return relationships, total, err
 }
 
 func (r *Repository) CheckRelationshipExists(userID1, userID2 uuid.UUID) (bool, error) {

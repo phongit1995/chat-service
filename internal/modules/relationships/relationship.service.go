@@ -298,8 +298,8 @@ func (s *Service) UnblockUser(relationshipID, userID uuid.UUID) error {
 	return nil
 }
 
-func (s *Service) GetPendingRequests(userID uuid.UUID) (*RelationshipListResponse, error) {
-	relationships, err := s.repo.GetPendingRequests(userID)
+func (s *Service) GetPendingRequests(userID uuid.UUID, limit, offset int) (*RelationshipListResponse, error) {
+	relationships, total, err := s.repo.GetPendingRequests(userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -311,12 +311,14 @@ func (s *Service) GetPendingRequests(userID uuid.UUID) (*RelationshipListRespons
 
 	return &RelationshipListResponse{
 		Relationships: responses,
-		Total:         len(responses),
+		Total:         total,
+		Limit:         limit,
+		Offset:        offset,
 	}, nil
 }
 
-func (s *Service) GetSentRequests(userID uuid.UUID) (*RelationshipListResponse, error) {
-	relationships, err := s.repo.GetSentRequests(userID)
+func (s *Service) GetSentRequests(userID uuid.UUID, limit, offset int) (*RelationshipListResponse, error) {
+	relationships, total, err := s.repo.GetSentRequests(userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -328,12 +330,14 @@ func (s *Service) GetSentRequests(userID uuid.UUID) (*RelationshipListResponse, 
 
 	return &RelationshipListResponse{
 		Relationships: responses,
-		Total:         len(responses),
+		Total:         total,
+		Limit:         limit,
+		Offset:        offset,
 	}, nil
 }
 
-func (s *Service) GetFriends(userID uuid.UUID) (*FriendListResponse, error) {
-	relationships, err := s.repo.GetFriends(userID)
+func (s *Service) GetFriends(userID uuid.UUID, limit, offset int) (*FriendListResponse, error) {
+	relationships, total, err := s.repo.GetFriends(userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -362,12 +366,14 @@ func (s *Service) GetFriends(userID uuid.UUID) (*FriendListResponse, error) {
 
 	return &FriendListResponse{
 		Friends: friends,
-		Total:   len(friends),
+		Total:   total,
+		Limit:   limit,
+		Offset:  offset,
 	}, nil
 }
 
-func (s *Service) GetBlockedUsers(userID uuid.UUID) (*RelationshipListResponse, error) {
-	relationships, err := s.repo.GetBlockedUsers(userID)
+func (s *Service) GetBlockedUsers(userID uuid.UUID, limit, offset int) (*RelationshipListResponse, error) {
+	relationships, total, err := s.repo.GetBlockedUsers(userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +385,9 @@ func (s *Service) GetBlockedUsers(userID uuid.UUID) (*RelationshipListResponse, 
 
 	return &RelationshipListResponse{
 		Relationships: responses,
-		Total:         len(responses),
+		Total:         total,
+		Limit:         limit,
+		Offset:        offset,
 	}, nil
 }
 

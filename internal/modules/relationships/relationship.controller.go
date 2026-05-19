@@ -312,10 +312,12 @@ func (ctrl *Controller) UnblockUser(c *gin.Context) (interface{}, error) {
 
 // GetPendingRequests godoc
 // @Summary      Get pending friend requests
-// @Description  Get all pending friend requests received by the user
+// @Description  Get pending friend requests received by the user (paginated)
 // @Tags         relationships
 // @Produce      json
 // @Security     BearerAuth
+// @Param        limit  query int false "Limit results (max 100)" default(20)
+// @Param        offset query int false "Offset for pagination" default(0)
 // @Success      200  {object}  RelationshipListSuccessResponse
 // @Failure      401  {object}  utils.APIError
 // @Router       /relationships/pending [get]
@@ -325,7 +327,10 @@ func (ctrl *Controller) GetPendingRequests(c *gin.Context) (interface{}, error) 
 		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
 	}
 
-	response, err := ctrl.service.GetPendingRequests(userID)
+	limit := utils.ParseLimit(c, 20, 100)
+	offset := utils.ParseOffset(c)
+
+	response, err := ctrl.service.GetPendingRequests(userID, limit, offset)
 	if err != nil {
 		ctrl.logger.Errorw("Failed to get pending requests",
 			"user_id", userID,
@@ -339,10 +344,12 @@ func (ctrl *Controller) GetPendingRequests(c *gin.Context) (interface{}, error) 
 
 // GetSentRequests godoc
 // @Summary      Get sent friend requests
-// @Description  Get all friend requests sent by the user
+// @Description  Get friend requests sent by the user (paginated)
 // @Tags         relationships
 // @Produce      json
 // @Security     BearerAuth
+// @Param        limit  query int false "Limit results (max 100)" default(20)
+// @Param        offset query int false "Offset for pagination" default(0)
 // @Success      200  {object}  RelationshipListSuccessResponse
 // @Failure      401  {object}  utils.APIError
 // @Router       /relationships/sent [get]
@@ -352,7 +359,10 @@ func (ctrl *Controller) GetSentRequests(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
 	}
 
-	response, err := ctrl.service.GetSentRequests(userID)
+	limit := utils.ParseLimit(c, 20, 100)
+	offset := utils.ParseOffset(c)
+
+	response, err := ctrl.service.GetSentRequests(userID, limit, offset)
 	if err != nil {
 		ctrl.logger.Errorw("Failed to get sent requests",
 			"user_id", userID,
@@ -366,10 +376,12 @@ func (ctrl *Controller) GetSentRequests(c *gin.Context) (interface{}, error) {
 
 // GetFriends godoc
 // @Summary      Get friends list
-// @Description  Get all friends of the user
+// @Description  Get friends of the user (paginated)
 // @Tags         relationships
 // @Produce      json
 // @Security     BearerAuth
+// @Param        limit  query int false "Limit results (max 100)" default(50)
+// @Param        offset query int false "Offset for pagination" default(0)
 // @Success      200  {object}  FriendListSuccessResponse
 // @Failure      401  {object}  utils.APIError
 // @Router       /relationships/friends [get]
@@ -379,7 +391,10 @@ func (ctrl *Controller) GetFriends(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
 	}
 
-	response, err := ctrl.service.GetFriends(userID)
+	limit := utils.ParseLimit(c, 50, 100)
+	offset := utils.ParseOffset(c)
+
+	response, err := ctrl.service.GetFriends(userID, limit, offset)
 	if err != nil {
 		ctrl.logger.Errorw("Failed to get friends",
 			"user_id", userID,
@@ -393,10 +408,12 @@ func (ctrl *Controller) GetFriends(c *gin.Context) (interface{}, error) {
 
 // GetBlockedUsers godoc
 // @Summary      Get blocked users
-// @Description  Get all users blocked by the user
+// @Description  Get users blocked by the user (paginated)
 // @Tags         relationships
 // @Produce      json
 // @Security     BearerAuth
+// @Param        limit  query int false "Limit results (max 100)" default(20)
+// @Param        offset query int false "Offset for pagination" default(0)
 // @Success      200  {object}  RelationshipListSuccessResponse
 // @Failure      401  {object}  utils.APIError
 // @Router       /relationships/blocked [get]
@@ -406,7 +423,10 @@ func (ctrl *Controller) GetBlockedUsers(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
 	}
 
-	response, err := ctrl.service.GetBlockedUsers(userID)
+	limit := utils.ParseLimit(c, 20, 100)
+	offset := utils.ParseOffset(c)
+
+	response, err := ctrl.service.GetBlockedUsers(userID, limit, offset)
 	if err != nil {
 		ctrl.logger.Errorw("Failed to get blocked users",
 			"user_id", userID,

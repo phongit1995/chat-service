@@ -44,12 +44,16 @@ type FriendResponse struct {
 
 type RelationshipListResponse struct {
 	Relationships []RelationshipResponse `json:"relationships"`
-	Total         int                    `json:"total" example:"10"`
+	Total         int64                  `json:"total" example:"10"`
+	Limit         int                    `json:"limit" example:"20"`
+	Offset        int                    `json:"offset" example:"0"`
 }
 
 type FriendListResponse struct {
 	Friends []FriendResponse `json:"friends"`
-	Total   int              `json:"total" example:"5"`
+	Total   int64            `json:"total" example:"5"`
+	Limit   int              `json:"limit" example:"20"`
+	Offset  int              `json:"offset" example:"0"`
 }
 
 type RelationshipSuccessResponse = utils.BaseResponse[RelationshipResponse]

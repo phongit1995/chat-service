@@ -127,6 +127,66 @@ definitions:
     type: object
   internal_modules_auth.UserResponse:
     type: object
+  internal_modules_call.CallTokenResponse:
+    properties:
+      callId:
+        type: string
+      callType:
+        type: string
+      callerId:
+        type: string
+      conversationId:
+        type: string
+      roomName:
+        type: string
+      startedAt:
+        type: string
+      status:
+        type: string
+      token:
+        type: string
+      wsUrl:
+        type: string
+    type: object
+  internal_modules_call.CallTokenSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_call.CallTokenResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_call.SimpleSuccessResponse:
+    properties:
+      message:
+        example: OK
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  internal_modules_call.StartCallRequest:
+    properties:
+      callType:
+        enum:
+        - audio
+        - video
+        type: string
+      conversationId:
+        type: string
+    required:
+    - callType
+    - conversationId
+    type: object
   internal_modules_conversation.ConversationResponse:
     properties:
       avatar:
@@ -366,6 +426,12 @@ definitions:
       metadata:
         example: '{"fileName":"image.png"}'
         type: string
+      reactions:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
       replyToId:
         example: ga8g0h98-cb4g-8b79-f3e0-ggi49e48eihf
         type: string
@@ -441,7 +507,6 @@ definitions:
       content:
         example: Hello, how are you?
         maxLength: 4000
-        minLength: 1
         type: string
       metadata:
         example: '{"fileName":"image.png"}'
@@ -459,7 +524,6 @@ definitions:
         example: text
         type: string
     required:
-    - content
     - recipientId
     - type
     type: object
@@ -472,7 +536,6 @@ definitions:
       content:
         example: Hello, how are you?
         maxLength: 4000
-        minLength: 1
         type: string
       conversationId:
         example: ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd
@@ -493,7 +556,6 @@ definitions:
         example: text
         type: string
     required:
-    - content
     - conversationId
     - type
     type: object
@@ -505,6 +567,21 @@ definitions:
       success:
         example: true
         type: boolean
+    type: object
+  internal_modules_message.ToggleReactionRequest:
+    properties:
+      type:
+        enum:
+        - LIKE
+        - LOVE
+        - HAHA
+        - WOW
+        - SAD
+        - ANGRY
+        example: LIKE
+        type: string
+    required:
+    - type
     type: object
   internal_modules_message.UpdateMessageRequest:
     properties:
@@ -530,6 +607,12 @@ definitions:
         items:
           $ref: '#/definitions/internal_modules_relationships.FriendResponse'
         type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
       total:
         example: 5
         type: integer
@@ -574,6 +657,12 @@ definitions:
     type: object
   internal_modules_relationships.RelationshipListResponse:
     properties:
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
       relationships:
         items:
           $ref: '#/definitions/internal_modules_relationships.RelationshipResponse'
@@ -987,6 +1076,106 @@ paths:
       summary: Register a new user
       tags:
       - auth
+  /calls/{id}/answer:
+    post:
+      parameters:
+      - description: Call ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_call.CallTokenSuccessResponse'
+      security:
+      - BearerAuth: []
+      summary: Answer a call
+      tags:
+      - calls
+  /calls/{id}/decline:
+    post:
+      parameters:
+      - description: Call ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_call.SimpleSuccessResponse'
+      security:
+      - BearerAuth: []
+      summary: Decline a call
+      tags:
+      - calls
+  /calls/{id}/end:
+    post:
+      parameters:
+      - description: Call ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_call.SimpleSuccessResponse'
+      security:
+      - BearerAuth: []
+      summary: End a call
+      tags:
+      - calls
+  /calls/start:
+    post:
+      consumes:
+      - application/json
+      description: Create a LiveKit room and notify other participants
+      parameters:
+      - description: Start call
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_call.StartCallRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_call.CallTokenSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Start a call
+      tags:
+      - calls
   /conversations:
     get:
       description: Get all conversations for the authenticated user
@@ -1475,6 +1664,57 @@ paths:
       summary: Update message
       tags:
       - messages
+  /messages/{conversationId}/{messageId}/reactions:
+    post:
+      consumes:
+      - application/json
+      description: Toggle a reaction (LIKE/LOVE/HAHA/WOW/SAD/ANGRY) on a message.
+        Idempotent per (user, message, type).
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID (timeuuid)
+        in: path
+        name: messageId
+        required: true
+        type: string
+      - description: Reaction type
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_message.ToggleReactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_message.MessageSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Toggle reaction
+      tags:
+      - messages
   /messages/direct:
     post:
       consumes:
@@ -1510,6 +1750,59 @@ paths:
       security:
       - BearerAuth: []
       summary: Send direct message
+      tags:
+      - messages
+  /messages/images:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an image and create a message of type=image in one call
+        (≤2MB jpeg/png/gif/webp)
+      parameters:
+      - description: Image file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Conversation ID
+        in: formData
+        name: conversationId
+        required: true
+        type: string
+      - description: Idempotency key
+        in: formData
+        name: clientMsgId
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_message.MessageSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Send image message
       tags:
       - messages
   /relationships/{id}/cancel:
@@ -1680,7 +1973,18 @@ paths:
       - relationships
   /relationships/blocked:
     get:
-      description: Get all users blocked by the user
+      description: Get users blocked by the user (paginated)
+      parameters:
+      - default: 20
+        description: Limit results (max 100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -1699,7 +2003,18 @@ paths:
       - relationships
   /relationships/friends:
     get:
-      description: Get all friends of the user
+      description: Get friends of the user (paginated)
+      parameters:
+      - default: 50
+        description: Limit results (max 100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -1718,7 +2033,18 @@ paths:
       - relationships
   /relationships/pending:
     get:
-      description: Get all pending friend requests received by the user
+      description: Get pending friend requests received by the user (paginated)
+      parameters:
+      - default: 20
+        description: Limit results (max 100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -1773,7 +2099,18 @@ paths:
       - relationships
   /relationships/sent:
     get:
-      description: Get all friend requests sent by the user
+      description: Get friend requests sent by the user (paginated)
+      parameters:
+      - default: 20
+        description: Limit results (max 100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:

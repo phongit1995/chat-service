@@ -18,3 +18,12 @@ func ParseLimit(c *gin.Context, defaultLimit, maxLimit int) int {
 	}
 	return limit
 }
+
+func ParseOffset(c *gin.Context) int {
+	if s := c.Query("offset"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n >= 0 {
+			return n
+		}
+	}
+	return 0
+}
