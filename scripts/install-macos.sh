@@ -6,8 +6,15 @@ TAG="${1:-latest}"
 INSTALL_DIR="/Applications"
 VERSION_FILE="$HOME/.local/share/chat-app/.version"
 
-echo "Chat App Installer / Updater for macOS"
-echo "========================================"
+echo "Chat Desktop Installer / Updater for macOS"
+echo "==========================================="
+
+ARCH=$(uname -m)
+case "$ARCH" in
+  arm64) ASSET_ARCH="arm64" ;;
+  x86_64) ASSET_ARCH="x64" ;;
+  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+esac
 
 API_BASE="https://api.github.com/repos/$REPO"
 
@@ -19,13 +26,20 @@ fi
 
 NEW_VERSION=$(echo "$RELEASE" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
 DOWNLOAD_URL=$(echo "$RELEASE" | python3 -c "
-import sys, json
+import sys, json, re
+arch = '$ASSET_ARCH'
 assets = json.load(sys.stdin)['assets']
-match = next((a['browser_download_url'] for a in assets if a['name'] == 'chat_app-macos.zip'), None)
+pat = re.compile(rf'Chat-.*-mac-{arch}\.dmg$')
+match = next((a['browser_download_url'] for a in assets if pat.search(a['name'])), None)
 if not match:
     sys.exit(1)
 print(match)
 ")
+
+if [ -z "$DOWNLOAD_URL" ]; then
+    echo "Error: no DMG asset found for $ASSET_ARCH in release $NEW_VERSION"
+    exit 1
+fi
 
 if [ -f "$VERSION_FILE" ]; then
     CURRENT_VERSION=$(cat "$VERSION_FILE")
@@ -38,19 +52,19 @@ else
     echo "Installing version: $NEW_VERSION"
 fi
 
-TMP_ZIP=$(mktemp /tmp/chat_app-macos.XXXXXX.zip)
-echo "Downloading chat_app-macos.zip..."
-curl -fSL --progress-bar "$DOWNLOAD_URL" -o "$TMP_ZIP"
+TMP_DMG=$(mktemp /tmp/chat-desktop.XXXXXX.dmg)
+echo "Downloading $(basename "$DOWNLOAD_URL")..."
+curl -fSL --progress-bar "$DOWNLOAD_URL" -o "$TMP_DMG"
 
-TMP_DIR=$(mktemp -d)
-echo "Extracting..."
-unzip -q "$TMP_ZIP" -d "$TMP_DIR"
-rm "$TMP_ZIP"
+MOUNT_POINT=$(mktemp -d /tmp/chat-mount.XXXXXX)
+echo "Mounting DMG..."
+hdiutil attach "$TMP_DMG" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
 
-APP=$(find "$TMP_DIR" -name "*.app" -maxdepth 1 | head -1)
+APP=$(find "$MOUNT_POINT" -maxdepth 2 -name "*.app" | head -1)
 if [ -z "$APP" ]; then
-    echo "Error: no .app bundle found after extraction"
-    rm -rf "$TMP_DIR"
+    echo "Error: no .app bundle found in DMG"
+    hdiutil detach "$MOUNT_POINT" -quiet
+    rm "$TMP_DMG"
     exit 1
 fi
 
@@ -63,8 +77,13 @@ if [ -d "$DEST" ]; then
 fi
 
 echo "Installing $APP_NAME to $INSTALL_DIR..."
-cp -r "$APP" "$DEST"
-rm -rf "$TMP_DIR"
+cp -R "$APP" "$DEST"
+
+hdiutil detach "$MOUNT_POINT" -quiet
+rm "$TMP_DMG"
+
+# Clear quarantine attr so user doesn't get "unidentified developer" warning
+xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 
 mkdir -p "$(dirname "$VERSION_FILE")"
 echo "$NEW_VERSION" > "$VERSION_FILE"

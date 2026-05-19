@@ -1,73 +1,52 @@
-#Requires -Version 5.1
+<#
+  Chat Desktop installer/updater for Windows.
+  Usage:
+    powershell -ExecutionPolicy Bypass -File install-win.ps1 [tag]
+#>
+
 param(
-    [string]$Repo = "phongit1995/chat-service",
-    [string]$Tag = "latest",
-    [string]$InstallDir = "$env:LOCALAPPDATA\ChatApp"
+    [string]$Tag = "latest"
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
+$Repo = if ($env:REPO) { $env:REPO } else { "phongit1995/chat-service" }
 
-Write-Host "Chat App Installer / Updater for Windows" -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "Chat Desktop Installer / Updater for Windows"
+Write-Host "============================================="
 
 $apiBase = "https://api.github.com/repos/$Repo"
-$versionFile = Join-Path $InstallDir ".version"
-
-if ($Tag -eq "latest") {
-    $release = Invoke-RestMethod "$apiBase/releases/latest"
-} else {
-    $release = Invoke-RestMethod "$apiBase/releases/tags/$Tag"
-}
-
+$releaseUrl = if ($Tag -eq "latest") { "$apiBase/releases/latest" } else { "$apiBase/releases/tags/$Tag" }
+$release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ 'User-Agent' = 'chat-installer' }
 $newVersion = $release.tag_name
 
+$asset = $release.assets | Where-Object { $_.name -match 'Chat-.*-win-.*\.exe$' } | Select-Object -First 1
+if (-not $asset) {
+    Write-Error "No Windows .exe asset found in release $newVersion"
+    exit 1
+}
+
+$versionFile = Join-Path $env:LOCALAPPDATA 'chat-app\.version'
 if (Test-Path $versionFile) {
-    $currentVersion = Get-Content $versionFile -Raw | ForEach-Object { $_.Trim() }
-    if ($currentVersion -eq $newVersion) {
-        Write-Host "Already up to date: $currentVersion" -ForegroundColor Green
+    $current = Get-Content $versionFile -Raw
+    if ($current.Trim() -eq $newVersion) {
+        Write-Host "Already up to date: $current"
         exit 0
     }
-    Write-Host "Update available: $currentVersion -> $newVersion" -ForegroundColor Yellow
+    Write-Host "Update available: $current -> $newVersion"
 } else {
-    Write-Host "Installing version: $newVersion" -ForegroundColor Yellow
+    Write-Host "Installing version: $newVersion"
 }
 
-$asset = $release.assets | Where-Object { $_.name -eq "chat_app-windows.zip" }
-if (-not $asset) {
-    Write-Error "No windows artifact found in release $newVersion"
-    exit 1
-}
-
-$tmpZip = Join-Path $env:TEMP "chat_app-windows.zip"
+$tmp = [IO.Path]::Combine($env:TEMP, "chat-desktop-$(Get-Random).exe")
 Write-Host "Downloading $($asset.name)..."
-Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tmpZip -UseBasicParsing
+Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tmp -UseBasicParsing
 
-if (Test-Path $InstallDir) {
-    Write-Host "Removing previous installation..."
-    Remove-Item $InstallDir -Recurse -Force
-}
-New-Item -ItemType Directory -Path $InstallDir | Out-Null
+Write-Host "Launching installer (silent mode)..."
+Start-Process -FilePath $tmp -ArgumentList '/S' -Wait
+Remove-Item $tmp
 
-Write-Host "Extracting to $InstallDir..."
-Expand-Archive -Path $tmpZip -DestinationPath $InstallDir -Force
-Remove-Item $tmpZip
-
-$newVersion | Set-Content $versionFile
-
-$exe = Get-ChildItem $InstallDir -Filter "*.exe" | Select-Object -First 1
-if (-not $exe) {
-    Write-Error "No .exe found after extraction"
-    exit 1
-}
-
-$shortcutPath = [System.IO.Path]::Combine([Environment]::GetFolderPath("Desktop"), "Chat App.lnk")
-$shell = New-Object -ComObject WScript.Shell
-$shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = $exe.FullName
-$shortcut.WorkingDirectory = $InstallDir
-$shortcut.Save()
+New-Item -ItemType Directory -Force -Path (Split-Path $versionFile) | Out-Null
+$newVersion | Out-File -FilePath $versionFile -Encoding utf8 -NoNewline
 
 Write-Host ""
-Write-Host "Done! Version $newVersion installed." -ForegroundColor Green
-Write-Host "Installed to: $InstallDir" -ForegroundColor Green
-Write-Host "Desktop shortcut: $shortcutPath" -ForegroundColor Green
+Write-Host "Done! Version $newVersion installed."
