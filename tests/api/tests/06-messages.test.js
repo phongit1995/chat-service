@@ -80,6 +80,11 @@ async function main() {
     if (edited?.content === 'Hey bob!! (edited)') break
   }
   ok('edit reflected in history', edited?.content === 'Hey bob!! (edited)')
+  ok('edited message has editedAt', !!edited?.editedAt)
+  ok('editedAt is parseable ISO', !!edited?.editedAt && !isNaN(Date.parse(edited.editedAt)))
+
+  const fresh = data(r)?.messages?.find(m => m.id !== msgA1 && m.id)
+  ok('fresh (un-edited) message has no editedAt', !fresh?.editedAt)
 
   // [BUG] empty content should be 400, server returns 500
   r = await req('PATCH', `/messages/${convId}/${msgA1}`, { content: '' }, alice.token)

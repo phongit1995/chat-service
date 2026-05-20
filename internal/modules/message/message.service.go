@@ -796,6 +796,10 @@ func (s *Service) GetMessages(userID, conversationID uuid.UUID, limit int, befor
 			Reactions:      parseReactions(msg.Reactions),
 		}
 
+		if msg.EditedAt != nil {
+			resp.EditedAt = msg.EditedAt.Format(time.RFC3339)
+		}
+
 		if msg.ReplyToID != nil {
 			resp.ReplyToID = msg.ReplyToID.String()
 		}
@@ -885,6 +889,7 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		Status:         "sent",
 		CreatedAt:      msg.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      now.Format(time.RFC3339),
+		EditedAt:       now.Format(time.RFC3339),
 	}
 
 	go func() {
@@ -924,6 +929,7 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 			Metadata:       resp.Metadata,
 			CreatedAt:      resp.CreatedAt,
 			UpdatedAt:      resp.UpdatedAt,
+			EditedAt:       resp.EditedAt,
 			ReplyToID:      resp.ReplyToID,
 		}
 

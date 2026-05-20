@@ -13,6 +13,7 @@ type MessageData struct {
 	Status         string `json:"status"`
 	CreatedAt      string `json:"createdAt"`
 	UpdatedAt      string `json:"updatedAt"`
+	EditedAt       string `json:"editedAt,omitempty"`
 	ReplyToID      string `json:"replyToId,omitempty"`
 	ClientMsgID    string `json:"clientMsgId,omitempty"`
 }

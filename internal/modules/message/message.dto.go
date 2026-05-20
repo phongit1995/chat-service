@@ -35,6 +35,7 @@ type MessageResponse struct {
 	Status         string              `json:"status" example:"sent"`
 	CreatedAt      string              `json:"createdAt" example:"2024-01-15T10:30:00Z"`
 	UpdatedAt      string              `json:"updatedAt" example:"2024-01-15T10:30:00Z"`
+	EditedAt       string              `json:"editedAt,omitempty" example:"2024-01-15T10:35:00Z"`
 	ReplyToID      string              `json:"replyToId,omitempty" example:"ga8g0h98-cb4g-8b79-f3e0-ggi49e48eihf"`
 	ClientMsgID    string              `json:"clientMsgId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Reactions      map[string][]string `json:"reactions,omitempty"`
