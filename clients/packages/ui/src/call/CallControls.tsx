@@ -1,6 +1,7 @@
 import { useLocalParticipant } from '@livekit/components-react'
 import { ParticipantEvent, Track } from 'livekit-client'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import toast from 'react-hot-toast'
 import { useCallStore } from '@chat/shared'
 import { usePermissionStatus } from './hooks/usePermissionStatus'
 import { useMicLevel } from './hooks/useMicLevel'
@@ -19,7 +20,7 @@ interface CallControlsProps {
 export const CallControls = ({ isVideo, onEnd, onOpenSettings }: CallControlsProps) => {
   const { localParticipant } = useLocalParticipant()
   const { micMuted, camOff, setMicMuted, setCamOff } = useCallStore()
-  const micLevel = useMicLevel(localParticipant)
+  const micBands = useMicLevel(localParticipant)
   const micPerm = usePermissionStatus(PERM_MIC)
   const camPerm = usePermissionStatus(PERM_CAM)
 
@@ -35,13 +36,13 @@ export const CallControls = ({ isVideo, onEnd, onOpenSettings }: CallControlsPro
     setMuted: (m: boolean) => void,
   ) => {
     if (perm === PERM_STATE.DENIED) {
-      alert(permDeniedHint(source))
+      toast.error(permDeniedHint(source))
       return
     }
     const pub = localParticipant.getTrackPublication(source)
     if (!pub?.track) {
       const result = await requestAndPublish(localParticipant, source)
-      if (result === REQUEST_RESULT.DENIED) alert(permDeniedHint(source))
+      if (result === REQUEST_RESULT.DENIED) toast.error(permDeniedHint(source))
       else if (result === REQUEST_RESULT.GRANTED) setMuted(false)
       return
     }
@@ -58,7 +59,7 @@ export const CallControls = ({ isVideo, onEnd, onOpenSettings }: CallControlsPro
     >
       <MicControlButton
         micMuted={micMuted}
-        micLevel={micLevel}
+        micBands={micBands}
         title={permTitle('Microphone', micPerm, micMuted ? 'Unmute' : 'Mute')}
         onClick={() =>
           toggleSource(Track.Source.Microphone, micPerm, micMuted, setMicMuted)
@@ -128,20 +129,18 @@ const permTitle = (label: string, perm: PermState, base: string) => {
 
 interface MicControlButtonProps {
   micMuted: boolean
-  micLevel: number
+  micBands: ReturnType<typeof useMicLevel>
   title: string
   onClick: () => void
   perm: PermState
 }
 
-const MicControlButton = ({ micMuted, micLevel, title, onClick, perm }: MicControlButtonProps) => {
+const MicControlButton = ({ micMuted, micBands, title, onClick, perm }: MicControlButtonProps) => {
   const dotColor =
     perm === PERM_STATE.DENIED ? 'bg-red-500'
     : perm === PERM_STATE.GRANTED ? 'bg-green-500'
     : perm === PERM_STATE.PROMPT ? 'bg-amber-400'
     : null
-  const smoothLevel = useSmoothedLevel(micMuted ? 0 : micLevel)
-  const speaking = smoothLevel > 0.04
   return (
     <button
       onClick={onClick}
@@ -151,11 +150,14 @@ const MicControlButton = ({ micMuted, micLevel, title, onClick, perm }: MicContr
         micMuted ? 'bg-white text-slate-900' : 'bg-white/15 hover:bg-white/25 text-white',
       ].join(' ')}
     >
-      <MicLiveIcon
-        level={smoothLevel}
-        className={`w-4 h-6 transition-colors duration-fast ${speaking ? 'text-green-400' : ''}`}
-      />
-      {micMuted ? <MicOffIcon /> : <MicIcon />}
+      {micMuted ? (
+        <MicOffIcon />
+      ) : (
+        <>
+          <MicLiveIcon bands={micBands} className="w-4 h-5" />
+          <MicIcon />
+        </>
+      )}
       {dotColor && (
         <span
           className={`absolute top-0.5 right-0.5 w-3 h-3 rounded-full ring-2 ring-slate-900 ${dotColor}`}
@@ -163,29 +165,6 @@ const MicControlButton = ({ micMuted, micLevel, title, onClick, perm }: MicContr
       )}
     </button>
   )
-}
-
-const useSmoothedLevel = (level: number) => {
-  const [smoothed, setSmoothed] = useState(0)
-  const targetRef = useRef(level)
-  const valueRef = useRef(0)
-  targetRef.current = level
-  useEffect(() => {
-    let rafId: number
-    const tick = () => {
-      const target = targetRef.current
-      const attack = 0.5
-      const release = 0.15
-      const k = target > valueRef.current ? attack : release
-      const next = valueRef.current + (target - valueRef.current) * k
-      valueRef.current = Math.abs(next) < 0.001 ? 0 : next
-      setSmoothed(valueRef.current)
-      rafId = requestAnimationFrame(tick)
-    }
-    rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
-  }, [])
-  return smoothed
 }
 
 interface ControlButtonProps {

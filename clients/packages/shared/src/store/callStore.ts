@@ -147,7 +147,11 @@ export const useCallStore = create<CallState>((set, get) => ({
     // nothing until the user toggles mute.
     try {
       const constraints: MediaStreamConstraints = {
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
         video: callType === 'video',
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)

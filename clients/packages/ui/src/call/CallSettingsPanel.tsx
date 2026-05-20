@@ -1,8 +1,11 @@
-import { useEffect } from 'react'
-import { useRoomContext } from '@livekit/components-react'
+import { useEffect, type ReactNode } from 'react'
+import { useLocalParticipant, useRoomContext } from '@livekit/components-react'
+import toast from 'react-hot-toast'
 import { useCallStore } from '@chat/shared'
 import { useMediaDevices } from './hooks/useMediaDevices'
+import { useMicLevel } from './hooks/useMicLevel'
 import { usePermissionStatus } from './hooks/usePermissionStatus'
+import { MicLiveIcon } from './MicLiveIcon'
 import { DEVICE_KIND, PERM_STATE, PERM_MIC, PERM_CAM } from './constants'
 import type { DeviceKind, PermState } from './interfaces'
 
@@ -11,9 +14,16 @@ interface CallSettingsPanelProps {
   onClose: () => void
 }
 
+const kindLabel = (kind: DeviceKind) =>
+  kind === DEVICE_KIND.AUDIO_INPUT ? 'microphone'
+  : kind === DEVICE_KIND.VIDEO_INPUT ? 'camera'
+  : 'speaker'
+
 export const CallSettingsPanel = ({ open, onClose }: CallSettingsPanelProps) => {
   const room = useRoomContext()
+  const { localParticipant } = useLocalParticipant()
   const devices = useMediaDevices()
+  const micBands = useMicLevel(localParticipant)
   const {
     selectedMicId,
     selectedCamId,
@@ -27,21 +37,39 @@ export const CallSettingsPanel = ({ open, onClose }: CallSettingsPanelProps) => 
 
   useEffect(() => {
     if (!room) return
-    if (selectedMicId)
-      room.switchActiveDevice(DEVICE_KIND.AUDIO_INPUT, selectedMicId).catch(() => {})
-    if (selectedCamId)
-      room.switchActiveDevice(DEVICE_KIND.VIDEO_INPUT, selectedCamId).catch(() => {})
-    if (selectedSpeakerId)
-      room.switchActiveDevice(DEVICE_KIND.AUDIO_OUTPUT, selectedSpeakerId).catch(() => {})
-  }, [room, selectedMicId, selectedCamId, selectedSpeakerId])
+    const apply = (kind: DeviceKind, id: string | null, list: MediaDeviceInfo[]) => {
+      if (!id) return
+      const stillExists = list.some((d) => d.deviceId === id)
+      if (!stillExists) {
+        if (kind === DEVICE_KIND.AUDIO_INPUT) setSelectedMicId(null)
+        else if (kind === DEVICE_KIND.VIDEO_INPUT) setSelectedCamId(null)
+        else setSelectedSpeakerId(null)
+        return
+      }
+      room.switchActiveDevice(kind, id).catch((e) => {
+        console.warn(`[settings] switch ${kind} failed`, e)
+      })
+    }
+    apply(DEVICE_KIND.AUDIO_INPUT, selectedMicId, devices.audioinput)
+    apply(DEVICE_KIND.VIDEO_INPUT, selectedCamId, devices.videoinput)
+    apply(DEVICE_KIND.AUDIO_OUTPUT, selectedSpeakerId, devices.audiooutput)
+  }, [room, selectedMicId, selectedCamId, selectedSpeakerId, devices, setSelectedMicId, setSelectedCamId, setSelectedSpeakerId])
 
   const change = async (kind: DeviceKind, id: string) => {
     if (kind === DEVICE_KIND.AUDIO_INPUT) setSelectedMicId(id)
     else if (kind === DEVICE_KIND.VIDEO_INPUT) setSelectedCamId(id)
     else setSelectedSpeakerId(id)
+    if (!room) {
+      toast.error(`Cannot switch ${kindLabel(kind)} — call not connected`)
+      return
+    }
     try {
-      await room?.switchActiveDevice(kind, id)
-    } catch {}
+      await room.switchActiveDevice(kind, id)
+    } catch (e) {
+      const msg = (e as Error)?.message || 'unknown error'
+      toast.error(`Failed to switch ${kindLabel(kind)}: ${msg}`)
+      console.warn(`[settings] switch ${kind} failed`, e)
+    }
   }
 
   return (
@@ -84,6 +112,12 @@ export const CallSettingsPanel = ({ open, onClose }: CallSettingsPanelProps) => 
             devices={devices.audioinput}
             selectedId={selectedMicId}
             onChange={(id) => change(DEVICE_KIND.AUDIO_INPUT, id)}
+            extra={
+              <div className="mt-2 flex items-center gap-2 text-xs text-white/60">
+                <MicLiveIcon bands={micBands} className="w-5 h-5 text-white/80" />
+                <span>Speak to test — bars react to the selected mic</span>
+              </div>
+            }
           />
           <DeviceSection
             label="Camera"
@@ -110,6 +144,7 @@ interface DeviceSectionProps {
   devices: MediaDeviceInfo[]
   selectedId: string | null
   onChange: (id: string) => void
+  extra?: ReactNode
 }
 
 const DeviceSection = ({
@@ -118,6 +153,7 @@ const DeviceSection = ({
   devices,
   selectedId,
   onChange,
+  extra,
 }: DeviceSectionProps) => {
   const empty = devices.length === 0
   return (
@@ -149,6 +185,7 @@ const DeviceSection = ({
           ))}
         </select>
       )}
+      {!empty && extra}
     </div>
   )
 }

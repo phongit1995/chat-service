@@ -1,100 +1,151 @@
-import { useEffect, useState } from 'react'
-import { ParticipantEvent, Track, type Participant } from 'livekit-client'
+import { useEffect, useRef } from 'react'
+import { ParticipantEvent, Track, TrackEvent, type LocalTrack, type Participant } from 'livekit-client'
 
-/**
- * Returns a normalized mic level in [0, 1], updated at ~60Hz.
- * Reads directly from the local mic MediaStreamTrack via Web Audio API —
- * does not depend on LiveKit server speaker signals.
- */
-export function useMicLevel(p: Participant | undefined): number {
-  const [level, setLevel] = useState(0)
+export interface MicLevelBands {
+  subscribe: (cb: (bands: number[]) => void) => () => void
+  current: () => number[]
+}
+
+const NUM_BANDS = 3
+const FIRST_BIN = 3
+const BINS_PER_BAND = 5
+const NOISE_FLOOR = 0.18
+const GAIN = 2.2
+const ATTACK = 0.55
+const RELEASE = 0.12
+const SILENCE_EPS = 0.01
+
+const RESYNC_EVENTS = [
+  ParticipantEvent.TrackPublished,
+  ParticipantEvent.LocalTrackPublished,
+  ParticipantEvent.TrackUnpublished,
+  ParticipantEvent.LocalTrackUnpublished,
+  ParticipantEvent.TrackMuted,
+  ParticipantEvent.TrackUnmuted,
+  ParticipantEvent.TrackSubscribed,
+] as const
+
+interface Analyser {
+  ctx: AudioContext
+  node: AnalyserNode
+  source: MediaStreamAudioSourceNode
+  freqBuf: Uint8Array<ArrayBuffer>
+}
+
+const createAnalyser = (mst: MediaStreamTrack): Analyser => {
+  const AC = window.AudioContext ||
+    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+  const ctx = new AC()
+  const node = ctx.createAnalyser()
+  node.fftSize = 256
+  node.smoothingTimeConstant = 0.6
+  const freqBuf = new Uint8Array(new ArrayBuffer(node.frequencyBinCount))
+  const source = ctx.createMediaStreamSource(new MediaStream([mst]))
+  source.connect(node)
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+  return { ctx, node, source, freqBuf }
+}
+
+const computeBands = (freqBuf: Uint8Array<ArrayBuffer>, smoothed: number[]): number[] => {
+  const next = new Array<number>(NUM_BANDS)
+  for (let band = 0; band < NUM_BANDS; band++) {
+    let sum = 0
+    const start = FIRST_BIN + band * BINS_PER_BAND
+    for (let i = start; i < start + BINS_PER_BAND; i++) sum += freqBuf[i]
+    const avg = sum / BINS_PER_BAND / 255
+    const target = Math.min(1, Math.max(0, avg - NOISE_FLOOR) * GAIN)
+    const prev = smoothed[band]
+    const k = target > prev ? ATTACK : RELEASE
+    smoothed[band] = prev + (target - prev) * k
+    next[band] = smoothed[band] < SILENCE_EPS ? 0 : smoothed[band]
+  }
+  return next
+}
+
+const getMst = (track: unknown): MediaStreamTrack | undefined =>
+  (track as { mediaStreamTrack?: MediaStreamTrack })?.mediaStreamTrack
+
+export function useMicLevel(p: Participant | undefined): MicLevelBands {
+  const subsRef = useRef<Set<(bands: number[]) => void>>(new Set())
+  const bandsRef = useRef<number[]>(new Array(NUM_BANDS).fill(0))
+
+  const apiRef = useRef<MicLevelBands>({
+    subscribe: (cb) => {
+      subsRef.current.add(cb)
+      cb(bandsRef.current)
+      return () => { subsRef.current.delete(cb) }
+    },
+    current: () => bandsRef.current,
+  })
 
   useEffect(() => {
-    if (!p) {
-      setLevel(0)
-      return
-    }
-    let ctx: AudioContext | null = null
-    let analyser: AnalyserNode | null = null
-    let source: MediaStreamAudioSourceNode | null = null
-    let rafId: number | null = null
-    let attachedSid: string | null = null
-    const buffer = new Uint8Array(256)
+    if (!p) return
 
-    const detach = () => {
-      if (rafId !== null) cancelAnimationFrame(rafId)
-      rafId = null
-      try { source?.disconnect() } catch {}
-      try { analyser?.disconnect() } catch {}
-      try { ctx?.close() } catch {}
-      ctx = null
-      analyser = null
-      source = null
-      attachedSid = null
-      setLevel(0)
+    let analyser: Analyser | null = null
+    let attachedMst: MediaStreamTrack | null = null
+    let listenedTrack: LocalTrack | null = null
+    let onRestart: (() => void) | null = null
+    let rafId: number | null = null
+    const smoothed = new Array(NUM_BANDS).fill(0)
+
+    const broadcast = (bands: number[]) => {
+      bandsRef.current = bands
+      subsRef.current.forEach((cb) => cb(bands))
     }
 
     const tick = () => {
       if (!analyser) return
-      analyser.getByteTimeDomainData(buffer)
-      let sumSq = 0
-      for (let i = 0; i < buffer.length; i++) {
-        const v = (buffer[i] - 128) / 128
-        sumSq += v * v
-      }
-      const rms = Math.sqrt(sumSq / buffer.length)
-      const normalized = Math.min(1, rms * 10)
-      setLevel(normalized)
+      analyser.node.getByteFrequencyData(analyser.freqBuf)
+      broadcast(computeBands(analyser.freqBuf, smoothed))
       rafId = requestAnimationFrame(tick)
     }
 
-    const tryAttach = () => {
-      const pub = p.getTrackPublication(Track.Source.Microphone)
-      if (!pub?.track) {
-        detach()
-        return
+    const detach = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId)
+      rafId = null
+      if (listenedTrack && onRestart) {
+        try { listenedTrack.off(TrackEvent.Restarted, onRestart) } catch {}
       }
-      const mst = (pub.track as { mediaStreamTrack?: MediaStreamTrack }).mediaStreamTrack
+      listenedTrack = null
+      onRestart = null
+      if (analyser) {
+        try { analyser.source.disconnect() } catch {}
+        try { analyser.node.disconnect() } catch {}
+        try { analyser.ctx.close() } catch {}
+      }
+      analyser = null
+      attachedMst = null
+      smoothed.fill(0)
+      broadcast(new Array(NUM_BANDS).fill(0))
+    }
+
+    const sync = () => {
+      const pub = p.getTrackPublication(Track.Source.Microphone)
+      if (!pub?.track) { detach(); return }
+      const mst = getMst(pub.track)
       if (!mst) return
-      if (attachedSid === pub.trackSid && ctx) return
+      if (attachedMst === mst && analyser) return
       detach()
       try {
-        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-        ctx = new AC()
-        analyser = ctx.createAnalyser()
-        analyser.fftSize = 512
-        analyser.smoothingTimeConstant = 0.3
-        source = ctx.createMediaStreamSource(new MediaStream([mst]))
-        source.connect(analyser)
-        attachedSid = pub.trackSid
-        if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+        analyser = createAnalyser(mst)
+        attachedMst = mst
+        listenedTrack = pub.track as LocalTrack
+        onRestart = sync
+        listenedTrack.on(TrackEvent.Restarted, onRestart)
         rafId = requestAnimationFrame(tick)
       } catch (err) {
-        console.warn('[useMicLevel] failed', err)
+        console.warn('[useMicLevel] attach failed', err)
         detach()
       }
     }
 
-    tryAttach()
-    const handler = () => tryAttach()
-    p.on(ParticipantEvent.TrackPublished, handler)
-    p.on(ParticipantEvent.LocalTrackPublished, handler)
-    p.on(ParticipantEvent.TrackUnpublished, handler)
-    p.on(ParticipantEvent.LocalTrackUnpublished, handler)
-    p.on(ParticipantEvent.TrackMuted, handler)
-    p.on(ParticipantEvent.TrackUnmuted, handler)
-    p.on(ParticipantEvent.TrackSubscribed, handler)
+    sync()
+    RESYNC_EVENTS.forEach((e) => p.on(e, sync))
     return () => {
-      p.off(ParticipantEvent.TrackPublished, handler)
-      p.off(ParticipantEvent.LocalTrackPublished, handler)
-      p.off(ParticipantEvent.TrackUnpublished, handler)
-      p.off(ParticipantEvent.LocalTrackUnpublished, handler)
-      p.off(ParticipantEvent.TrackMuted, handler)
-      p.off(ParticipantEvent.TrackUnmuted, handler)
-      p.off(ParticipantEvent.TrackSubscribed, handler)
+      RESYNC_EVENTS.forEach((e) => p.off(e, sync))
       detach()
     }
   }, [p])
 
-  return level
+  return apiRef.current
 }
