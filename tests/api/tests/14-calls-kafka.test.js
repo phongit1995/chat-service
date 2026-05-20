@@ -1,8 +1,13 @@
 'use strict'
 const { ok, section, req, data, sleep, summary, createUserSet, is2xx } = require('../helpers')
-const Kafka = require('node-rdkafka')
+const { Kafka, CompressionTypes, CompressionCodecs } = require('kafkajs')
+const lz4js = require('lz4js')
+CompressionCodecs[CompressionTypes.LZ4] = () => ({
+  compress: async ({ buffer }) => Buffer.from(lz4js.compress(buffer)),
+  decompress: async (buffer) => Buffer.from(lz4js.decompress(buffer)),
+})
 
-const KAFKA_BROKERS = process.env.KAFKA_BROKERS || 'localhost:9092'
+const KAFKA_BROKERS = (process.env.KAFKA_BROKERS || 'localhost:9092').split(',')
 
 const TOPICS = {
   INVITED:  'CHAT.CALL.INVITED',
@@ -13,44 +18,40 @@ const TOPICS = {
 
 const RING_TIMEOUT = parseInt(process.env.CALL_RING_TIMEOUT_SECONDS || '3', 10)
 
-function startConsumer(inbox) {
-  return new Promise((resolve, reject) => {
-    const consumer = new Kafka.KafkaConsumer({
-      'group.id':            `test-call-verifier-${Date.now()}`,
-      'metadata.broker.list': KAFKA_BROKERS,
-      'enable.auto.commit':   false,
-      'auto.offset.reset':    'latest',
-    }, { 'auto.offset.reset': 'latest' })
-
-    consumer.on('event.error', (err) => {
-      console.error('rdkafka error:', err.message || err)
-    })
-
-    consumer.on('ready', () => {
-      consumer.subscribe(Object.values(TOPICS))
-      consumer.consume()
-      resolve(consumer)
-    })
-
-    consumer.on('data', (m) => {
-      let parsed
-      try { parsed = JSON.parse(m.value.toString('utf8')) }
-      catch { return }
-      const headers = {}
-      for (const h of m.headers || []) {
-        const k = Object.keys(h)[0]
-        headers[k] = h[k] ? h[k].toString('utf8') : ''
-      }
-      const key = m.key ? m.key.toString('utf8') : null
-      const entry = { topic: m.topic, key, payload: parsed, headers, offset: m.offset }
-      for (const [name, t] of Object.entries(TOPICS)) {
-        if (t === m.topic) { inbox[name].push(entry); break }
-      }
-    })
-
-    consumer.connect()
-    setTimeout(() => reject(new Error('consumer ready timeout')), 8000)
+async function startConsumer(inbox) {
+  const kafka = new Kafka({
+    clientId: `test-call-verifier-${Date.now()}`,
+    brokers: KAFKA_BROKERS,
+    logLevel: 0,
   })
+  const consumer = kafka.consumer({
+    groupId: `test-call-verifier-${Date.now()}`,
+    sessionTimeout: 10000,
+  })
+  const joined = new Promise((resolve) => {
+    consumer.on(consumer.events.GROUP_JOIN, () => resolve())
+  })
+  await consumer.connect()
+  for (const t of Object.values(TOPICS)) {
+    await consumer.subscribe({ topic: t, fromBeginning: false })
+  }
+  await consumer.run({
+    eachMessage: async ({ topic, message }) => {
+      let parsed
+      try { parsed = JSON.parse(message.value.toString('utf8')) } catch { return }
+      const headers = {}
+      for (const [k, v] of Object.entries(message.headers || {})) {
+        headers[k] = v ? v.toString('utf8') : ''
+      }
+      const key = message.key ? message.key.toString('utf8') : null
+      const entry = { topic, key, payload: parsed, headers, offset: message.offset }
+      for (const [name, t] of Object.entries(TOPICS)) {
+        if (t === topic) { inbox[name].push(entry); break }
+      }
+    },
+  })
+  await joined
+  return consumer
 }
 
 async function main() {
@@ -158,7 +159,7 @@ async function main() {
   await sleep(500)
   ok('no extra INVITED event emitted', inbox.INVITED.length === beforeCount)
 
-  await new Promise((res) => consumer.disconnect(res))
+  await consumer.disconnect()
   return summary()
 }
 

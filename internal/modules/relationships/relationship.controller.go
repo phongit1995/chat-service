@@ -50,9 +50,9 @@ func (ctrl *Controller) SendFriendRequest(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	addresseeID, err := uuid.Parse(req.AddresseeID)
+	addresseeID, err := uuid.Parse(req.UserID)
 	if err != nil {
-		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid addressee ID")
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid user ID")
 	}
 
 	ctrl.logger.Infow("Sending friend request",
@@ -64,7 +64,7 @@ func (ctrl *Controller) SendFriendRequest(c *gin.Context) (interface{}, error) {
 	if err != nil {
 		ctrl.logger.Warnw("Failed to send friend request",
 			"requester_id", userID,
-			"addressee_id", req.AddresseeID,
+			"addressee_id", req.UserID,
 			"error", err.Error(),
 		)
 		statusCode := utils.HTTPStatusFromError(err)
@@ -73,7 +73,7 @@ func (ctrl *Controller) SendFriendRequest(c *gin.Context) (interface{}, error) {
 
 	ctrl.logger.Infow("Friend request sent successfully",
 		"requester_id", userID,
-		"addressee_id", req.AddresseeID,
+		"addressee_id", req.UserID,
 	)
 
 	return response, nil

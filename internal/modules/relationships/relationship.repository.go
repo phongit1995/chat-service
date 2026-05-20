@@ -46,7 +46,7 @@ func (r *Repository) Update(relationship *models.Relationship) error {
 }
 
 func (r *Repository) Delete(relationship *models.Relationship) error {
-	return r.db.Delete(relationship).Error
+	return r.db.Unscoped().Delete(relationship).Error
 }
 
 func (r *Repository) GetPendingRequests(userID uuid.UUID, limit, offset int) ([]models.Relationship, int64, error) {

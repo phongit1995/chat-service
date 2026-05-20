@@ -16,7 +16,8 @@
     "test:unread": "node tests/09-unread.test.js",
     "test:stress": "node tests/10-stress.test.js",
     "test:calls": "node tests/13-calls.test.js",
-    "test:calls:kafka": "node tests/14-calls-kafka.test.js"
+    "test:calls:kafka": "node tests/14-calls-kafka.test.js",
+    "test:relationships": "node tests/16-relationships.test.js"
   },
   "dependencies": {
     "socket.io-client": "^4.8.1"
@@ -26,8 +27,6 @@
   },
   "devDependencies": {
     "kafkajs": "^2.2.4",
-    "kafkajs-lz4": "^2.0.0-beta.0",
-    "lz4js": "^0.2.0",
-    "node-rdkafka": "^3.6.1"
+    "lz4js": "^0.2.0"
   }
 }

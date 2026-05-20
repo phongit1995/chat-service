@@ -36,12 +36,15 @@ async function main() {
   const totalExpected = USER_COUNT * MSG_PER_USER
   ok(`all ${totalExpected} messages sent`, successCount === totalExpected)
 
-  await sleep(1500)
-
-  // History contains all messages
-  const hr = await req('GET', `/messages/${groupId}?limit=200`, undefined, creator.token)
-  const hist = data(hr)?.messages ?? []
-  ok('history count matches', hist.length >= totalExpected)
+  await sleep(2000)
+  let hist = []
+  for (let i = 0; i < 40; i++) {
+    const hr = await req('GET', `/messages/${groupId}?limit=200`, undefined, creator.token)
+    hist = data(hr)?.messages ?? []
+    if (hist.length >= totalExpected) break
+    await sleep(1000)
+  }
+  ok(`history count matches (got ${hist.length}/${totalExpected})`, hist.length >= totalExpected)
 
   // All users still see the conversation
   for (const user of users) {

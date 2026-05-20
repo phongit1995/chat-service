@@ -3,7 +3,7 @@ package relationships
 import "chat-server/internal/utils"
 
 type SendFriendRequestRequest struct {
-	AddresseeID string `json:"addresseeId" binding:"required" example:"550e8400-e29b-41d4-a716-446655440001"`
+	UserID string `json:"userId" binding:"required" example:"550e8400-e29b-41d4-a716-446655440001"`
 }
 
 type BlockUserRequest struct {

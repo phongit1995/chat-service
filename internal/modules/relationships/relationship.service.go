@@ -4,11 +4,17 @@ import (
 	"chat-server/internal/models"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
+
+func nowPtr() *time.Time {
+	t := time.Now()
+	return &t
+}
 
 type Service struct {
 	repo   *Repository
@@ -24,32 +30,46 @@ func NewService(repo *Repository, logger *zap.SugaredLogger) *Service {
 
 func (s *Service) SendFriendRequest(requesterID, addresseeID uuid.UUID) (*RelationshipResponse, error) {
 	if requesterID == addresseeID {
-		s.logger.Warnw("User tried to send friend request to themselves",
-			"user_id", requesterID,
-		)
 		return nil, errors.New("cannot send friend request to yourself")
 	}
 
-	exists, err := s.repo.CheckRelationshipExists(requesterID, addresseeID)
-	if err != nil {
-		s.logger.Errorw("Failed to check existing relationship",
-			"requester_id", requesterID,
-			"addressee_id", addresseeID,
-			"error", err.Error(),
-		)
+	existing, err := s.repo.FindByUsers(requesterID, addresseeID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.logger.Errorw("Failed to load existing relationship",
+			"requester_id", requesterID, "addressee_id", addresseeID, "error", err.Error())
 		return nil, err
 	}
 
-	if exists {
-		isBlocked, err := s.repo.IsBlocked(addresseeID, requesterID)
-		if err != nil {
-			return nil, err
-		}
-		if isBlocked {
+	if existing != nil {
+		switch existing.Status {
+		case models.RelationshipStatusBlocked:
+			if existing.RequesterID == requesterID {
+				return nil, errors.New("you have blocked this user, unblock first")
+			}
 			return nil, errors.New("unable to send friend request")
-		}
 
-		return nil, errors.New("relationship already exists between these users")
+		case models.RelationshipStatusAccepted:
+			return nil, errors.New("you are already friends")
+
+		case models.RelationshipStatusPending:
+			if existing.RequesterID == requesterID {
+				return nil, errors.New("friend request already sent")
+			}
+			existing.Status = models.RelationshipStatusAccepted
+			existing.ActionedAt = nowPtr()
+			if err := s.repo.Update(existing); err != nil {
+				return nil, err
+			}
+			s.logger.Infow("Friend request auto-accepted (mutual pending)",
+				"relationship_id", existing.ID, "requester_id", existing.RequesterID, "addressee_id", existing.AddresseeID)
+			existing, _ = s.repo.FindByID(existing.ID)
+			return s.buildRelationshipResponse(existing), nil
+
+		case models.RelationshipStatusRejected:
+			if err := s.repo.Delete(existing); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	relationship := &models.Relationship{
@@ -57,21 +77,14 @@ func (s *Service) SendFriendRequest(requesterID, addresseeID uuid.UUID) (*Relati
 		AddresseeID: addresseeID,
 		Status:      models.RelationshipStatusPending,
 	}
-
 	if err := s.repo.Create(relationship); err != nil {
 		s.logger.Errorw("Failed to create friend request",
-			"requester_id", requesterID,
-			"addressee_id", addresseeID,
-			"error", err.Error(),
-		)
+			"requester_id", requesterID, "addressee_id", addresseeID, "error", err.Error())
 		return nil, err
 	}
 
-	s.logger.Infow("Friend request sent successfully",
-		"relationship_id", relationship.ID,
-		"requester_id", requesterID,
-		"addressee_id", addresseeID,
-	)
+	s.logger.Infow("Friend request sent",
+		"relationship_id", relationship.ID, "requester_id", requesterID, "addressee_id", addresseeID)
 
 	relationship, _ = s.repo.FindByID(relationship.ID)
 	return s.buildRelationshipResponse(relationship), nil
@@ -100,6 +113,7 @@ func (s *Service) AcceptFriendRequest(relationshipID, userID uuid.UUID) (*Relati
 	}
 
 	relationship.Status = models.RelationshipStatusAccepted
+	relationship.ActionedAt = nowPtr()
 	if err := s.repo.Update(relationship); err != nil {
 		s.logger.Errorw("Failed to accept friend request",
 			"relationship_id", relationshipID,
@@ -139,20 +153,14 @@ func (s *Service) RejectFriendRequest(relationshipID, userID uuid.UUID) error {
 		return fmt.Errorf("cannot reject request with status: %s", relationship.Status)
 	}
 
-	relationship.Status = models.RelationshipStatusRejected
-	if err := s.repo.Update(relationship); err != nil {
+	if err := s.repo.Delete(relationship); err != nil {
 		s.logger.Errorw("Failed to reject friend request",
-			"relationship_id", relationshipID,
-			"error", err.Error(),
-		)
+			"relationship_id", relationshipID, "error", err.Error())
 		return err
 	}
 
 	s.logger.Infow("Friend request rejected",
-		"relationship_id", relationshipID,
-		"requester_id", relationship.RequesterID,
-		"addressee_id", relationship.AddresseeID,
-	)
+		"relationship_id", relationshipID, "requester_id", relationship.RequesterID, "addressee_id", relationship.AddresseeID)
 
 	return nil
 }
@@ -234,25 +242,29 @@ func (s *Service) BlockUser(blockerID, blockedID uuid.UUID) (*RelationshipRespon
 		return nil, err
 	}
 
-	var relationship *models.Relationship
+	if existing != nil &&
+		existing.Status == models.RelationshipStatusBlocked &&
+		existing.RequesterID == blockedID {
+		return nil, errors.New("unable to block this user")
+	}
 
 	if existing != nil {
-		existing.RequesterID = blockerID
-		existing.AddresseeID = blockedID
-		existing.Status = models.RelationshipStatusBlocked
-		if err := s.repo.Update(existing); err != nil {
+		if existing.Status == models.RelationshipStatusBlocked && existing.RequesterID == blockerID {
+			return s.buildRelationshipResponse(existing), nil
+		}
+		if err := s.repo.Delete(existing); err != nil {
 			return nil, err
 		}
-		relationship = existing
-	} else {
-		relationship = &models.Relationship{
-			RequesterID: blockerID,
-			AddresseeID: blockedID,
-			Status:      models.RelationshipStatusBlocked,
-		}
-		if err := s.repo.Create(relationship); err != nil {
-			return nil, err
-		}
+	}
+
+	relationship := &models.Relationship{
+		RequesterID: blockerID,
+		AddresseeID: blockedID,
+		Status:      models.RelationshipStatusBlocked,
+		ActionedAt:  nowPtr(),
+	}
+	if err := s.repo.Create(relationship); err != nil {
+		return nil, err
 	}
 
 	s.logger.Infow("User blocked successfully",

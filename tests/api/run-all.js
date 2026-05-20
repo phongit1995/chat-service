@@ -14,6 +14,9 @@ let totalPassed = 0
 let totalFailed = 0
 const results = []
 
+const INTER_FILE_DELAY_MS = parseInt(process.env.INTER_FILE_DELAY_MS || '1500', 10)
+const sleepSync = (ms) => { const end = Date.now() + ms; while (Date.now() < end); }
+
 for (const file of files) {
   console.log(`\n▶  Running ${file}`)
   const r = spawnSync('node', [path.join(TESTS_DIR, file)], {
@@ -22,6 +25,7 @@ for (const file of files) {
   })
   process.stdout.write(r.stdout || '')
   if (r.stderr) process.stderr.write(r.stderr)
+  sleepSync(INTER_FILE_DELAY_MS)
 
   const match = (r.stdout || '').match(/Results:\s+(\d+)\s+passed,\s+(\d+)\s+failed/)
   if (match) {

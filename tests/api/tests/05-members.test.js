@@ -8,7 +8,7 @@ async function main() {
   const [alice, bob, charlie, dana] = users
 
   // ── Friend request flow ───────────────────────────────────────────────────
-  let r = await req('POST', '/relationships/request', { addresseeId: bob.id }, alice.token)
+  let r = await req('POST', '/relationships/request', { userId: bob.id }, alice.token)
   ok('alice sends friend request → 2xx', is2xx(r.status))
 
   // Alice's sent requests
@@ -46,7 +46,7 @@ async function main() {
   }
 
   // ── Decline request ────────────────────────────────────────────────────────
-  r = await req('POST', '/relationships/request', { addresseeId: charlie.id }, dana.token)
+  r = await req('POST', '/relationships/request', { userId: charlie.id }, dana.token)
   ok('dana requests charlie → 2xx', is2xx(r.status))
 
   r = await req('GET', '/relationships/pending', undefined, charlie.token)
@@ -60,7 +60,7 @@ async function main() {
   }
 
   // ── Block user ─────────────────────────────────────────────────────────────
-  r = await req('POST', '/relationships/block', { addresseeId: charlie.id }, alice.token)
+  r = await req('POST', '/relationships/block', { userId: charlie.id }, alice.token)
   ok('alice blocks charlie → 2xx', is2xx(r.status))
 
   r = await req('GET', '/relationships/blocked', undefined, alice.token)
@@ -70,7 +70,7 @@ async function main() {
     blocked.some(b => b.addresseeId === charlie.id || b.addressee?.id === charlie.id))
 
   // ── Cancel friend request ──────────────────────────────────────────────────
-  r = await req('POST', '/relationships/request', { addresseeId: dana.id }, alice.token)
+  r = await req('POST', '/relationships/request', { userId: dana.id }, alice.token)
   ok('alice requests dana → 2xx', is2xx(r.status))
   const cancelId = data(r)?.id
   if (cancelId) {
@@ -82,7 +82,7 @@ async function main() {
 
   // ── Unfriend ───────────────────────────────────────────────────────────────
   // dana and bob: dana requests, bob accepts, then dana unfriends
-  r = await req('POST', '/relationships/request', { addresseeId: bob.id }, dana.token)
+  r = await req('POST', '/relationships/request', { userId: bob.id }, dana.token)
   const unfriendReq = data(r)
   if (unfriendReq?.id) {
     r = await req('GET', '/relationships/pending', undefined, bob.token)
@@ -103,7 +103,7 @@ async function main() {
   r = await req('GET', '/relationships/friends')
   ok('friends no auth → 401', r.status === 401)
 
-  r = await req('POST', '/relationships/request', { addresseeId: bob.id })
+  r = await req('POST', '/relationships/request', { userId: bob.id })
   ok('send request no auth → 401', r.status === 401)
 
   const s = summary()

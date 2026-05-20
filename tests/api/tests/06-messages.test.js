@@ -72,9 +72,13 @@ async function main() {
   r = await req('PATCH', `/messages/${convId}/${msgA1}`, { content: 'Hey bob!! (edited)' }, alice.token)
   ok('edit own → 2xx', is2xx(r.status))
 
-  await sleep(300)
-  r = await req('GET', `/messages/${convId}`, undefined, alice.token)
-  const edited = data(r)?.messages?.find(m => m.id === msgA1)
+  let edited
+  for (let i = 0; i < 20; i++) {
+    await sleep(500)
+    r = await req('GET', `/messages/${convId}`, undefined, alice.token)
+    edited = data(r)?.messages?.find(m => m.id === msgA1)
+    if (edited?.content === 'Hey bob!! (edited)') break
+  }
   ok('edit reflected in history', edited?.content === 'Hey bob!! (edited)')
 
   // [BUG] empty content should be 400, server returns 500

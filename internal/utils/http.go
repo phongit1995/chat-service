@@ -145,13 +145,19 @@ var (
 	}
 
 	errorsNotFound = map[string]bool{
-		"user not found":     true,
-		"resource not found": true,
+		"user not found":              true,
+		"resource not found":          true,
+		"friend request not found":    true,
+		"friendship not found":        true,
+		"block relationship not found": true,
+		"relationship not found":      true,
 	}
 
 	errorsConflict = map[string]bool{
-		"email already exists":    true,
-		"username already exists": true,
+		"email already exists":      true,
+		"username already exists":   true,
+		"you are already friends":   true,
+		"friend request already sent": true,
 	}
 )
 
