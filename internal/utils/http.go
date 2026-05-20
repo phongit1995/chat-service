@@ -159,6 +159,11 @@ var (
 		"you are already friends":   true,
 		"friend request already sent": true,
 	}
+
+	errorsForbidden = map[string]bool{
+		"message is too old to delete": true,
+		"you can only delete your own messages": true,
+	}
 )
 
 func HTTPStatusFromError(err error) int {
@@ -178,6 +183,10 @@ func HTTPStatusFromError(err error) int {
 
 	if errorsConflict[msg] {
 		return http.StatusConflict
+	}
+
+	if errorsForbidden[msg] {
+		return http.StatusForbidden
 	}
 
 	return http.StatusBadRequest

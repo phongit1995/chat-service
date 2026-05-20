@@ -3,6 +3,7 @@ package message
 import (
 	conversationEvents "chat-server/internal/domain/conversation"
 	messageEvents "chat-server/internal/domain/message"
+	"chat-server/internal/config"
 	"chat-server/internal/constants"
 	"chat-server/internal/services"
 	"chat-server/internal/transport/kafka"
@@ -45,10 +46,11 @@ type Service struct {
 	kafkaProducer *kafka.Producer
 	minio         *services.MinIOService
 	redis         *services.CacheService
+	cfg           *config.Config
 	logger        *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, userCache *userModule.CacheService, db *gorm.DB, kafkaProducer *kafka.Producer, minio *services.MinIOService, redis *services.CacheService, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Repository, convCache *conversation.CacheService, userCache *userModule.CacheService, db *gorm.DB, kafkaProducer *kafka.Producer, minio *services.MinIOService, redis *services.CacheService, cfg *config.Config, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repo:          repo,
 		cache:         cache,
@@ -59,6 +61,7 @@ func NewService(repo *Repository, cache *CacheService, convRepo *conversation.Re
 		kafkaProducer: kafkaProducer,
 		minio:         minio,
 		redis:         redis,
+		cfg:           cfg,
 		logger:        logger.Named("[message_service]"),
 	}
 }
@@ -960,6 +963,13 @@ func (s *Service) DeleteMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 
 	if msg.SenderID != userID {
 		return fmt.Errorf("you can only delete your own messages")
+	}
+
+	if window := s.cfg.MessageDeleteWindowSeconds; window > 0 {
+		age := time.Since(msg.CreatedAt)
+		if age > time.Duration(window)*time.Second {
+			return fmt.Errorf("message is too old to delete")
+		}
 	}
 
 	members, err := s.getMembersCached(conversationID)

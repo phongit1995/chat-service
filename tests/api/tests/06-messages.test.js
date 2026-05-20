@@ -108,6 +108,22 @@ async function main() {
   r = await req('DELETE', `/messages/${convId}/${msgA1}`, undefined, charlie.token)
   ok('non-member delete → error', r.status >= 400)
 
+  // ── Delete window (MESSAGE_DELETE_WINDOW_SECONDS) ─────────────────────────
+  const winSec = parseInt(process.env.MESSAGE_DELETE_WINDOW_SECONDS || '7200', 10)
+  if (winSec > 0 && winSec <= 60) {
+    r = await req('POST', '/messages', {
+      conversationId: convId, type: 'text', content: 'msg to expire',
+    }, alice.token)
+    const oldMsgId = data(r)?.id
+    ok('send msg for window test → 2xx', is2xx(r.status))
+
+    await sleep((winSec + 1) * 1000)
+
+    r = await req('DELETE', `/messages/${convId}/${oldMsgId}`, undefined, alice.token)
+    ok(`delete after ${winSec}s window → 403`, r.status === 403)
+    ok('error mentions too old', /too old/i.test(JSON.stringify(r.body)))
+  }
+
   // ── No auth → 401 ─────────────────────────────────────────────────────────
   r = await req('POST', '/messages', { conversationId: convId, type: 'text', content: 'x' })
   ok('send no auth → 401', r.status === 401)

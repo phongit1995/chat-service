@@ -64,6 +64,8 @@ type Config struct {
 	LiveKitAPIKey           string `env:"LIVEKIT_API_KEY" envDefault:""`
 	LiveKitAPISecret        string `env:"LIVEKIT_API_SECRET" envDefault:""`
 	CallRingTimeoutSeconds  int    `env:"CALL_RING_TIMEOUT_SECONDS" envDefault:"30" validate:"min=2,max=300"`
+
+	MessageDeleteWindowSeconds int `env:"MESSAGE_DELETE_WINDOW_SECONDS" envDefault:"7200" validate:"min=0"`
 }
 
 func LoadConfig() (*Config, error) {

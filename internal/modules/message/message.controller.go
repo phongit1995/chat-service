@@ -312,8 +312,8 @@ func (ctrl *Controller) DeleteMessage(c *gin.Context) (interface{}, error) {
 	messageID := c.Param("messageId")
 
 	if err := ctrl.service.DeleteMessage(userID, conversationID, messageID); err != nil {
-		ctrl.logger.Errorw("Failed to delete message", "error", err)
-		return nil, utils.NewHTTPError(http.StatusInternalServerError, "failed to delete message")
+		ctrl.logger.Warnw("Failed to delete message", "error", err)
+		return nil, utils.NewHTTPError(utils.HTTPStatusFromError(err), err.Error())
 	}
 
 	return map[string]string{"message": "Message deleted successfully"}, nil
