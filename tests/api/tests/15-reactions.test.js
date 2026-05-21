@@ -116,15 +116,27 @@ async function main() {
     d?.reactions?.WOW?.filter((u) => u === alice.id).length === 1,
   )
 
-  // ── Reactions persist in GET /messages ──────────────────────────────────
+  // ── Reactions persist in GET /messages (cache invalidation test) ─────────
+  // First GET to populate cache
+  r = await req('GET', `/messages/${convId}`, undefined, alice.token)
+  ok('pre-react GET → 200', r.status === 200)
+
+  // React a new type after cache is warm
+  r = await req('POST', reactURL, { type: 'ANGRY' }, bob.token)
+  ok('bob react ANGRY after cache warm → 2xx', is2xx(r.status))
+
+  // GET again immediately — must reflect new reaction (cache must be invalidated)
   await sleep(200)
   r = await req('GET', `/messages/${convId}`, undefined, alice.token)
-  ok('get history → 200', r.status === 200)
+  ok('post-react GET → 200', r.status === 200)
   const msg = data(r)?.messages?.find((m) => m.id === msgId)
   ok('message found in history', !!msg)
   ok('history message has reactions', typeof msg?.reactions === 'object')
   ok('history reactions.HAHA includes alice',
     Array.isArray(msg?.reactions?.HAHA) && msg.reactions.HAHA.includes(alice.id),
+  )
+  ok('history reactions.ANGRY includes bob (cache invalidated)',
+    Array.isArray(msg?.reactions?.ANGRY) && msg.reactions.ANGRY.includes(bob.id),
   )
 
   // ── Invalid IDs ──────────────────────────────────────────────────────────
