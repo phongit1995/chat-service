@@ -4,6 +4,7 @@ import 'dart:ui' show Offset;
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:livekit_client/livekit_client.dart' show Hardware;
 
 import '../models/call.dart';
 import '../models/ws_events.dart';
@@ -62,6 +63,7 @@ class CallState {
   final String? selectedMicId;
   final String? selectedCamId;
   final String? selectedSpeakerId;
+  final bool speakerOn;
 
   const CallState({
     this.mode = CallMode.idle,
@@ -76,6 +78,7 @@ class CallState {
     this.selectedMicId,
     this.selectedCamId,
     this.selectedSpeakerId,
+    this.speakerOn = false,
   });
 
   CallState copyWith({
@@ -91,6 +94,7 @@ class CallState {
     String? selectedMicId,
     String? selectedCamId,
     String? selectedSpeakerId,
+    bool? speakerOn,
     bool clearIncoming = false,
     bool clearActive = false,
   }) => CallState(
@@ -106,6 +110,7 @@ class CallState {
         selectedMicId: selectedMicId ?? this.selectedMicId,
         selectedCamId: selectedCamId ?? this.selectedCamId,
         selectedSpeakerId: selectedSpeakerId ?? this.selectedSpeakerId,
+        speakerOn: speakerOn ?? this.speakerOn,
       );
 
   static const idle = CallState();
@@ -343,6 +348,26 @@ class CallNotifier extends Notifier<CallState> {
 
   void setSelectedSpeakerId(String id) =>
       state = state.copyWith(selectedSpeakerId: id);
+
+  bool get _isMobile =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+
+  Future<void> applySpeaker() async {
+    if (!_isMobile) return;
+    try {
+      await Hardware.instance.setSpeakerphoneOn(state.speakerOn);
+    } catch (_) {}
+  }
+
+  Future<void> toggleSpeaker() async {
+    final next = !state.speakerOn;
+    state = state.copyWith(speakerOn: next);
+    if (!_isMobile) return;
+    try {
+      await Hardware.instance.setSpeakerphoneOn(next);
+    } catch (_) {}
+  }
 
   // ── WS event handlers ──────────────────────────────────────────────────
 

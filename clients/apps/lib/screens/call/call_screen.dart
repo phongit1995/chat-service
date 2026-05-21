@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' show RTCVideoViewObjectFit;
@@ -121,6 +123,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       } catch (err) {
         debugPrint('[call] setMicrophoneEnabled FAILED: $err');
       }
+      try {
+        await ref.read(callProvider.notifier).applySpeaker();
+      } catch (_) {}
       if (call.callType == CallType.video) {
         try {
           await room.localParticipant?.setCameraEnabled(true);
@@ -250,12 +255,16 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       );
     }
 
+    final isMobile = defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
     return _ExpandedCall(
       active: active,
       room: _room,
       mode: state.mode,
       micMuted: state.micMuted,
       camOff: state.camOff,
+      speakerOn: state.speakerOn,
+      showSpeakerToggle: isMobile,
       statusLabel: statusLabel,
       settingsOpen: _settingsOpen,
       localVideoPos: state.localVideoPos,
@@ -263,6 +272,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       remoteSpeaking: _remoteSpeaking,
       onToggleMic: _toggleMic,
       onToggleCam: _toggleCam,
+      onToggleSpeaker: () => ref.read(callProvider.notifier).toggleSpeaker(),
       onMinimize: () => ref.read(callProvider.notifier).setExpanded(false),
       onOpenSettings: () => setState(() => _settingsOpen = true),
       onCloseSettings: () => setState(() => _settingsOpen = false),
@@ -278,6 +288,8 @@ class _ExpandedCall extends StatelessWidget {
   final CallMode mode;
   final bool micMuted;
   final bool camOff;
+  final bool speakerOn;
+  final bool showSpeakerToggle;
   final String statusLabel;
   final bool settingsOpen;
   final Offset? localVideoPos;
@@ -285,6 +297,7 @@ class _ExpandedCall extends StatelessWidget {
   final bool remoteSpeaking;
   final VoidCallback onToggleMic;
   final VoidCallback onToggleCam;
+  final VoidCallback onToggleSpeaker;
   final VoidCallback onMinimize;
   final VoidCallback onOpenSettings;
   final VoidCallback onCloseSettings;
@@ -297,6 +310,8 @@ class _ExpandedCall extends StatelessWidget {
     required this.mode,
     required this.micMuted,
     required this.camOff,
+    required this.speakerOn,
+    required this.showSpeakerToggle,
     required this.statusLabel,
     required this.settingsOpen,
     required this.localVideoPos,
@@ -304,6 +319,7 @@ class _ExpandedCall extends StatelessWidget {
     required this.remoteSpeaking,
     required this.onToggleMic,
     required this.onToggleCam,
+    required this.onToggleSpeaker,
     required this.onMinimize,
     required this.onOpenSettings,
     required this.onCloseSettings,
@@ -461,6 +477,17 @@ class _ExpandedCall extends StatelessWidget {
                             tooltip: camOff ? 'Camera on' : 'Camera off',
                           ),
                         if (isVideo) const SizedBox(width: 14),
+                        if (showSpeakerToggle) ...[
+                          _CtrlButton(
+                            active: speakerOn,
+                            onTap: onToggleSpeaker,
+                            icon: speakerOn
+                                ? Icons.volume_up_rounded
+                                : Icons.phone_in_talk_rounded,
+                            tooltip: speakerOn ? 'Speaker on' : 'Speaker off',
+                          ),
+                          const SizedBox(width: 14),
+                        ],
                         _CtrlButton(
                           active: false,
                           onTap: onOpenSettings,
