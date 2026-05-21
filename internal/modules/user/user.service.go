@@ -3,6 +3,7 @@ package user
 import (
 	"chat-server/internal/constants"
 	"chat-server/internal/models"
+	"chat-server/internal/modules/relationships"
 	"chat-server/internal/services"
 	"chat-server/internal/transport/websocket"
 	"context"
@@ -17,6 +18,7 @@ import (
 
 type Service struct {
 	repo         *Repository
+	relRepo      *relationships.Repository
 	cache        *CacheService
 	minioService *services.MinIOService
 	cacheService *services.CacheService
@@ -27,6 +29,7 @@ type Service struct {
 
 func NewService(
 	repo *Repository,
+	relRepo *relationships.Repository,
 	cache *CacheService,
 	minioService *services.MinIOService,
 	cacheService *services.CacheService,
@@ -36,6 +39,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		repo:         repo,
+		relRepo:      relRepo,
 		cache:        cache,
 		minioService: minioService,
 		cacheService: cacheService,
@@ -256,7 +260,7 @@ func (s *Service) GetPresenceBatch(userIDs []string) *PresenceBatchResponse {
 	return &PresenceBatchResponse{Users: users}
 }
 
-func (s *Service) GetPublicProfile(targetUserID uuid.UUID) (*UserPublicProfileResponse, error) {
+func (s *Service) GetPublicProfile(callerID, targetUserID uuid.UUID) (*UserPublicProfileResponse, error) {
 	user, err := s.repo.FindByID(targetUserID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -278,7 +282,51 @@ func (s *Service) GetPublicProfile(targetUserID uuid.UUID) (*UserPublicProfileRe
 		IsOnline:     isOnline,
 		LastActiveAt: lastActiveAt,
 		CreatedAt:    user.CreatedAt.Format(time.RFC3339),
+		Relationship: s.resolveRelationship(callerID, targetUserID),
 	}, nil
+}
+
+func (s *Service) resolveRelationship(callerID, targetID uuid.UUID) *RelationshipInfo {
+	if callerID == uuid.Nil {
+		return nil
+	}
+	if callerID == targetID {
+		return &RelationshipInfo{Status: RelationshipStatusSelf}
+	}
+	rel, err := s.relRepo.FindByUsers(callerID, targetID)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warnw("resolveRelationship lookup failed", "err", err)
+		}
+		return &RelationshipInfo{Status: RelationshipStatusNone}
+	}
+
+	info := &RelationshipInfo{RequestID: rel.ID.String()}
+	if rel.ActionedAt != nil {
+		info.Since = rel.ActionedAt.Format(time.RFC3339)
+	} else {
+		info.Since = rel.CreatedAt.Format(time.RFC3339)
+	}
+
+	switch rel.Status {
+	case models.RelationshipStatusAccepted:
+		info.Status = RelationshipStatusFriend
+	case models.RelationshipStatusPending:
+		if rel.RequesterID == callerID {
+			info.Status = RelationshipStatusPendingOutgoing
+		} else {
+			info.Status = RelationshipStatusPendingIncoming
+		}
+	case models.RelationshipStatusBlocked:
+		if rel.RequesterID == callerID {
+			info.Status = RelationshipStatusBlockedByMe
+		} else {
+			info.Status = RelationshipStatusBlockedByThem
+		}
+	default:
+		info.Status = RelationshipStatusNone
+	}
+	return info
 }
 
 func (s *Service) buildProfileResponse(user *models.User) *UserProfileResponse {

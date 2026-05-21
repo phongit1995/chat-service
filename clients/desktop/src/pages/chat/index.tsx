@@ -118,7 +118,7 @@ export const Chat = () => {
   }
 
   return (
-    <div className="flex h-full bg-surface-base overflow-hidden">
+    <div className="flex h-[100dvh] bg-surface-base overflow-hidden">
       <div
         className={`${
           showRightPane ? 'hidden md:flex' : 'flex'
@@ -167,6 +167,7 @@ export const Chat = () => {
             onSendMessage={(e) => { e.preventDefault(); handleSendMessage(); }}
             onSendImage={(file) => sendImageMessage(currentConversation.id, file)}
             onBack={clearRightPane}
+            onOpenProfile={(uid) => setViewProfileUserId(uid)}
           />
         ) : (
           <EmptyState />

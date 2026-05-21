@@ -34,6 +34,8 @@ class MessageBubble extends StatelessWidget {
   final Future<void> Function(String messageId, String type)? onReact;
   final void Function(String messageId)? onEdit;
   final Future<void> Function(String messageId)? onDelete;
+  final String? senderId;
+  final ValueChanged<String>? onOpenProfile;
 
   const MessageBubble({
     super.key,
@@ -42,6 +44,7 @@ class MessageBubble extends StatelessWidget {
     this.messageType = 'text',
     this.metadata,
     required this.isMine,
+    this.senderId,
     this.senderName,
     this.senderAvatar,
     required this.time,
@@ -58,6 +61,7 @@ class MessageBubble extends StatelessWidget {
     this.onReact,
     this.onEdit,
     this.onDelete,
+    this.onOpenProfile,
   });
 
   Widget? _buildStatusIcon() {
@@ -369,10 +373,16 @@ class MessageBubble extends StatelessWidget {
         if (showName)
           Padding(
             padding: const EdgeInsets.only(bottom: 2, left: 8),
-            child: Text(
-              senderName!,
-              style: const TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textTertiary),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: (onOpenProfile != null && senderId != null)
+                  ? () => onOpenProfile!(senderId!)
+                  : null,
+              child: Text(
+                senderName!,
+                style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textTertiary),
+              ),
             ),
           ),
         bubble,
@@ -409,7 +419,14 @@ class MessageBubble extends StatelessWidget {
             SizedBox(
               width: 32,
               child: showAvatar
-                  ? GradientAvatar(name: senderName ?? '', imageUrl: senderAvatar, size: 28)
+                  ? GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: (onOpenProfile != null && senderId != null)
+                          ? () => onOpenProfile!(senderId!)
+                          : null,
+                      child: GradientAvatar(
+                          name: senderName ?? '', imageUrl: senderAvatar, size: 28),
+                    )
                   : null,
             ),
           if (!isMine) const SizedBox(width: 6),

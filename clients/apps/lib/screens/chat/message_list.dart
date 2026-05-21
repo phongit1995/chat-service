@@ -11,6 +11,7 @@ class MessageList extends StatelessWidget {
   final Future<void> Function(String messageId, String type)? onReact;
   final void Function(Message message)? onEdit;
   final Future<void> Function(String messageId)? onDelete;
+  final ValueChanged<String>? onOpenProfile;
 
   const MessageList({
     super.key,
@@ -21,6 +22,7 @@ class MessageList extends StatelessWidget {
     this.onReact,
     this.onEdit,
     this.onDelete,
+    this.onOpenProfile,
   });
 
   @override
@@ -77,6 +79,7 @@ class MessageList extends StatelessWidget {
           messageType: message.type,
           metadata: message.metadata,
           isMine: isMine,
+          senderId: isMine ? null : message.senderId,
           senderName: isMine ? null : message.senderName,
           senderAvatar: isMine ? null : message.senderAvatar,
           time: _formatTime(message.createdAt),
@@ -93,6 +96,7 @@ class MessageList extends StatelessWidget {
           onReact: onReact,
           onEdit: onEdit == null ? null : (_) => onEdit!(message),
           onDelete: onDelete,
+          onOpenProfile: (conversation.isGroup && !isMine) ? onOpenProfile : null,
         );
       },
     );

@@ -28,10 +28,26 @@ export interface UserSearchResult extends UserBase {
   isOnline?: boolean
 }
 
+export type RelationshipStatus =
+  | 'self'
+  | 'none'
+  | 'friend'
+  | 'pending_outgoing'
+  | 'pending_incoming'
+  | 'blocked_by_me'
+  | 'blocked_by_them'
+
+export interface RelationshipInfo {
+  status: RelationshipStatus
+  requestId?: string
+  since?: string
+}
+
 export interface UserPublicProfile extends UserBase {
   isOnline: boolean
   lastActiveAt?: string
   createdAt?: string
+  relationship?: RelationshipInfo
 }
 
 export interface UserPresence {

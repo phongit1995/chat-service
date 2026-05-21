@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../services/call_service.dart';
 import '../services/conversation_service.dart';
 import '../services/message_service.dart';
+import '../services/relationship_service.dart';
 import '../services/socket_service.dart';
 import '../services/user_service.dart';
 
@@ -33,6 +34,10 @@ final messageServiceProvider = Provider<MessageService>(
 
 final callServiceProvider = Provider<CallService>(
   (ref) => CallService(CallApiClient(ref.read(_dioProvider))),
+);
+
+final relationshipServiceProvider = Provider<RelationshipService>(
+  (ref) => RelationshipService(ref.read(_dioProvider)),
 );
 
 final socketProvider = Provider<SocketService>((ref) {

@@ -52,6 +52,7 @@ interface ChatAreaProps {
   onSendMessage: (e: FormEvent) => void
   onSendImage: (file: File) => Promise<void>
   onBack?: () => void
+  onOpenProfile?: (userId: string) => void
 }
 
 export const ChatArea = ({
@@ -64,6 +65,7 @@ export const ChatArea = ({
   onSendMessage,
   onSendImage,
   onBack,
+  onOpenProfile,
 }: ChatAreaProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -215,7 +217,7 @@ export const ChatArea = ({
     const insertAt = savedCursorOffset.current ?? messageInput.length
     const currentText = messageInput
     const newText = currentText.slice(0, insertAt) + emoji + currentText.slice(insertAt)
-    const newCursorOffset = insertAt + [...emoji].length // đếm theo grapheme
+    const newCursorOffset = insertAt + emoji.length
 
     onSetMessageInput(newText)
     renderContent(el, newText)
@@ -238,12 +240,13 @@ export const ChatArea = ({
 
   return (
     <>
-      <ChatHeader conversation={conversation} onBack={onBack} />
+      <ChatHeader conversation={conversation} onBack={onBack} onOpenProfile={onOpenProfile} />
       <MessageList
         conversation={conversation}
         messages={messages}
         typingUsers={typingUsers}
         user={user}
+        onOpenProfile={onOpenProfile}
       />
 
       <div

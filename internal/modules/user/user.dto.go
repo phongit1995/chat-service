@@ -54,15 +54,42 @@ type UploadAvatarResponse struct {
 }
 
 type UserPublicProfileResponse struct {
-	ID           string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Username     string `json:"username" example:"john_doe"`
-	FullName     string `json:"fullName,omitempty" example:"John Doe"`
-	Avatar       string `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
-	Bio          string `json:"bio,omitempty" example:"Software developer"`
-	IsOnline     bool   `json:"isOnline" example:"true"`
-	LastActiveAt string `json:"lastActiveAt,omitempty" example:"2024-01-15T10:30:00Z"`
-	CreatedAt    string `json:"createdAt" example:"2024-01-01T00:00:00Z"`
+	ID           string            `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Username     string            `json:"username" example:"john_doe"`
+	FullName     string            `json:"fullName,omitempty" example:"John Doe"`
+	Avatar       string            `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
+	Bio          string            `json:"bio,omitempty" example:"Software developer"`
+	IsOnline     bool              `json:"isOnline" example:"true"`
+	LastActiveAt string            `json:"lastActiveAt,omitempty" example:"2024-01-15T10:30:00Z"`
+	CreatedAt    string            `json:"createdAt" example:"2024-01-01T00:00:00Z"`
+	Relationship *RelationshipInfo `json:"relationship,omitempty"`
 }
+
+// RelationshipInfo describes the viewer's relationship state with the target user.
+// Status values:
+//
+//	self              - viewer is the target user
+//	none              - no relationship row exists
+//	friend            - accepted relationship
+//	pending_outgoing  - viewer sent a friend request, waiting on target
+//	pending_incoming  - target sent a friend request, viewer has not responded
+//	blocked_by_me     - viewer has blocked the target
+//	blocked_by_them   - target has blocked the viewer
+type RelationshipInfo struct {
+	Status    string `json:"status" example:"friend"`
+	RequestID string `json:"requestId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Since     string `json:"since,omitempty" example:"2024-01-15T10:30:00Z"`
+}
+
+const (
+	RelationshipStatusSelf            = "self"
+	RelationshipStatusNone            = "none"
+	RelationshipStatusFriend          = "friend"
+	RelationshipStatusPendingOutgoing = "pending_outgoing"
+	RelationshipStatusPendingIncoming = "pending_incoming"
+	RelationshipStatusBlockedByMe     = "blocked_by_me"
+	RelationshipStatusBlockedByThem   = "blocked_by_them"
+)
 
 type PresenceBatchRequest struct {
 	UserIds []string `json:"userIds" binding:"required,min=1,max=200,dive,uuid" example:"550e8400-e29b-41d4-a716-446655440000"`

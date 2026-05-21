@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Avatar, Button } from '@chat/ui'
-import { userService } from '@chat/shared'
-import type { UserPublicProfile } from '@chat/shared'
+import { userService, relationshipService } from '@chat/shared'
+import type { UserPublicProfile, RelationshipInfo, RelationshipStatus } from '@chat/shared'
 
 interface UserProfilePageProps {
   userId: string
@@ -35,11 +35,29 @@ const formatDate = (iso: string): string => {
   }
 }
 
+const relationshipLabel = (status: RelationshipStatus): { text: string; color: string } => {
+  switch (status) {
+    case 'friend':
+      return { text: 'Friends', color: 'text-status-success border-status-success/30 bg-status-success/10' }
+    case 'pending_outgoing':
+      return { text: 'Request sent', color: 'text-ink-secondary border-line bg-surface-overlay' }
+    case 'pending_incoming':
+      return { text: 'Wants to be friends', color: 'text-primary-500 border-primary-300 bg-primary-50' }
+    case 'blocked_by_me':
+      return { text: 'Blocked', color: 'text-status-danger border-status-danger/30 bg-status-danger/10' }
+    case 'blocked_by_them':
+      return { text: 'Unavailable', color: 'text-ink-tertiary border-line bg-surface-overlay' }
+    default:
+      return { text: '', color: '' }
+  }
+}
+
 export const UserProfilePage = ({ userId, onBack, onStartChat }: UserProfilePageProps) => {
   const [profile, setProfile] = useState<UserPublicProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -59,6 +77,26 @@ export const UserProfilePage = ({ userId, onBack, onStartChat }: UserProfilePage
     return () => { cancelled = true }
   }, [userId])
 
+  const refetch = async () => {
+    const res = await userService.getUserInfo(userId)
+    setProfile(res.data ?? null)
+  }
+
+  const runAction = async (key: string, fn: () => Promise<unknown>) => {
+    setPendingAction(key)
+    try {
+      await fn()
+      await refetch()
+    } catch (err) {
+      console.error('relationship action failed', err)
+      alert('Action failed. Please try again.')
+    } finally {
+      setPendingAction(null)
+    }
+  }
+  const isPending = (key: string) => pendingAction === key
+  const isAnyPending = pendingAction !== null
+
   const handleStartChat = async () => {
     setStarting(true)
     try {
@@ -67,6 +105,27 @@ export const UserProfilePage = ({ userId, onBack, onStartChat }: UserProfilePage
       setStarting(false)
     }
   }
+
+  const rel: RelationshipInfo | undefined = profile?.relationship
+  const status = rel?.status ?? 'none'
+  const isBlockedEitherWay = status === 'blocked_by_me' || status === 'blocked_by_them'
+  const isSelf = status === 'self'
+  const canChat = !isBlockedEitherWay && !isSelf
+
+  const handleSendRequest = () => runAction('send', () => relationshipService.sendRequest(userId))
+  const handleAccept = () => rel?.requestId && runAction('accept', () => relationshipService.respondToRequest(rel.requestId!, 'accept'))
+  const handleReject = () => rel?.requestId && runAction('reject', () => relationshipService.respondToRequest(rel.requestId!, 'reject'))
+  const handleCancel = () => rel?.requestId && runAction('cancel', () => relationshipService.cancelRequest(rel.requestId!))
+  const handleUnfriend = () => {
+    if (!rel?.requestId) return
+    if (!confirm('Unfriend this user?')) return
+    runAction('unfriend', () => relationshipService.unfriend(rel.requestId!))
+  }
+  const handleBlock = () => {
+    if (!confirm('Block this user? You will no longer see their messages.')) return
+    runAction('block', () => relationshipService.block(userId))
+  }
+  const handleUnblock = () => rel?.requestId && runAction('unblock', () => relationshipService.unblock(rel.requestId!))
 
   const displayName = profile?.fullName || profile?.username || '...'
 
@@ -123,12 +182,19 @@ export const UserProfilePage = ({ userId, onBack, onStartChat }: UserProfilePage
               <h1 className="text-xl sm:text-2xl font-bold text-ink-primary text-center">{displayName}</h1>
               <p className="text-sm text-ink-tertiary mt-0.5">@{profile.username}</p>
 
-              <div className={`mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
-                ${profile.isOnline
-                  ? 'bg-status-success/10 text-status-success border border-status-success/30'
-                  : 'bg-surface-overlay text-ink-tertiary border border-line'}`}>
-                <span className={`w-2 h-2 rounded-full ${profile.isOnline ? 'bg-status-success' : 'bg-ink-tertiary'}`} />
-                {profile.isOnline ? 'Online' : 'Offline'}
+              <div className="mt-3 flex items-center gap-2 flex-wrap justify-center">
+                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
+                  ${profile.isOnline
+                    ? 'bg-status-success/10 text-status-success border border-status-success/30'
+                    : 'bg-surface-overlay text-ink-tertiary border border-line'}`}>
+                  <span className={`w-2 h-2 rounded-full ${profile.isOnline ? 'bg-status-success' : 'bg-ink-tertiary'}`} />
+                  {profile.isOnline ? 'Online' : 'Offline'}
+                </div>
+                {rel && !isSelf && status !== 'none' && (
+                  <div className={`px-3 py-1 rounded-full text-xs font-semibold border ${relationshipLabel(status).color}`}>
+                    {relationshipLabel(status).text}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -187,20 +253,72 @@ export const UserProfilePage = ({ userId, onBack, onStartChat }: UserProfilePage
               )}
             </div>
 
-            <Button
-              variant="primary"
-              size="lg"
-              fullWidth
-              isLoading={starting}
-              onClick={handleStartChat}
-              className="mt-2"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              Send Message
-            </Button>
+            {status === 'blocked_by_them' && (
+              <div className="bg-status-danger/5 border border-status-danger/20 rounded-2xl p-4 mb-3 text-center">
+                <p className="text-sm text-ink-secondary">
+                  This user is unavailable.
+                </p>
+              </div>
+            )}
+
+            {!isSelf && (
+              <div className="space-y-2 mt-2">
+                {canChat && (
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    isLoading={starting}
+                    onClick={handleStartChat}
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Send Message
+                  </Button>
+                )}
+
+                {status === 'none' && (
+                  <Button variant="secondary" size="lg" fullWidth isLoading={isPending('send')} disabled={isAnyPending && !isPending('send')} onClick={handleSendRequest}>
+                    Add friend
+                  </Button>
+                )}
+
+                {status === 'pending_outgoing' && (
+                  <Button variant="secondary" size="lg" fullWidth isLoading={isPending('cancel')} disabled={isAnyPending && !isPending('cancel')} onClick={handleCancel}>
+                    Cancel friend request
+                  </Button>
+                )}
+
+                {status === 'pending_incoming' && (
+                  <>
+                    <Button variant="secondary" size="lg" fullWidth isLoading={isPending('accept')} disabled={isAnyPending && !isPending('accept')} onClick={handleAccept}>
+                      Accept friend request
+                    </Button>
+                    <Button variant="ghost" size="lg" fullWidth isLoading={isPending('reject')} disabled={isAnyPending && !isPending('reject')} onClick={handleReject}>
+                      Reject
+                    </Button>
+                  </>
+                )}
+
+                {status === 'friend' && (
+                  <Button variant="ghost" size="lg" fullWidth isLoading={isPending('unfriend')} disabled={isAnyPending && !isPending('unfriend')} onClick={handleUnfriend}>
+                    Unfriend
+                  </Button>
+                )}
+
+                {status === 'blocked_by_me' ? (
+                  <Button variant="secondary" size="lg" fullWidth isLoading={isPending('unblock')} disabled={isAnyPending && !isPending('unblock')} onClick={handleUnblock}>
+                    Unblock
+                  </Button>
+                ) : status !== 'blocked_by_them' && (
+                  <Button variant="ghost" size="lg" fullWidth isLoading={isPending('block')} disabled={isAnyPending && !isPending('block')} onClick={handleBlock}>
+                    Block
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -11,11 +11,13 @@ import '../call/call_button.dart';
 class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Conversation? conversation;
   final VoidCallback onBack;
+  final ValueChanged<String>? onOpenProfile;
 
   const ChatAppBar({
     super.key,
     required this.conversation,
     required this.onBack,
+    this.onOpenProfile,
   });
 
   @override
@@ -49,7 +51,12 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         onPressed: onBack,
       ),
-      title: Row(
+      title: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: (isDirect && conversation?.otherUser?.id != null && onOpenProfile != null)
+            ? () => onOpenProfile!(conversation!.otherUser!.id)
+            : null,
+        child: Row(
         children: [
           Stack(
             children: [
@@ -103,6 +110,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
         ],
+      ),
       ),
       actions: [
         if (isDirect && conversation?.otherUser != null)

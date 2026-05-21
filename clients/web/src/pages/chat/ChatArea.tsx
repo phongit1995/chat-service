@@ -52,6 +52,7 @@ interface ChatAreaProps {
   onSendMessage: (e: FormEvent) => void
   onSendImage: (file: File) => Promise<void>
   onBack?: () => void
+  onOpenProfile?: (userId: string) => void
 }
 
 export const ChatArea = ({
@@ -64,6 +65,7 @@ export const ChatArea = ({
   onSendMessage,
   onSendImage,
   onBack,
+  onOpenProfile,
 }: ChatAreaProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -238,12 +240,13 @@ export const ChatArea = ({
 
   return (
     <>
-      <ChatHeader conversation={conversation} onBack={onBack} />
+      <ChatHeader conversation={conversation} onBack={onBack} onOpenProfile={onOpenProfile} />
       <MessageList
         conversation={conversation}
         messages={messages}
         typingUsers={typingUsers}
         user={user}
+        onOpenProfile={onOpenProfile}
       />
 
       <div

@@ -35,7 +35,7 @@ func NewController(service *Service, logger *zap.SugaredLogger) *Controller {
 // @Failure      404  {object}  utils.APIError
 // @Router       /user/{id} [get]
 func (ctrl *Controller) GetUserInfo(c *gin.Context) (interface{}, error) {
-	_, ok := middleware.GetUserID(c)
+	callerID, ok := middleware.GetUserID(c)
 	if !ok {
 		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
 	}
@@ -45,7 +45,7 @@ func (ctrl *Controller) GetUserInfo(c *gin.Context) (interface{}, error) {
 		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid user ID")
 	}
 
-	profile, err := ctrl.service.GetPublicProfile(targetID)
+	profile, err := ctrl.service.GetPublicProfile(callerID, targetID)
 	if err != nil {
 		statusCode := utils.HTTPStatusFromError(err)
 		return nil, utils.NewHTTPError(statusCode, err.Error())

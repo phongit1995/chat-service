@@ -30,6 +30,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool _loading = true;
   String? _error;
   bool _startingChat = false;
+  String? _pendingAction;
 
   @override
   void initState() {
@@ -46,6 +47,28 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     }
   }
 
+  Future<void> _refetch() async {
+    try {
+      final profile = await ref.read(userServiceProvider).getUserInfo(widget.userId);
+      if (mounted) setState(() => _profile = profile);
+    } catch (_) {}
+  }
+
+  Future<void> _runAction(String key, Future<void> Function() fn, {String? errorMsg}) async {
+    setState(() => _pendingAction = key);
+    try {
+      await fn();
+      await _refetch();
+    } catch (e) {
+      if (mounted) showErrorToast(errorMsg ?? 'Action failed');
+    } finally {
+      if (mounted) setState(() => _pendingAction = null);
+    }
+  }
+
+  bool _isPending(String key) => _pendingAction == key;
+  bool get _isAnyPending => _pendingAction != null;
+
   Future<void> _startChat() async {
     setState(() => _startingChat = true);
     try {
@@ -60,6 +83,21 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         showErrorToast('Failed to start chat');
       }
     }
+  }
+
+  Future<bool> _confirm(String title, String message) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('OK')),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   @override
@@ -114,7 +152,21 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           padding: const EdgeInsets.all(20),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              _buildStatusChip(p),
+              Center(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _buildStatusChip(p),
+                    if (p.relationship != null &&
+                        p.relationship!.statusEnum != RelationshipStatus.self &&
+                        p.relationship!.statusEnum != RelationshipStatus.none &&
+                        p.relationship!.statusEnum != RelationshipStatus.unknown)
+                      _buildRelationshipBadge(p.relationship!.statusEnum),
+                  ],
+                ),
+              ),
               const SizedBox(height: 20),
               if (p.bio != null && p.bio!.isNotEmpty) ...[
                 _buildSection(
@@ -147,19 +199,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 const SizedBox(height: 16),
               ],
               const SizedBox(height: 8),
-              GradientButton(
-                onPressed: _startingChat ? null : _startChat,
-                loading: _startingChat,
-                fullWidth: true,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Text('Send Message', style: AppTypography.bodyMd.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
+              ..._buildRelationshipActions(p),
             ]),
           ),
         ),
@@ -326,6 +366,251 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  List<Widget> _buildRelationshipActions(UserPublicProfile p) {
+    final rel = p.relationship;
+    final status = rel?.statusEnum ?? RelationshipStatus.none;
+    if (status == RelationshipStatus.self) return const [];
+
+    final isBlockedEitherWay =
+        status == RelationshipStatus.blockedByMe ||
+        status == RelationshipStatus.blockedByThem;
+    final canChat = !isBlockedEitherWay;
+
+    final widgets = <Widget>[];
+
+    if (status == RelationshipStatus.blockedByThem) {
+      widgets.add(Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.danger.withValues(alpha: 0.08),
+          border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Center(
+          child: Text('This user is unavailable.',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
+        ),
+      ));
+      widgets.add(const SizedBox(height: 10));
+    }
+
+    if (canChat) {
+      widgets.add(GradientButton(
+        onPressed: (_startingChat || _isAnyPending) ? null : _startChat,
+        loading: _startingChat,
+        fullWidth: true,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.white),
+            const SizedBox(width: 8),
+            Text('Send Message',
+                style: AppTypography.bodyMd.copyWith(
+                    color: Colors.white, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ));
+      widgets.add(const SizedBox(height: 10));
+    }
+
+    switch (status) {
+      case RelationshipStatus.none:
+      case RelationshipStatus.unknown:
+        widgets.add(_secondaryButton(
+          label: 'Add friend',
+          actionKey: 'send',
+          onPressed: () => _runAction(
+            'send',
+            () => ref.read(relationshipServiceProvider).sendRequest(widget.userId),
+            errorMsg: 'Failed to send request',
+          ),
+        ));
+        break;
+      case RelationshipStatus.pendingOutgoing:
+        widgets.add(_secondaryButton(
+          label: 'Cancel friend request',
+          actionKey: 'cancel',
+          onPressed: rel?.requestId == null
+              ? null
+              : () => _runAction(
+                  'cancel',
+                  () => ref.read(relationshipServiceProvider).cancel(rel!.requestId!),
+                  errorMsg: 'Failed to cancel request'),
+        ));
+        break;
+      case RelationshipStatus.pendingIncoming:
+        widgets.add(_secondaryButton(
+          label: 'Accept friend request',
+          actionKey: 'accept',
+          onPressed: rel?.requestId == null
+              ? null
+              : () => _runAction(
+                  'accept',
+                  () => ref
+                      .read(relationshipServiceProvider)
+                      .respond(rel!.requestId!, 'accept'),
+                  errorMsg: 'Failed to accept'),
+        ));
+        widgets.add(const SizedBox(height: 8));
+        widgets.add(_ghostButton(
+          label: 'Reject',
+          actionKey: 'reject',
+          onPressed: rel?.requestId == null
+              ? null
+              : () => _runAction(
+                  'reject',
+                  () => ref
+                      .read(relationshipServiceProvider)
+                      .respond(rel!.requestId!, 'reject'),
+                  errorMsg: 'Failed to reject'),
+        ));
+        break;
+      case RelationshipStatus.friend:
+        widgets.add(_ghostButton(
+          label: 'Unfriend',
+          actionKey: 'unfriend',
+          onPressed: rel?.requestId == null
+              ? null
+              : () async {
+                  if (!await _confirm('Unfriend?', 'Remove this person from your friends.')) return;
+                  await _runAction(
+                      'unfriend',
+                      () => ref.read(relationshipServiceProvider).unfriend(rel!.requestId!),
+                      errorMsg: 'Failed to unfriend');
+                },
+        ));
+        break;
+      case RelationshipStatus.blockedByMe:
+        widgets.add(_secondaryButton(
+          label: 'Unblock',
+          actionKey: 'unblock',
+          onPressed: rel?.requestId == null
+              ? null
+              : () => _runAction(
+                  'unblock',
+                  () => ref.read(relationshipServiceProvider).unblock(rel!.requestId!),
+                  errorMsg: 'Failed to unblock'),
+        ));
+        break;
+      case RelationshipStatus.blockedByThem:
+      case RelationshipStatus.self:
+        break;
+    }
+
+    if (status != RelationshipStatus.blockedByMe &&
+        status != RelationshipStatus.blockedByThem) {
+      widgets.add(const SizedBox(height: 8));
+      widgets.add(_ghostButton(
+        label: 'Block',
+        actionKey: 'block',
+        danger: true,
+        onPressed: () async {
+          if (!await _confirm('Block user?', 'You will no longer see their messages.')) return;
+          await _runAction(
+              'block',
+              () => ref.read(relationshipServiceProvider).block(widget.userId),
+              errorMsg: 'Failed to block');
+        },
+      ));
+    }
+
+    return widgets;
+  }
+
+  Widget _spinner(Color color) => SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2, color: color),
+      );
+
+  Widget _secondaryButton({
+    required String label,
+    required String actionKey,
+    VoidCallback? onPressed,
+  }) {
+    final loading = _isPending(actionKey);
+    final disabled = _isAnyPending && !loading;
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: (disabled || loading) ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          side: const BorderSide(color: AppColors.line),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+        ),
+        child: loading
+            ? _spinner(AppColors.textPrimary)
+            : Text(label,
+                style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+
+  Widget _ghostButton({
+    required String label,
+    required String actionKey,
+    VoidCallback? onPressed,
+    bool danger = false,
+  }) {
+    final color = danger ? AppColors.danger : AppColors.textSecondary;
+    final loading = _isPending(actionKey);
+    final disabled = _isAnyPending && !loading;
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton(
+        onPressed: (disabled || loading) ? null : onPressed,
+        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+        child: loading
+            ? _spinner(color)
+            : Text(label,
+                style: AppTypography.bodyMd
+                    .copyWith(color: color, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+
+  Widget _buildRelationshipBadge(RelationshipStatus status) {
+    String text;
+    Color color;
+    switch (status) {
+      case RelationshipStatus.friend:
+        text = 'Friends';
+        color = AppColors.success;
+        break;
+      case RelationshipStatus.pendingOutgoing:
+        text = 'Request sent';
+        color = AppColors.textSecondary;
+        break;
+      case RelationshipStatus.pendingIncoming:
+        text = 'Wants to be friends';
+        color = AppColors.primary;
+        break;
+      case RelationshipStatus.blockedByMe:
+        text = 'Blocked';
+        color = AppColors.danger;
+        break;
+      case RelationshipStatus.blockedByThem:
+        text = 'Unavailable';
+        color = AppColors.textTertiary;
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(text,
+          style: AppTypography.small
+              .copyWith(color: color, fontWeight: FontWeight.w600)),
     );
   }
 

@@ -11,11 +11,12 @@ interface MessageListProps {
   messages: Message[]
   typingUsers: Map<string, TypingUserInfo>
   user: User | null
+  onOpenProfile?: (userId: string) => void
 }
 
 const STREAK_GAP_MS = 5 * 60 * 1000
 
-export const MessageList = ({ conversation, messages, typingUsers, user }: MessageListProps) => {
+export const MessageList = ({ conversation, messages, typingUsers, user, onOpenProfile }: MessageListProps) => {
   const sortedMessages = useMemo(
     () =>
       messages
@@ -71,6 +72,7 @@ export const MessageList = ({ conversation, messages, typingUsers, user }: Messa
             showTime={isLastInStreak}
             myUserId={user?.id || ''}
             onReact={(mid, type) => toggleReaction(mid, type)}
+            onOpenProfile={isGroup ? onOpenProfile : undefined}
           />
         )
       })}

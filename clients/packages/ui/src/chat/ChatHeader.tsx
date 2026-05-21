@@ -6,9 +6,10 @@ import { formatLastActive } from '@chat/shared'
 interface ChatHeaderProps {
   conversation?: Conversation
   onBack?: () => void
+  onOpenProfile?: (userId: string) => void
 }
 
-export const ChatHeader = ({ conversation, onBack }: ChatHeaderProps) => {
+export const ChatHeader = ({ conversation, onBack, onOpenProfile }: ChatHeaderProps) => {
   if (!conversation) {
     return (
       <div className="bg-surface/90 backdrop-blur-sm border-b border-line-subtle px-3 sm:px-4 py-3 sm:py-4">
@@ -50,8 +51,17 @@ export const ChatHeader = ({ conversation, onBack }: ChatHeaderProps) => {
             : isDirect && subtitle.startsWith('Active')
               ? 'text-ink-secondary'
               : 'text-ink-tertiary'
+          const peerId = isDirect ? conversation.otherUser?.id : undefined
+          const canOpenProfile = !!peerId && !!onOpenProfile
           return (
-            <>
+            <button
+              type="button"
+              onClick={canOpenProfile ? () => onOpenProfile!(peerId!) : undefined}
+              disabled={!canOpenProfile}
+              className={`flex items-center gap-2 sm:gap-3 flex-1 min-w-0 text-left ${
+                canOpenProfile ? 'cursor-pointer' : 'cursor-default'
+              }`}
+            >
               <Avatar
                 src={conversation.avatar}
                 name={displayName}
@@ -66,7 +76,7 @@ export const ChatHeader = ({ conversation, onBack }: ChatHeaderProps) => {
                   {subtitle}
                 </p>
               </div>
-            </>
+            </button>
           )
         })()}
 

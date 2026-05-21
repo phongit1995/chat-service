@@ -167,6 +167,7 @@ export const Chat = () => {
             onSendMessage={(e) => { e.preventDefault(); handleSendMessage(); }}
             onSendImage={(file) => sendImageMessage(currentConversation.id, file)}
             onBack={clearRightPane}
+            onOpenProfile={(uid) => setViewProfileUserId(uid)}
           />
         ) : (
           <EmptyState />

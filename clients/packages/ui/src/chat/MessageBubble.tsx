@@ -18,6 +18,7 @@ interface MessageBubbleProps {
   showTime?: boolean
   myUserId?: string
   onReact?: (messageId: string, type: string) => void
+  onOpenProfile?: (userId: string) => void
 }
 
 const formatTime = (dateString: string) => {
@@ -36,6 +37,7 @@ export const MessageBubble = ({
   showTime = true,
   myUserId = '',
   onReact,
+  onOpenProfile,
 }: MessageBubbleProps) => {
   const renderStatus = () => {
     if (!isOwnMessage) return null
@@ -113,16 +115,37 @@ export const MessageBubble = ({
       {!isOwnMessage && (
         <div className="w-8 flex-shrink-0 flex items-end">
           {showAvatar ? (
-            <Avatar name={message.senderName || ''} src={message.senderAvatar} size="sm" />
+            onOpenProfile ? (
+              <button
+                type="button"
+                onClick={() => onOpenProfile(message.senderId)}
+                className="rounded-full hover:opacity-80 transition-opacity"
+                title={message.senderName || ''}
+              >
+                <Avatar name={message.senderName || ''} src={message.senderAvatar} size="sm" />
+              </button>
+            ) : (
+              <Avatar name={message.senderName || ''} src={message.senderAvatar} size="sm" />
+            )
           ) : null}
         </div>
       )}
 
       <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[80%] sm:max-w-[75%] md:max-w-[65%]`}>
         {showName && (
-          <p className="text-[11px] font-semibold mb-0.5 ml-2 text-ink-tertiary">
-            {message.senderName}
-          </p>
+          onOpenProfile ? (
+            <button
+              type="button"
+              onClick={() => onOpenProfile(message.senderId)}
+              className="text-[11px] font-semibold mb-0.5 ml-2 text-ink-tertiary hover:text-ink-primary hover:underline transition-colors"
+            >
+              {message.senderName}
+            </button>
+          ) : (
+            <p className="text-[11px] font-semibold mb-0.5 ml-2 text-ink-tertiary">
+              {message.senderName}
+            </p>
+          )
         )}
 
         {replyToMessage && (

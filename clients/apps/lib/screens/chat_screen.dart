@@ -13,6 +13,7 @@ import 'chat/chat_app_bar.dart';
 import 'chat/message_composer.dart';
 import 'chat/message_list.dart';
 import 'chat/typing_indicator.dart';
+import 'user_profile_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -146,6 +147,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  void _openProfile(String userId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(userId: userId),
+      ),
+    );
+  }
+
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty) return;
@@ -246,6 +255,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         appBar: ChatAppBar(
           conversation: conversation,
           onBack: () => Navigator.of(context).maybePop(),
+          onOpenProfile: _openProfile,
         ),
         body: Column(
           children: [
@@ -266,6 +276,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       },
                       onEdit: _startEdit,
                       onDelete: _deleteMessage,
+                      onOpenProfile: _openProfile,
                     ),
             ),
             TypingIndicator(typingUsers: typingUsers),
