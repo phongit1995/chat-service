@@ -1358,7 +1358,7 @@ func (s *Service) ToggleReaction(ctx context.Context, userID, conversationID uui
 	users := reactions[reactionType]
 
 	hasReacted := false
-	filtered := users[:0]
+	filtered := make([]string, 0, len(users))
 	for _, u := range users {
 		if u == userIDStr {
 			hasReacted = true
@@ -1388,7 +1388,10 @@ func (s *Service) ToggleReaction(ctx context.Context, userID, conversationID uui
 		if typesByUser >= constants.MaxReactionTypesPerUserPerMessage {
 			return nil, fmt.Errorf("%w: max %d", ErrMaxReactions, constants.MaxReactionTypesPerUserPerMessage)
 		}
-		reactions[reactionType] = append(users, userIDStr)
+		newUsers := make([]string, len(users)+1)
+		copy(newUsers, users)
+		newUsers[len(users)] = userIDStr
+		reactions[reactionType] = newUsers
 	}
 
 	var newRaw string
