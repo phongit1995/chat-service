@@ -215,7 +215,7 @@ export const ChatArea = ({
     const insertAt = savedCursorOffset.current ?? messageInput.length
     const currentText = messageInput
     const newText = currentText.slice(0, insertAt) + emoji + currentText.slice(insertAt)
-    const newCursorOffset = insertAt + [...emoji].length // đếm theo grapheme
+    const newCursorOffset = insertAt + emoji.length
 
     onSetMessageInput(newText)
     renderContent(el, newText)

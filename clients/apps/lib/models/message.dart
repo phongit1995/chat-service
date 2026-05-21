@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'message_type.dart';
 
 part 'message.g.dart';
 
@@ -57,6 +58,13 @@ class Message {
     metadata: metadata ?? this.metadata,
     reactions: reactions ?? this.reactions,
   );
+
+  MessageType get messageType => MessageType.fromValue(type);
+  bool get isText => messageType == MessageType.text;
+  bool get isImage => messageType == MessageType.image;
+  bool get isFile => messageType == MessageType.file;
+  bool get isVideo => messageType == MessageType.video;
+  bool get isAudio => messageType == MessageType.audio;
 
   factory Message.fromJson(Map<String, dynamic> json) => _$MessageFromJson(json);
   Map<String, dynamic> toJson() => _$MessageToJson(this);

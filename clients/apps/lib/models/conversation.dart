@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'conversation_type.dart';
 
 part 'conversation.g.dart';
 
@@ -107,7 +108,11 @@ class Conversation {
     otherUser: otherUser ?? this.otherUser,
   );
 
+  ConversationType get conversationType => ConversationType.fromValue(type);
+  bool get isDirect => conversationType == ConversationType.direct;
+  bool get isGroup => conversationType == ConversationType.group;
+
   String get displayName => (name != null && name!.isNotEmpty)
       ? name!
-      : (type == 'group' ? 'Group Chat' : 'Unknown');
+      : (isGroup ? 'Group Chat' : 'Unknown');
 }

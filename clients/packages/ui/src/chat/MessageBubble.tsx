@@ -4,7 +4,7 @@ import { Avatar } from '../common'
 import { ImageLightbox } from './ImageLightbox'
 import { ReactionButton } from './ReactionButton'
 import { MessageActionsMenu } from './MessageActionsMenu'
-import { getEmojiJumboSize, splitIntoSegments } from '@chat/shared'
+import { splitIntoSegments } from '@chat/shared'
 import { parseImageMeta } from '@chat/shared'
 
 interface MessageBubbleProps {
@@ -80,8 +80,8 @@ export const MessageBubble = ({
     )
   }
 
-  const emojiJumboSize = getEmojiJumboSize(message.content)
-  const isEmojiOnly = emojiJumboSize > 0
+  const emojiJumboSize = 0
+  const isEmojiOnly = false
   const isImage = message.type === 'image'
   const imageMeta = isImage ? parseImageMeta(message.metadata) : null
   const [lightboxOpen, setLightboxOpen] = useState(false)
