@@ -1409,6 +1409,9 @@ func (s *Service) ToggleReaction(ctx context.Context, userID, conversationID uui
 		return nil, fmt.Errorf("failed to persist reactions: %w", err)
 	}
 
+	s.cache.InvalidateConversationMessages(conversationID)
+	s.cache.DeleteMessage(conversationID, messageID)
+
 	go func() {
 		event := &messageEvents.MessageReactionUpdatedEvent{
 			ConversationID: conversationID.String(),
