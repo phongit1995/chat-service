@@ -10,19 +10,27 @@ import 'core_providers.dart';
 class AuthState {
   final User? user;
   final bool loading;
+  final bool initialized;
   final String? error;
 
-  AuthState({this.user, this.loading = false, this.error});
+  AuthState({
+    this.user,
+    this.loading = false,
+    this.initialized = false,
+    this.error,
+  });
 
   AuthState copyWith({
     User? user,
     bool? loading,
+    bool? initialized,
     String? error,
     bool clearUser = false,
     bool clearError = false,
   }) => AuthState(
     user: clearUser ? null : (user ?? this.user),
     loading: loading ?? this.loading,
+    initialized: initialized ?? this.initialized,
     error: clearError ? null : (error ?? this.error),
   );
 }
@@ -34,15 +42,19 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> tryRestoreSession() async {
     final auth = ref.read(authServiceProvider);
     final token = await auth.getToken();
-    if (token == null) return;
+    if (token == null) {
+      state = state.copyWith(initialized: true);
+      return;
+    }
 
     try {
       final user = await ref.read(userServiceProvider).getProfile();
-      state = state.copyWith(user: user);
+      state = state.copyWith(user: user, initialized: true);
       ref.read(socketProvider).connect(token);
       ref.invalidate(conversationsRawProvider);
     } catch (_) {
       await auth.logout();
+      state = state.copyWith(clearUser: true, initialized: true);
     }
   }
 
@@ -87,7 +99,7 @@ class AuthNotifier extends Notifier<AuthState> {
     ref.read(socketProvider).disconnect();
     ref.read(activeConversationProvider.notifier).set(null);
     await ref.read(authServiceProvider).logout();
-    state = AuthState();
+    state = AuthState(initialized: true);
   }
 
   String _extractError(Object e) {

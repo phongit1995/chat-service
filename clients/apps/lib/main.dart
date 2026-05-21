@@ -9,6 +9,7 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/chat_screen.dart';
+import 'screens/splash_screen.dart';
 import 'screens/call/call_screen.dart';
 import 'screens/call/incoming_call_overlay.dart';
 import 'providers/call_provider.dart';
@@ -36,18 +37,27 @@ class _ChatAppState extends ConsumerState<ChatApp> {
     _authListenable = _AuthListenable(ref);
     _router = GoRouter(
       navigatorKey: navigatorKey,
-      initialLocation: '/login',
+      initialLocation: '/splash',
       refreshListenable: _authListenable,
       redirect: (ctx, state) {
-        final loggedIn = ref.read(authProvider).user != null;
+        final auth = ref.read(authProvider);
+        final atSplash = state.matchedLocation == '/splash';
         final atAuth =
             state.matchedLocation == '/login' ||
             state.matchedLocation == '/register';
-        if (!loggedIn && !atAuth) return '/login';
-        if (loggedIn && atAuth) return '/';
+
+        if (!auth.initialized) {
+          return atSplash ? null : '/splash';
+        }
+        if (atSplash) {
+          return auth.user != null ? '/' : '/login';
+        }
+        if (auth.user == null && !atAuth) return '/login';
+        if (auth.user != null && atAuth) return '/';
         return null;
       },
       routes: [
+        GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
         GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
         GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
         GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
