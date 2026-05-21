@@ -1,24 +1,51 @@
-name: Flutter Build
+name: Release (Electron + Flutter)
 
 on:
   workflow_dispatch:
     inputs:
-      release:
-        description: 'Create GitHub Release with artifacts'
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        type: string
+        required: true
+      prerelease:
+        description: 'Mark as pre-release'
         type: boolean
         default: false
-      tag:
-        description: 'Release tag (e.g. v1.0.0). Required when release=true'
-        type: string
-        required: false
+      draft:
+        description: 'Create as draft (publish manually)'
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
 
 env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '11.1.2'
   FLUTTER_VERSION: '3.35.6'
+  CLIENTS_DIR: clients
   APP_DIR: clients/apps
 
 jobs:
-  analyze:
-    name: Analyze & Test
+  resolve-tag:
+    name: Resolve release tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+          fi
+
+  flutter-analyze:
+    name: Flutter analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,13 +68,77 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: flutter analyze
 
-      - name: Test
-        working-directory: ${{ env.APP_DIR }}
-        run: flutter test || true
+  build-desktop:
+    name: Desktop · ${{ matrix.os }}
+    needs: resolve-tag
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: desktop-mac
+            patterns: |
+              clients/desktop/release/*.dmg
+              clients/desktop/release/*.zip
+          - os: windows-latest
+            artifact: desktop-win
+            patterns: |
+              clients/desktop/release/*.exe
+          - os: ubuntu-latest
+            artifact: desktop-linux
+            patterns: |
+              clients/desktop/release/*.AppImage
+              clients/desktop/release/*.deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: ${{ env.CLIENTS_DIR }}/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: ${{ env.CLIENTS_DIR }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Approve native build scripts
+        working-directory: ${{ env.CLIENTS_DIR }}
+        run: pnpm rebuild --filter desktop || true
+
+      - name: Build (macOS)
+        if: matrix.os == 'macos-latest'
+        working-directory: ${{ env.CLIENTS_DIR }}/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: pnpm package:mac
+
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: ${{ env.CLIENTS_DIR }}/desktop
+        run: pnpm package:win
+
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: ${{ env.CLIENTS_DIR }}/desktop
+        run: pnpm package:linux
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.patterns }}
+          retention-days: 14
+          if-no-files-found: warn
 
   build-android:
-    name: Build Android
-    needs: analyze
+    name: Android (APK + AAB)
+    needs: [resolve-tag, flutter-analyze]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,16 +162,15 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Build APK split-per-abi (release, unsigned)
+      - name: Build APK split-per-abi
         working-directory: ${{ env.APP_DIR }}
         run: flutter build apk --release --split-per-abi --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
-      - name: Build APK universal (release, unsigned)
+      - name: Build APK universal
         working-directory: ${{ env.APP_DIR }}
         run: flutter build apk --release --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
-      - name: Build AAB (release, unsigned)
-        if: inputs.release == true
+      - name: Build AAB
         working-directory: ${{ env.APP_DIR }}
         run: flutter build appbundle --release --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
@@ -92,7 +182,6 @@ jobs:
           retention-days: 14
 
       - name: Upload AAB artifact
-        if: inputs.release == true
         uses: actions/upload-artifact@v4
         with:
           name: android-aab
@@ -100,8 +189,8 @@ jobs:
           retention-days: 14
 
   build-ios:
-    name: Build iOS (unsigned)
-    needs: analyze
+    name: iOS (unsigned)
+    needs: [resolve-tag, flutter-analyze]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -136,20 +225,10 @@ jobs:
           retention-days: 14
 
   release:
-    name: Create GitHub Release
-    needs: [build-android, build-ios]
-    if: inputs.release == true
+    name: Publish GitHub Release
+    needs: [resolve-tag, build-desktop, build-android, build-ios]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Validate tag input
-        run: |
-          if [ -z "${{ inputs.tag }}" ]; then
-            echo "::error::release=true requires a tag input"
-            exit 1
-          fi
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -161,12 +240,17 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag }}
-          name: ${{ inputs.tag }}
+          tag_name: ${{ needs.resolve-tag.outputs.tag }}
+          name: ${{ needs.resolve-tag.outputs.tag }}
           files: |
+            artifacts/desktop-mac/*.dmg
+            artifacts/desktop-mac/*.zip
+            artifacts/desktop-win/*.exe
+            artifacts/desktop-linux/*.AppImage
+            artifacts/desktop-linux/*.deb
             artifacts/android-apk/*.apk
             artifacts/android-aab/*.aab
             artifacts/ios-build/*.zip
           generate_release_notes: true
-          draft: false
-          prerelease: false
+          draft: ${{ inputs.draft == true }}
+          prerelease: ${{ inputs.prerelease == true }}
