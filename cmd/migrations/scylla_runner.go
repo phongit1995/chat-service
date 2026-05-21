@@ -40,18 +40,45 @@ func RunScyllaMigration(cfg *Config) error {
 		return err
 	}
 
+	if err := ensureScyllaTracker(session, cfg.ScyllaKeyspace); err != nil {
+		session.Close()
+		return fmt.Errorf("failed to ensure schema_migrations table: %w", err)
+	}
+
+	applied, err := loadAppliedScyllaVersions(session, cfg.ScyllaKeyspace)
+	if err != nil {
+		session.Close()
+		return fmt.Errorf("failed to load applied migrations: %w", err)
+	}
+
 	switch cfg.MigrationAction {
 	case "up":
+		applyCount := 0
 		for _, m := range migrations {
-			if m.Direction == "up" {
-				if err := executeCQLFileWithKeyspace(session, m.FilePath, cfg.ScyllaKeyspace); err != nil {
-					session.Close()
-					return fmt.Errorf("failed to execute migration %s: %w", m.Version, err)
-				}
-				log.Printf("✅ Applied migration: %s\n", m.Version)
+			if m.Direction != "up" {
+				continue
 			}
+			if applied[m.Version] {
+				log.Printf("⏭️  Skip already applied: %s\n", m.Version)
+				continue
+			}
+			if err := executeCQLFileWithKeyspace(session, m.FilePath, cfg.ScyllaKeyspace); err != nil {
+				session.Close()
+				return fmt.Errorf("failed to execute migration %s: %w", m.Version, err)
+			}
+			if err := recordAppliedScyllaVersion(session, cfg.ScyllaKeyspace, m.Version); err != nil {
+				session.Close()
+				return fmt.Errorf("applied migration %s but failed to record: %w", m.Version, err)
+			}
+			applied[m.Version] = true
+			applyCount++
+			log.Printf("✅ Applied migration: %s\n", m.Version)
 		}
-		log.Println("✅ ScyllaDB migrations UP completed successfully")
+		if applyCount == 0 {
+			log.Println("✅ ScyllaDB migrations UP: nothing to apply (all up-to-date)")
+		} else {
+			log.Printf("✅ ScyllaDB migrations UP completed successfully (%d applied)\n", applyCount)
+		}
 
 	case "down":
 		steps := cfg.MigrationSteps
@@ -61,28 +88,38 @@ func RunScyllaMigration(cfg *Config) error {
 		count := 0
 		for i := len(migrations) - 1; i >= 0 && count < steps; i-- {
 			m := migrations[i]
-			if m.Direction == "down" {
-				if err := executeCQLFileWithKeyspace(session, m.FilePath, cfg.ScyllaKeyspace); err != nil {
-					session.Close()
-					return fmt.Errorf("failed to execute migration %s: %w", m.Version, err)
-				}
-				log.Printf("✅ Rolled back migration: %s\n", m.Version)
-				count++
+			if m.Direction != "down" {
+				continue
 			}
+			if !applied[m.Version] {
+				log.Printf("⏭️  Skip rollback (not applied): %s\n", m.Version)
+				continue
+			}
+			if err := executeCQLFileWithKeyspace(session, m.FilePath, cfg.ScyllaKeyspace); err != nil {
+				session.Close()
+				return fmt.Errorf("failed to execute migration %s: %w", m.Version, err)
+			}
+			if err := removeAppliedScyllaVersion(session, cfg.ScyllaKeyspace, m.Version); err != nil {
+				session.Close()
+				return fmt.Errorf("rolled back migration %s but failed to remove record: %w", m.Version, err)
+			}
+			delete(applied, m.Version)
+			count++
+			log.Printf("✅ Rolled back migration: %s\n", m.Version)
 		}
 		log.Printf("✅ ScyllaDB migrations DOWN (%d steps) completed successfully\n", count)
 
 	case "version":
-		if len(migrations) > 0 {
-			lastUp := ""
-			for _, m := range migrations {
-				if m.Direction == "up" {
-					lastUp = m.Version
-				}
+		latestApplied := ""
+		for _, m := range migrations {
+			if m.Direction == "up" && applied[m.Version] && m.Version > latestApplied {
+				latestApplied = m.Version
 			}
-			log.Printf("📊 ScyllaDB latest migration: %s\n", lastUp)
+		}
+		if latestApplied == "" {
+			log.Println("📊 ScyllaDB: No migrations applied yet")
 		} else {
-			log.Println("📊 ScyllaDB: No migrations found")
+			log.Printf("📊 ScyllaDB latest applied migration: %s\n", latestApplied)
 		}
 
 	default:
@@ -92,6 +129,50 @@ func RunScyllaMigration(cfg *Config) error {
 
 	session.Close()
 	return nil
+}
+
+func ensureScyllaTracker(session *gocql.Session, keyspace string) error {
+	createKeyspace := fmt.Sprintf(
+		"CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'NetworkTopologyStrategy', 'datacenter1': 1}",
+		keyspace,
+	)
+	if err := session.Query(createKeyspace).Exec(); err != nil {
+		return fmt.Errorf("create keyspace: %w", err)
+	}
+	createTable := fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS %s.schema_migrations (version text PRIMARY KEY, applied_at timestamp)",
+		keyspace,
+	)
+	return session.Query(createTable).Exec()
+}
+
+func loadAppliedScyllaVersions(session *gocql.Session, keyspace string) (map[string]bool, error) {
+	applied := make(map[string]bool)
+	iter := session.Query(
+		fmt.Sprintf("SELECT version FROM %s.schema_migrations", keyspace),
+	).Iter()
+	var version string
+	for iter.Scan(&version) {
+		applied[version] = true
+	}
+	if err := iter.Close(); err != nil {
+		return nil, err
+	}
+	return applied, nil
+}
+
+func recordAppliedScyllaVersion(session *gocql.Session, keyspace, version string) error {
+	return session.Query(
+		fmt.Sprintf("INSERT INTO %s.schema_migrations (version, applied_at) VALUES (?, ?)", keyspace),
+		version, time.Now().UTC(),
+	).Exec()
+}
+
+func removeAppliedScyllaVersion(session *gocql.Session, keyspace, version string) error {
+	return session.Query(
+		fmt.Sprintf("DELETE FROM %s.schema_migrations WHERE version = ?", keyspace),
+		version,
+	).Exec()
 }
 
 func getScyllaMigrations() ([]ScyllaMigration, error) {
