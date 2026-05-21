@@ -36,6 +36,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   int _lastMessageCount = 0;
   Timer? _stopTypingTimer;
   bool _isTyping = false;
+  String? _editingMessageId;
 
   @override
   void initState() {
@@ -148,12 +149,54 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty) return;
+
+    if (_editingMessageId != null) {
+      final id = _editingMessageId!;
+      _input.clear();
+      setState(() => _editingMessageId = null);
+      final ok = await ref.read(messagesProvider.notifier).editMessage(id, text);
+      if (!ok && mounted) {
+        final err = ref.read(messagesProvider).error;
+        showErrorToast(_extractErrorMessage(err, 'Failed to edit message'));
+      }
+      return;
+    }
+
     _input.clear();
     _scrollToBottom();
     final ok = await ref.read(messagesProvider.notifier).send(text);
     if (!ok && mounted) {
       showErrorToast('Failed to send message');
     }
+  }
+
+  void _startEdit(Message message) {
+    if (!message.isText) return;
+    setState(() => _editingMessageId = message.id);
+    _input.text = message.content;
+    _input.selection = TextSelection.collapsed(offset: _input.text.length);
+  }
+
+  void _cancelEdit() {
+    setState(() => _editingMessageId = null);
+    _input.clear();
+  }
+
+  Future<void> _deleteMessage(String messageId) async {
+    final ok = await ref.read(messagesProvider.notifier).deleteMessage(messageId);
+    if (!ok && mounted) {
+      final err = ref.read(messagesProvider).error;
+      showErrorToast(_extractErrorMessage(err, 'Failed to delete message'));
+    }
+  }
+
+  String _extractErrorMessage(Object? err, String fallback) {
+    if (err is DioException) {
+      final data = err.response?.data;
+      if (data is Map && data['error'] is String) return data['error'] as String;
+      return err.message ?? err.response?.statusMessage ?? fallback;
+    }
+    return fallback;
   }
 
   Future<void> _sendImage(File file) async {
@@ -221,6 +264,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       onReact: (mid, type) async {
                         await ref.read(messagesProvider.notifier).toggleReaction(mid, type);
                       },
+                      onEdit: _startEdit,
+                      onDelete: _deleteMessage,
                     ),
             ),
             TypingIndicator(typingUsers: typingUsers),
@@ -229,6 +274,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               sending: messagesState.sending,
               onSend: _send,
               onSendImage: _sendImage,
+              editing: _editingMessageId != null,
+              onCancelEdit: _cancelEdit,
             ),
           ],
         ),

@@ -13,6 +13,8 @@ class MessageComposer extends StatefulWidget {
   final bool sending;
   final VoidCallback onSend;
   final Future<void> Function(File file) onSendImage;
+  final bool editing;
+  final VoidCallback? onCancelEdit;
 
   const MessageComposer({
     super.key,
@@ -20,6 +22,8 @@ class MessageComposer extends StatefulWidget {
     required this.sending,
     required this.onSend,
     required this.onSendImage,
+    this.editing = false,
+    this.onCancelEdit,
   });
 
   @override
@@ -135,6 +139,36 @@ class _MessageComposerState extends State<MessageComposer> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.editing)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.bgOverlay,
+                  border: const Border(
+                    bottom: BorderSide(color: AppColors.lineSubtle),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.edit_outlined,
+                        size: 16, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text('Editing message',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary)),
+                    ),
+                    GestureDetector(
+                      onTap: widget.onCancelEdit,
+                      child: const Icon(Icons.close,
+                          size: 18, color: AppColors.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Row(
@@ -143,7 +177,7 @@ class _MessageComposerState extends State<MessageComposer> {
                     icon: const Icon(Icons.add_photo_alternate_outlined),
                     color: AppColors.textTertiary,
                     tooltip: 'Send photo',
-                    onPressed: widget.sending ? null : _openAttachSheet,
+                    onPressed: (widget.sending || widget.editing) ? null : _openAttachSheet,
                   ),
                   Expanded(
                     child: TextField(
@@ -179,7 +213,10 @@ class _MessageComposerState extends State<MessageComposer> {
                         shape: BoxShape.circle,
                         boxShadow: widget.sending ? null : AppShadows.glowGradient,
                       ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white),
+                      child: Icon(
+                        widget.editing ? Icons.check_rounded : Icons.send_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ],

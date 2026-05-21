@@ -34,6 +34,12 @@ final socketListenerProvider = Provider<SocketListener>((ref) {
       ref.read(conversationsRawProvider.notifier).handleNewMessage(event);
       ref.read(messagesProvider.notifier).applyIncoming(event.message);
     }),
+    socket.onMessageUpdated.listen((event) {
+      ref.read(messagesProvider.notifier).applyMessageUpdated(event.message);
+    }),
+    socket.onMessageDeleted.listen((p) {
+      ref.read(messagesProvider.notifier).applyMessageDeleted(p.messageId);
+    }),
     socket.onMessageReactionUpdated.listen((p) {
       ref.read(messagesProvider.notifier)
           .applyReactionUpdate(p.messageId, p.reactions);

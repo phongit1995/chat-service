@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:photo_view/photo_view.dart';
 
 import '../../utils/image_meta.dart';
@@ -27,9 +28,12 @@ class MessageBubble extends StatelessWidget {
   final bool isFirstInStreak;
   final bool isLastInStreak;
   final bool showTime;
+  final bool isEdited;
   final Map<String, List<String>>? reactions;
   final String myUserId;
   final Future<void> Function(String messageId, String type)? onReact;
+  final void Function(String messageId)? onEdit;
+  final Future<void> Function(String messageId)? onDelete;
 
   const MessageBubble({
     super.key,
@@ -48,9 +52,12 @@ class MessageBubble extends StatelessWidget {
     this.isFirstInStreak = true,
     this.isLastInStreak = true,
     this.showTime = true,
+    this.isEdited = false,
     this.reactions,
     this.myUserId = '',
     this.onReact,
+    this.onEdit,
+    this.onDelete,
   });
 
   Widget? _buildStatusIcon() {
@@ -204,49 +211,124 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  void _showReactionMenu(BuildContext context) {
-    if (onReact == null) return;
+  void _showActionsMenu(BuildContext context) {
+    final canReact = onReact != null && status != 'sending' && status != 'uploading' && status != 'failed';
+    final canEdit = isMine && messageType == 'text' && onEdit != null && status == 'sent';
+    final canDelete = isMine && onDelete != null && status == 'sent';
+    final canCopy = messageType == 'text' && content.isNotEmpty;
+    if (!canReact && !canEdit && !canDelete && !canCopy) return;
+
     final myReacted = <String>{
       for (final e in (reactions ?? {}).entries)
         if (e.value.contains(myUserId)) e.key
     };
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.bgSurface,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: const [BoxShadow(blurRadius: 12, color: Colors.black26)],
-        ),
-        child: Row(
+      backgroundColor: AppColors.bgSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        top: false,
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: reactionTypes.map((type) {
-            final mine = myReacted.contains(type);
-            return GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-                onReact!(messageId, type);
-              },
-              child: Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: mine ? AppColors.primary100 : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: mine
-                      ? Border.all(color: AppColors.primary400, width: 2)
-                      : null,
+          children: [
+            if (canReact) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: reactionTypes.map((type) {
+                    final mine = myReacted.contains(type);
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        onReact!(messageId, type);
+                      },
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: mine ? AppColors.primary100 : Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: mine
+                              ? Border.all(color: AppColors.primary400, width: 2)
+                              : null,
+                        ),
+                        child: Text(reactionEmoji[type] ?? '',
+                            style: const TextStyle(fontSize: 26)),
+                      ),
+                    );
+                  }).toList(),
                 ),
-                child: Text(reactionEmoji[type] ?? '',
-                    style: const TextStyle(fontSize: 26)),
               ),
-            );
-          }).toList(),
+              const Divider(height: 1, color: AppColors.lineSubtle),
+            ],
+            if (canCopy)
+              ListTile(
+                leading: const Icon(Icons.copy_outlined, color: AppColors.textPrimary),
+                title: const Text('Copy'),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  await Clipboard.setData(ClipboardData(text: content));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Copied',
+                            style: TextStyle(fontSize: 12)),
+                        duration: const Duration(milliseconds: 900),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: Colors.black87,
+                        width: 120,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
+            if (canEdit)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined, color: AppColors.textPrimary),
+                title: const Text('Edit'),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  onEdit!(messageId);
+                },
+              ),
+            if (canDelete)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                title: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => AlertDialog(
+                      title: const Text('Delete message?'),
+                      content: const Text('This action cannot be undone.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dCtx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(dCtx, true),
+                          child: const Text('Delete',
+                              style: TextStyle(color: Colors.redAccent)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (ok == true) await onDelete!(messageId);
+                },
+              ),
+          ],
         ),
       ),
     );
@@ -276,7 +358,7 @@ class MessageBubble extends StatelessWidget {
     final showAvatar = !isMine && isLastInStreak;
 
     final bubble = GestureDetector(
-      onLongPress: () => _showReactionMenu(context),
+      onLongPress: () => _showActionsMenu(context),
       child: _buildContent(context, radius),
     );
 
@@ -302,6 +384,14 @@ class MessageBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(time, style: const TextStyle(color: AppColors.textTertiary, fontSize: 11)),
+                if (isEdited) ...[
+                  const SizedBox(width: 6),
+                  const Text('edited',
+                      style: TextStyle(
+                          color: AppColors.textTertiary,
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic)),
+                ],
                 if (statusIcon != null) ...[const SizedBox(width: 6), statusIcon],
               ],
             ),

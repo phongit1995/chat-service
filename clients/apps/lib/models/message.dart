@@ -18,6 +18,8 @@ class Message {
   final String status;
   @JsonKey(defaultValue: '')
   final String createdAt;
+  final String? updatedAt;
+  final String? editedAt;
   final String? clientMsgId;
   final String? metadata;
   final Map<String, List<String>>? reactions;
@@ -32,6 +34,8 @@ class Message {
     this.type = 'text',
     this.status = 'sent',
     required this.createdAt,
+    this.updatedAt,
+    this.editedAt,
     this.clientMsgId,
     this.metadata,
     this.reactions,
@@ -43,6 +47,8 @@ class Message {
     String? content,
     String? type,
     String? metadata,
+    String? updatedAt,
+    String? editedAt,
     Map<String, List<String>>? reactions,
   }) => Message(
     id: id ?? this.id,
@@ -54,6 +60,8 @@ class Message {
     type: type ?? this.type,
     status: status ?? this.status,
     createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    editedAt: editedAt ?? this.editedAt,
     clientMsgId: clientMsgId,
     metadata: metadata ?? this.metadata,
     reactions: reactions ?? this.reactions,
@@ -65,6 +73,8 @@ class Message {
   bool get isFile => messageType == MessageType.file;
   bool get isVideo => messageType == MessageType.video;
   bool get isAudio => messageType == MessageType.audio;
+
+  bool get isEdited => (editedAt != null && editedAt!.isNotEmpty);
 
   factory Message.fromJson(Map<String, dynamic> json) => _$MessageFromJson(json);
   Map<String, dynamic> toJson() => _$MessageToJson(this);

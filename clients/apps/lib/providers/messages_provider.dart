@@ -204,6 +204,68 @@ class MessagesNotifier extends Notifier<MessagesState> {
     );
   }
 
+  void applyMessageUpdated(Message m) {
+    if (m.conversationId != state.conversationId) return;
+    state = state.copyWith(
+      messages: state.messages.map((e) => e.id == m.id ? m : e).toList(),
+    );
+  }
+
+  void applyMessageDeleted(String messageId) {
+    state = state.copyWith(
+      messages: state.messages.where((e) => e.id != messageId).toList(),
+    );
+  }
+
+  Future<bool> editMessage(String messageId, String content) async {
+    final convId = state.conversationId;
+    if (convId == null) return false;
+    final prev = state.messages;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final optimistic = prev
+        .map((m) => m.id == messageId
+            ? m.copyWith(content: content, updatedAt: now, editedAt: now)
+            : m)
+        .toList();
+    state = state.copyWith(messages: optimistic);
+    try {
+      final server = await ref
+          .read(messageServiceProvider)
+          .updateMessage(convId, messageId, content);
+      if (state.conversationId == convId) {
+        state = state.copyWith(
+          messages: state.messages
+              .map((m) => m.id == messageId ? server : m)
+              .toList(),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (state.conversationId == convId) {
+        state = state.copyWith(messages: prev, error: e);
+      }
+      return false;
+    }
+  }
+
+  Future<bool> deleteMessage(String messageId) async {
+    final convId = state.conversationId;
+    if (convId == null) return false;
+    final prev = state.messages;
+    state = state.copyWith(
+      messages: prev.where((m) => m.id != messageId).toList(),
+    );
+    try {
+      await ref.read(messageServiceProvider).deleteMessage(convId, messageId);
+      return true;
+    } catch (e) {
+      if (state.conversationId == convId) {
+        state = state.copyWith(messages: prev, error: e);
+      }
+      return false;
+    }
+  }
+
   Future<bool> send(String text) async {
     final convId = state.conversationId;
     if (convId == null || text.isEmpty || state.sending) return false;

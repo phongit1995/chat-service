@@ -9,6 +9,8 @@ class MessageList extends StatelessWidget {
   final User? user;
   final ScrollController scrollController;
   final Future<void> Function(String messageId, String type)? onReact;
+  final void Function(Message message)? onEdit;
+  final Future<void> Function(String messageId)? onDelete;
 
   const MessageList({
     super.key,
@@ -17,6 +19,8 @@ class MessageList extends StatelessWidget {
     required this.user,
     required this.scrollController,
     this.onReact,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -85,7 +89,10 @@ class MessageList extends StatelessWidget {
           showTime: !sameAsNext,
           reactions: message.reactions,
           myUserId: myId,
+          isEdited: message.isEdited,
           onReact: onReact,
+          onEdit: onEdit == null ? null : (_) => onEdit!(message),
+          onDelete: onDelete,
         );
       },
     );
