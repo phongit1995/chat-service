@@ -176,6 +176,17 @@ Map<String, dynamic> _$ChangePasswordRequestToJson(
       'newPassword': instance.newPassword,
     };
 
+RefreshTokenRequest _$RefreshTokenRequestFromJson(Map<String, dynamic> json) =>
+    RefreshTokenRequest(
+      refreshToken: json['refreshToken'] as String,
+    );
+
+Map<String, dynamic> _$RefreshTokenRequestToJson(
+        RefreshTokenRequest instance) =>
+    <String, dynamic>{
+      'refreshToken': instance.refreshToken,
+    };
+
 PresenceBatchRequest _$PresenceBatchRequestFromJson(
         Map<String, dynamic> json) =>
     PresenceBatchRequest(

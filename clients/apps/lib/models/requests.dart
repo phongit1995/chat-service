@@ -147,6 +147,17 @@ class ChangePasswordRequest {
 }
 
 @JsonSerializable()
+class RefreshTokenRequest {
+  final String refreshToken;
+
+  RefreshTokenRequest({required this.refreshToken});
+
+  factory RefreshTokenRequest.fromJson(Map<String, dynamic> json) =>
+      _$RefreshTokenRequestFromJson(json);
+  Map<String, dynamic> toJson() => _$RefreshTokenRequestToJson(this);
+}
+
+@JsonSerializable()
 class PresenceBatchRequest {
   final List<String> userIds;
 

@@ -84,9 +84,9 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
-    await ref.read(authServiceProvider).logout();
     ref.read(socketProvider).disconnect();
     ref.read(activeConversationProvider.notifier).set(null);
+    await ref.read(authServiceProvider).logout();
     state = AuthState();
   }
 

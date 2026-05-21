@@ -28,13 +28,30 @@ class ApiResponse<T> {
 @JsonSerializable()
 class LoginData {
   final String token;
+  final String refreshToken;
   final User user;
 
-  LoginData({required this.token, required this.user});
+  LoginData({
+    required this.token,
+    required this.refreshToken,
+    required this.user,
+  });
 
   factory LoginData.fromJson(Map<String, dynamic> json) =>
       _$LoginDataFromJson(json);
   Map<String, dynamic> toJson() => _$LoginDataToJson(this);
+}
+
+@JsonSerializable()
+class RefreshTokenData {
+  final String token;
+  final String refreshToken;
+
+  RefreshTokenData({required this.token, required this.refreshToken});
+
+  factory RefreshTokenData.fromJson(Map<String, dynamic> json) =>
+      _$RefreshTokenDataFromJson(json);
+  Map<String, dynamic> toJson() => _$RefreshTokenDataToJson(this);
 }
 
 @JsonSerializable()

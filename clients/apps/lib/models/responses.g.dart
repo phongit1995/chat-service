@@ -42,12 +42,26 @@ Object? _$nullableGenericToJson<T>(
 
 LoginData _$LoginDataFromJson(Map<String, dynamic> json) => LoginData(
       token: json['token'] as String,
+      refreshToken: json['refreshToken'] as String,
       user: User.fromJson(json['user'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$LoginDataToJson(LoginData instance) => <String, dynamic>{
       'token': instance.token,
+      'refreshToken': instance.refreshToken,
       'user': instance.user,
+    };
+
+RefreshTokenData _$RefreshTokenDataFromJson(Map<String, dynamic> json) =>
+    RefreshTokenData(
+      token: json['token'] as String,
+      refreshToken: json['refreshToken'] as String,
+    );
+
+Map<String, dynamic> _$RefreshTokenDataToJson(RefreshTokenData instance) =>
+    <String, dynamic>{
+      'token': instance.token,
+      'refreshToken': instance.refreshToken,
     };
 
 ConversationsResponse _$ConversationsResponseFromJson(

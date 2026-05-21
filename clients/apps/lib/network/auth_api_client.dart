@@ -23,4 +23,12 @@ abstract class AuthApiClient {
   Future<HttpResponse<ApiResponse<dynamic>>> changePassword(
     @Body() ChangePasswordRequest body,
   );
+
+  @POST('/auth/refresh')
+  Future<HttpResponse<ApiResponse<RefreshTokenData>>> refresh(
+    @Body() RefreshTokenRequest body,
+  );
+
+  @POST('/auth/logout')
+  Future<HttpResponse<ApiResponse<dynamic>>> logout();
 }

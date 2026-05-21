@@ -8,13 +8,14 @@ import { socketService } from '../services/socket'
 interface AuthState {
   user: User | null
   accessToken: string | null
+  refreshToken: string | null
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
 
   login: (email: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string, fullName?: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   loadUser: () => Promise<void>
   setUser: (user: User) => void
   updateProfile: (data: UpdateProfileDTO) => Promise<ApiResponse<User>>
@@ -25,6 +26,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   accessToken: localStorage.getItem('accessToken'),
+  refreshToken: localStorage.getItem('refreshToken'),
   isAuthenticated: !!localStorage.getItem('accessToken'),
   isLoading: false,
   error: null,
@@ -33,14 +35,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null })
     try {
       const response = await authService.login({ email, password })
-      const { token, user } = response.data
+      const { token, refreshToken, user } = response.data
 
       localStorage.setItem('accessToken', token)
+      localStorage.setItem('refreshToken', refreshToken)
       localStorage.setItem('user', JSON.stringify(user))
 
       set({
         user,
         accessToken: token,
+        refreshToken,
         isAuthenticated: true,
         isLoading: false,
       })
@@ -75,13 +79,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    await authService.logout()
     localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
     socketService.disconnect()
     set({
       user: null,
       accessToken: null,
+      refreshToken: null,
       isAuthenticated: false,
     })
     toast.success('Logged out successfully')
@@ -100,15 +107,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: response.data!,
         isAuthenticated: true,
         accessToken: token,
+        refreshToken: localStorage.getItem('refreshToken'),
       })
 
       socketService.connect(token)
     } catch (_error) {
       localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
       localStorage.removeItem('user')
       set({
         user: null,
         accessToken: null,
+        refreshToken: null,
         isAuthenticated: false,
       })
     }
