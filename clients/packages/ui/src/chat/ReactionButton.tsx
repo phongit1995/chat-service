@@ -27,8 +27,10 @@ export const ReactionButton = ({ reactions, visible, myUserId, isOwnMessage = fa
   const hasReactions = entries.length > 0
   const myReactedTypes = entries.filter(([, u]) => u.includes(myUserId)).map(([t]) => t)
   const totalCount = entries.reduce((s, [, u]) => s + u.length, 0)
-  const firstType = hasReactions ? entries[0][0] : null
-  const firstEmoji = firstType ? (REACTION_EMOJIS as Record<string, string>)[firstType] : null
+  const sortedEntries = entries.slice().sort(([, a], [, b]) => b.length - a.length)
+  const emojis = sortedEntries
+    .map(([t]) => (REACTION_EMOJIS as Record<string, string>)[t])
+    .filter(Boolean)
 
   if (!hasReactions && !visible && !open) return null
 
@@ -66,9 +68,13 @@ export const ReactionButton = ({ reactions, visible, myUserId, isOwnMessage = fa
       >
         {hasReactions ? (
           <>
-            <span className="text-[14px] leading-none">{firstEmoji}</span>
+            <span className="text-[14px] leading-none inline-flex items-center -space-x-0.5">
+              {emojis.map((e, i) => (
+                <span key={i}>{e}</span>
+              ))}
+            </span>
             {totalCount > 1 && (
-              <span className="text-ink-secondary font-medium">{totalCount}</span>
+              <span className="text-ink-secondary font-medium ml-1">{totalCount}</span>
             )}
           </>
         ) : (

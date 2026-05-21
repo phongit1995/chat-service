@@ -186,9 +186,14 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildReactionsChip() {
-    final entries = (reactions ?? {}).entries.where((e) => e.value.isNotEmpty).toList();
+    final entries = (reactions ?? {}).entries.where((e) => e.value.isNotEmpty).toList()
+      ..sort((a, b) => b.value.length.compareTo(a.value.length));
     if (entries.isEmpty) return const SizedBox.shrink();
-    final firstEmoji = reactionEmoji[entries.first.key] ?? '👍';
+    final emojis = entries
+        .map((e) => reactionEmoji[e.key])
+        .where((s) => s != null && s.isNotEmpty)
+        .cast<String>()
+        .toList();
     final total = entries.fold<int>(0, (s, e) => s + e.value.length);
     return Container(
       margin: const EdgeInsets.only(top: 4),
@@ -201,7 +206,7 @@ class MessageBubble extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(firstEmoji, style: const TextStyle(fontSize: 14)),
+          for (final e in emojis) Text(e, style: const TextStyle(fontSize: 14)),
           if (total > 1) ...[
             const SizedBox(width: 4),
             Text('$total',
