@@ -556,6 +556,7 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 			ID:              conv.ConversationID.String(),
 			LastMessageText: conv.LastMessagePreview,
 			UnreadCount:     conv.UnreadCount,
+			IsMuted:         conv.IsMuted,
 		}
 
 		resp.Type = conv.ConversationType
@@ -769,6 +770,30 @@ func (s *Service) InvalidateUserConversationsCache(userIDs []uuid.UUID) {
 
 func (s *Service) InvalidateConversationCache(conversationID uuid.UUID) {
 	s.cache.InvalidateConversation(conversationID)
+}
+
+func (s *Service) SetConversationMuted(userID, conversationID uuid.UUID, muted bool) error {
+	members, err := s.GetMembersCached(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get members: %w", err)
+	}
+	isMember := false
+	for _, m := range members {
+		if m.UserID == userID && m.IsActive {
+			isMember = true
+			break
+		}
+	}
+	if !isMember {
+		return fmt.Errorf("user is not a member of this conversation")
+	}
+
+	if err := s.repo.SetMuted(userID, conversationID, muted); err != nil {
+		return fmt.Errorf("failed to set mute state: %w", err)
+	}
+
+	go s.InvalidateUserConversationsCache([]uuid.UUID{userID})
+	return nil
 }
 
 func (s *Service) HideConversation(userID, conversationID uuid.UUID) error {
@@ -1006,6 +1031,7 @@ func (s *Service) GetConversationDetail(userID, conversationID uuid.UUID) (*Conv
 		LastMessageText:  conv.LastMessagePreview,
 		UnreadCount:      conv.UnreadCount,
 		ParticipantCount: 0,
+		IsMuted:          conv.IsMuted,
 	}
 
 	if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {

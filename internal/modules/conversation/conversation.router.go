@@ -29,6 +29,8 @@ func (r *Router) Setup(router *utils.AppGroup) {
 		conversations.PUT("/:id/read", r.controller.MarkConversationAsRead)
 		conversations.POST("/:id/hide", r.controller.HideConversation)
 		conversations.POST("/:id/unhide", r.controller.UnhideConversation)
+		conversations.POST("/:id/mute", r.controller.MuteConversation)
+		conversations.POST("/:id/unmute", r.controller.UnmuteConversation)
 		conversations.POST("/typing", r.controller.SendTypingIndicator)
 	}
 }

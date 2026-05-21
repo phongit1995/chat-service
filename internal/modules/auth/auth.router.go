@@ -19,6 +19,8 @@ func (r *Router) Setup(api *utils.AppGroup) {
 	{
 		auth.POST("/register", r.controller.Register)
 		auth.POST("/login", r.controller.Login)
+		auth.POST("/refresh", r.controller.Refresh)
+		auth.POST("/logout", r.authMiddleware.RequireAuth(), r.controller.Logout)
 		auth.POST("/change-password", r.authMiddleware.RequireAuth(), r.controller.ChangePassword)
 	}
 }

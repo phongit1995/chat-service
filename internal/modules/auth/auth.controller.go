@@ -4,6 +4,7 @@ import (
 	"chat-server/internal/middleware"
 	"chat-server/internal/utils"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -143,4 +144,60 @@ func (ctrl *Controller) Login(c *gin.Context) (interface{}, error) {
 	)
 
 	return resp, nil
+}
+
+// Refresh godoc
+// @Summary      Refresh access token
+// @Description  Exchange a valid refresh token for a new access token (rotates the refresh token)
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body RefreshTokenRequest true "Refresh Token Request"
+// @Success      200 {object} utils.BaseResponse[RefreshTokenResponse]
+// @Failure      400 {object} utils.APIError
+// @Failure      401 {object} utils.APIError
+// @Router       /auth/refresh [post]
+func (ctrl *Controller) Refresh(c *gin.Context) (interface{}, error) {
+	var req RefreshTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	resp, err := ctrl.service.RefreshToken(req.RefreshToken, c.ClientIP())
+	if err != nil {
+		ctrl.logger.Warnw("Refresh failed", "error", err.Error(), "ip", c.ClientIP())
+		return nil, utils.NewHTTPError(utils.HTTPStatusFromError(err), err.Error())
+	}
+
+	return resp, nil
+}
+
+// Logout godoc
+// @Summary      Logout (invalidate token)
+// @Description  Blacklist the caller's JWT so it cannot be used again before its natural expiry
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} map[string]string
+// @Failure      401 {object} utils.APIError
+// @Router       /auth/logout [post]
+func (ctrl *Controller) Logout(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	authHeader := c.GetHeader("Authorization")
+	parts := strings.Split(authHeader, " ")
+	token := authHeader
+	if len(parts) == 2 && parts[0] == "Bearer" {
+		token = parts[1]
+	}
+
+	if err := ctrl.service.Logout(token); err != nil {
+		return nil, utils.NewHTTPError(utils.HTTPStatusFromError(err), err.Error())
+	}
+
+	ctrl.logger.Infow("User logged out", "user_id", userID)
+	return map[string]string{"message": "Logged out successfully"}, nil
 }

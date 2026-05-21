@@ -51,7 +51,7 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 		SELECT user_id, conversation_id, conversation_type, display_name, display_avatar,
 		       other_user_id, other_user_name, other_user_avatar,
 		       last_message_at, last_message_id, last_message_preview, last_message_sender,
-		       unread_count, last_read_message_id, last_read_at, updated_at
+		       unread_count, last_read_message_id, last_read_at, updated_at, is_muted
 		FROM conversations_by_user WHERE user_id = ? AND conversation_id = ?
 	`)
 
@@ -88,7 +88,7 @@ func NewRepository(session *gocql.Session, logger *zap.SugaredLogger) *Repositor
 		SELECT user_id, conversation_id, conversation_type, display_name, display_avatar,
 		       other_user_id, other_user_name, other_user_avatar,
 		       last_message_at, last_message_id, last_message_preview, last_message_sender,
-		       unread_count, last_read_message_id, last_read_at, updated_at
+		       unread_count, last_read_message_id, last_read_at, updated_at, is_muted
 		FROM conversations_by_user
 		WHERE user_id = ?
 	`)
@@ -138,6 +138,7 @@ type ConversationByUser struct {
 	LastReadMessageID  *gocql.UUID
 	LastReadAt         *time.Time
 	UpdatedAt          *time.Time
+	IsMuted            bool
 }
 
 type DirectConversationPair struct {
@@ -355,7 +356,7 @@ func (r *Repository) GetUserConversations(userID uuid.UUID, limit int) ([]Conver
 		&conv.UserID, &conv.ConversationID, &conv.ConversationType, &conv.DisplayName, &conv.DisplayAvatar,
 		&conv.OtherUserID, &conv.OtherUserName, &conv.OtherUserAvatar,
 		&conv.LastMessageAt, &conv.LastMessageID, &conv.LastMessagePreview, &conv.LastMessageSender,
-		&conv.UnreadCount, &conv.LastReadMessageID, &conv.LastReadAt, &conv.UpdatedAt,
+		&conv.UnreadCount, &conv.LastReadMessageID, &conv.LastReadAt, &conv.UpdatedAt, &conv.IsMuted,
 	) {
 		conversations = append(conversations, conv)
 	}
@@ -601,13 +602,13 @@ func (r *Repository) GetUserConversationByID(userID, conversationID uuid.UUID) (
 	query := `SELECT user_id, conversation_id, conversation_type, display_name, display_avatar,
 	                 other_user_id, other_user_name, other_user_avatar,
 	                 last_message_at, last_message_id, last_message_preview, last_message_sender,
-	                 unread_count, last_read_message_id, last_read_at, updated_at
+	                 unread_count, last_read_message_id, last_read_at, updated_at, is_muted
 	          FROM conversations_by_user WHERE user_id = ? AND conversation_id = ?`
 	err := r.session.Query(query, gocqlUserID, gocqlConvID).Scan(
 		&conv.UserID, &conv.ConversationID, &conv.ConversationType, &conv.DisplayName, &conv.DisplayAvatar,
 		&conv.OtherUserID, &conv.OtherUserName, &conv.OtherUserAvatar,
 		&conv.LastMessageAt, &conv.LastMessageID, &conv.LastMessagePreview, &conv.LastMessageSender,
-		&conv.UnreadCount, &conv.LastReadMessageID, &conv.LastReadAt, &conv.UpdatedAt,
+		&conv.UnreadCount, &conv.LastReadMessageID, &conv.LastReadAt, &conv.UpdatedAt, &conv.IsMuted,
 	)
 	if err == gocql.ErrNotFound {
 		return nil, nil
@@ -668,6 +669,13 @@ func (r *Repository) GetHiddenConversation(userID, conversationID uuid.UUID) (*H
 		IsArchived:     gocqlHidden.IsArchived,
 		IsMuted:        gocqlHidden.IsMuted,
 	}, nil
+}
+
+func (r *Repository) SetMuted(userID, conversationID uuid.UUID, muted bool) error {
+	gocqlUserID, _ := gocql.ParseUUID(userID.String())
+	gocqlConvID, _ := gocql.ParseUUID(conversationID.String())
+	query := `UPDATE conversations_by_user SET is_muted = ? WHERE user_id = ? AND conversation_id = ?`
+	return r.session.Query(query, muted, gocqlUserID, gocqlConvID).Exec()
 }
 
 // HideConversation moves a conversation from inbox to hidden

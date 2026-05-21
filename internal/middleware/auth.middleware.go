@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"chat-server/internal/constants"
 	"chat-server/internal/services"
 	"chat-server/internal/utils"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -13,12 +15,14 @@ import (
 
 type AuthMiddleware struct {
 	jwtService *services.JWTService
+	cache      *services.CacheService
 	logger     *zap.SugaredLogger
 }
 
-func NewAuthMiddleware(jwtService *services.JWTService, logger *zap.SugaredLogger) *AuthMiddleware {
+func NewAuthMiddleware(jwtService *services.JWTService, cache *services.CacheService, logger *zap.SugaredLogger) *AuthMiddleware {
 	return &AuthMiddleware{
 		jwtService: jwtService,
+		cache:      cache,
 		logger:     logger.Named("[auth_middleware]"),
 	}
 }
@@ -27,11 +31,6 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			m.logger.Warnw("Authorization header missing",
-				"path", c.Request.URL.Path,
-				"method", c.Request.Method,
-				"ip", c.ClientIP(),
-			)
 			utils.RespondError(c, http.StatusUnauthorized, "authorization header required")
 			c.Abort()
 			return
@@ -44,33 +43,45 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		} else if len(parts) == 1 {
 			token = parts[0]
 		} else {
-			m.logger.Warnw("Invalid authorization header format",
-				"path", c.Request.URL.Path,
-				"method", c.Request.Method,
-				"ip", c.ClientIP(),
-			)
 			utils.RespondError(c, http.StatusUnauthorized, "invalid authorization header format")
 			c.Abort()
 			return
 		}
-		userID, err := m.jwtService.GetUserIDFromToken(token)
+
+		claims, err := m.jwtService.VerifyToken(token)
 		if err != nil {
-			m.logger.Warnw("Invalid or expired token",
-				"path", c.Request.URL.Path,
-				"method", c.Request.Method,
-				"ip", c.ClientIP(),
-				"error", err.Error(),
-			)
 			utils.RespondError(c, http.StatusUnauthorized, "invalid or expired token")
 			c.Abort()
 			return
 		}
 
-		m.logger.Infow("User authenticated",
-			"user_id", userID,
-			"path", c.Request.URL.Path,
-			"method", c.Request.Method,
-		)
+		if claims.ID != "" {
+			key := fmt.Sprintf(constants.CacheKeyTokenBlacklist, claims.ID)
+			if exists, _ := m.cache.Exists(key); exists {
+				utils.RespondError(c, http.StatusUnauthorized, "token has been revoked")
+				c.Abort()
+				return
+			}
+		}
+
+		dataMap, ok := claims.Data.(map[string]interface{})
+		if !ok {
+			utils.RespondError(c, http.StatusUnauthorized, "invalid token payload")
+			c.Abort()
+			return
+		}
+		userIDStr, ok := dataMap["user_id"].(string)
+		if !ok {
+			utils.RespondError(c, http.StatusUnauthorized, "user_id missing from token")
+			c.Abort()
+			return
+		}
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			utils.RespondError(c, http.StatusUnauthorized, "invalid user_id in token")
+			c.Abort()
+			return
+		}
 
 		c.Set("user_id", userID)
 		c.Next()

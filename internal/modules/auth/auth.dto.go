@@ -47,6 +47,15 @@ type ChangePasswordResponse struct {
 	Message string `json:"message" example:"Password changed successfully"`
 }
 
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refreshToken" binding:"required" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+}
+
+type RefreshTokenResponse struct {
+	Token        string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	RefreshToken string `json:"refreshToken" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+}
+
 type ChangePasswordSuccessResponse = utils.BaseResponse[ChangePasswordResponse]
 
 type RegisterSuccessResponse = utils.BaseResponse[RegisterResponse]

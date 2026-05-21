@@ -40,6 +40,7 @@ const (
 	CacheKeyUserProfile         = "USER:%s:PROFILE"
 	CacheKeyUserSession         = "USER:%s:SESSION"
 	CacheKeyUserRefreshToken    = "USER:%s:REFRESH_TOKEN"
+	CacheKeyTokenBlacklist      = "JWT_BLACKLIST:%s"
 	CacheKeyConversation        = "CONVERSATION:%s:DETAIL"
 	CacheKeyConversationList    = "USER:%s:CONVERSATIONS"
 	CacheKeyConversationMembers = "CONVERSATION:%s:MEMBERS"

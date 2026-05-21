@@ -38,6 +38,7 @@ func (s *JWTService) GenerateTokenWithClaims(data interface{}) (string, error) {
 	claims := TokenClaims{
 		Data: data,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
 			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
@@ -83,7 +84,8 @@ func (s *JWTService) GenerateRefreshToken(userID uuid.UUID) (string, error) {
 			"user_id": userID.String(),
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour)), // 7 days
+			ID:        uuid.NewString(),
+			ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
 		},

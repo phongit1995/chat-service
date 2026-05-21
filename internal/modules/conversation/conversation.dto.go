@@ -37,6 +37,7 @@ type ConversationResponse struct {
 	ParticipantCount      int             `json:"participantCount" example:"2"`
 	UnreadCount           int             `json:"unreadCount" example:"5"`
 	IsNew                 bool            `json:"isNew,omitempty" example:"true"`
+	IsMuted               bool            `json:"isMuted" example:"false"`
 	OtherUser             *OtherUserBrief `json:"otherUser,omitempty"`
 }
 

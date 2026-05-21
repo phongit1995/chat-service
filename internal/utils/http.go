@@ -140,6 +140,8 @@ var (
 	errorsUnauthorized = map[string]bool{
 		"invalid email or password":           true,
 		"invalid or expired token":            true,
+		"invalid or expired refresh token":    true,
+		"refresh token has been revoked":      true,
 		"authorization header required":       true,
 		"invalid authorization header format": true,
 	}

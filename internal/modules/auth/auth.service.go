@@ -1,10 +1,13 @@
 package auth
 
 import (
+	"chat-server/internal/constants"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/user"
 	"chat-server/internal/services"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -16,16 +19,84 @@ type Service struct {
 	repo       *Repository
 	jwtService *services.JWTService
 	userCache  *user.CacheService
+	cache      *services.CacheService
 	logger     *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, jwtService *services.JWTService, userCache *user.CacheService, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, jwtService *services.JWTService, userCache *user.CacheService, cache *services.CacheService, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		repo:       repo,
 		jwtService: jwtService,
 		userCache:  userCache,
+		cache:      cache,
 		logger:     logger.Named("[auth_service]"),
 	}
+}
+
+func (s *Service) Logout(token string) error {
+	claims, err := s.jwtService.VerifyToken(token)
+	if err != nil {
+		return errors.New("invalid or expired token")
+	}
+	if claims.ID != "" {
+		ttl := time.Until(claims.ExpiresAt.Time)
+		if ttl > 0 {
+			key := fmt.Sprintf(constants.CacheKeyTokenBlacklist, claims.ID)
+			if err := s.cache.Set(key, "1", ttl); err != nil {
+				s.logger.Errorw("Failed to blacklist token", "jti", claims.ID, "error", err)
+				return err
+			}
+		}
+	}
+
+	if userID, err := s.jwtService.GetUserIDFromToken(token); err == nil {
+		if err := s.repo.ClearRefreshToken(userID); err != nil {
+			s.logger.Warnw("Failed to clear refresh token", "user_id", userID, "error", err)
+		}
+	}
+
+	s.logger.Infow("User logged out", "jti", claims.ID)
+	return nil
+}
+
+func (s *Service) RefreshToken(refreshTokenStr, clientIP string) (*RefreshTokenResponse, error) {
+	userID, err := s.jwtService.GetUserIDFromToken(refreshTokenStr)
+	if err != nil {
+		return nil, errors.New("invalid or expired refresh token")
+	}
+
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	if user.RefreshToken == "" || user.RefreshToken != refreshTokenStr {
+		return nil, errors.New("refresh token has been revoked")
+	}
+
+	newAccessToken, err := s.jwtService.GenerateToken(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	newRefreshToken, err := s.jwtService.GenerateRefreshToken(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.UpdateRefreshToken(user.ID, newRefreshToken); err != nil {
+		s.logger.Errorw("Failed to rotate refresh token", "user_id", user.ID, "error", err)
+		return nil, err
+	}
+
+	s.logger.Infow("Token refreshed", "user_id", user.ID, "ip", clientIP)
+	return &RefreshTokenResponse{
+		Token:        newAccessToken,
+		RefreshToken: newRefreshToken,
+	}, nil
 }
 
 func (s *Service) Register(req *RegisterRequest) (*RegisterResponse, error) {

@@ -261,6 +261,53 @@ func (ctrl *Controller) HideConversation(c *gin.Context) (interface{}, error) {
 	}, nil
 }
 
+// MuteConversation godoc
+// @Summary      Mute conversation
+// @Description  Mute notifications for a conversation
+// @Tags         conversations
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Conversation ID"
+// @Success      200 {object} SimpleSuccessResponse
+// @Failure      400 {object} utils.APIError
+// @Failure      401 {object} utils.APIError
+// @Failure      403 {object} utils.APIError
+// @Router       /conversations/{id}/mute [post]
+func (ctrl *Controller) MuteConversation(c *gin.Context) (interface{}, error) {
+	return ctrl.setMute(c, true, "Conversation muted")
+}
+
+// UnmuteConversation godoc
+// @Summary      Unmute conversation
+// @Description  Re-enable notifications for a conversation
+// @Tags         conversations
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id path string true "Conversation ID"
+// @Success      200 {object} SimpleSuccessResponse
+// @Failure      400 {object} utils.APIError
+// @Failure      401 {object} utils.APIError
+// @Router       /conversations/{id}/unmute [post]
+func (ctrl *Controller) UnmuteConversation(c *gin.Context) (interface{}, error) {
+	return ctrl.setMute(c, false, "Conversation unmuted")
+}
+
+func (ctrl *Controller) setMute(c *gin.Context, muted bool, msg string) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+	conversationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid conversation ID")
+	}
+	if err := ctrl.service.SetConversationMuted(userID, conversationID, muted); err != nil {
+		ctrl.logger.Warnw("Failed to set mute", "error", err, "user_id", userID, "conversation_id", conversationID, "muted", muted)
+		return nil, utils.NewHTTPError(utils.HTTPStatusFromError(err), err.Error())
+	}
+	return &SimpleSuccessResponse{Success: true, Message: msg}, nil
+}
+
 // UnhideConversation godoc
 // @Summary      Unhide conversation
 // @Description  Manually unhide a previously hidden conversation
