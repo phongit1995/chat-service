@@ -18,7 +18,7 @@ importers:
         version: link:../packages/ui
       '@livekit/components-react':
         specifier: ^2.9.21
-        version: 2.9.21(livekit-client@2.19.0(@types/dom-mediacapture-record@1.0.22))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tslib@2.8.1)
+        version: 2.9.21(livekit-client@2.19.0(@types/dom-mediacapture-record@1.0.22))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tslib@2.8.1)
       '@livekit/components-styles':
         specifier: ^1.2.0
         version: 1.2.0
@@ -30,41 +30,44 @@ importers:
         version: 8.2.0
       emoji-picker-react:
         specifier: ^4.19.1
-        version: 4.19.1(react@18.3.1)
+        version: 4.19.1(react@19.2.6)
       livekit-client:
         specifier: ^2.19.0
         version: 2.19.0(@types/dom-mediacapture-record@1.0.22)
       react:
-        specifier: ^18.3.1
-        version: 18.3.1
+        specifier: ^19.2.6
+        version: 19.2.6
       react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
+        specifier: ^19.2.6
+        version: 19.2.6(react@19.2.6)
       react-hot-toast:
         specifier: ^2.6.0
-        version: 2.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 2.6.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       react-router-dom:
         specifier: ^6.28.0
-        version: 6.30.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 6.30.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       socket.io-client:
         specifier: ^4.8.1
         version: 4.8.3
       zustand:
         specifier: ^5.0.2
-        version: 5.0.13(@types/react@18.3.28)(react@18.3.1)
+        version: 5.0.13(@types/react@19.2.15)(react@19.2.6)
     devDependencies:
       '@types/react':
-        specifier: ^18.3.12
-        version: 18.3.28
+        specifier: ^19.2.15
+        version: 19.2.15
       '@types/react-dom':
-        specifier: ^18.3.1
-        version: 18.3.7(@types/react@18.3.28)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.15)
       '@vitejs/plugin-react':
         specifier: ^4.3.4
         version: 4.7.0(vite@6.4.2(@types/node@25.8.0)(jiti@1.21.7))
       autoprefixer:
         specifier: ^10.4.20
         version: 10.5.0(postcss@8.5.14)
+      babel-plugin-react-compiler:
+        specifier: ^1.0.0
+        version: 1.0.0
       electron:
         specifier: ^33.2.0
         version: 33.4.11
@@ -100,13 +103,13 @@ importers:
         version: 2.19.0(@types/dom-mediacapture-record@1.0.22)
       react-hot-toast:
         specifier: ^2.6.0
-        version: 2.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 2.6.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       socket.io-client:
         specifier: ^4.8.1
         version: 4.8.3
       zustand:
         specifier: ^5.0.2
-        version: 5.0.13(@types/react@18.3.28)(react@18.3.1)
+        version: 5.0.13(@types/react@19.2.15)(react@19.2.6)
     devDependencies:
       typescript:
         specifier: ^5.6.3
@@ -119,32 +122,35 @@ importers:
         version: link:../shared
       '@livekit/components-react':
         specifier: ^2.9.21
-        version: 2.9.21(livekit-client@2.19.0(@types/dom-mediacapture-record@1.0.22))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tslib@2.8.1)
+        version: 2.9.21(livekit-client@2.19.0(@types/dom-mediacapture-record@1.0.22))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tslib@2.8.1)
       '@livekit/components-styles':
         specifier: ^1.2.0
         version: 1.2.0
+      '@tanstack/react-virtual':
+        specifier: ^3.13.25
+        version: 3.13.25(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       emoji-picker-react:
         specifier: ^4.19.1
-        version: 4.19.1(react@18.3.1)
+        version: 4.19.1(react@19.2.6)
       livekit-client:
         specifier: ^2.19.0
         version: 2.19.0(@types/dom-mediacapture-record@1.0.22)
-      react:
-        specifier: ^18.3.1
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
       react-hot-toast:
         specifier: ^2.6.0
-        version: 2.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 2.6.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
     devDependencies:
       '@types/react':
-        specifier: ^18.3.12
-        version: 18.3.28
+        specifier: ^19.2.15
+        version: 19.2.15
       '@types/react-dom':
-        specifier: ^18.3.1
-        version: 18.3.7(@types/react@18.3.28)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.15)
+      react:
+        specifier: ^19.2.6
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.2.6
+        version: 19.2.6(react@19.2.6)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -159,7 +165,7 @@ importers:
         version: link:../packages/ui
       '@livekit/components-react':
         specifier: ^2.9.21
-        version: 2.9.21(livekit-client@2.19.0(@types/dom-mediacapture-record@1.0.22))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tslib@2.8.1)
+        version: 2.9.21(livekit-client@2.19.0(@types/dom-mediacapture-record@1.0.22))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tslib@2.8.1)
       '@livekit/components-styles':
         specifier: ^1.2.0
         version: 1.2.0
@@ -168,35 +174,35 @@ importers:
         version: 1.16.1
       emoji-picker-react:
         specifier: ^4.19.1
-        version: 4.19.1(react@18.3.1)
+        version: 4.19.1(react@19.2.6)
       livekit-client:
         specifier: ^2.19.0
         version: 2.19.0(@types/dom-mediacapture-record@1.0.22)
       react:
-        specifier: ^18.3.1
-        version: 18.3.1
+        specifier: ^19.2.6
+        version: 19.2.6
       react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
+        specifier: ^19.2.6
+        version: 19.2.6(react@19.2.6)
       react-hot-toast:
         specifier: ^2.6.0
-        version: 2.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 2.6.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       react-router-dom:
         specifier: ^6.28.0
-        version: 6.30.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 6.30.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       socket.io-client:
         specifier: ^4.8.1
         version: 4.8.3
       zustand:
         specifier: ^5.0.2
-        version: 5.0.13(@types/react@18.3.28)(react@18.3.1)
+        version: 5.0.13(@types/react@19.2.15)(react@19.2.6)
     devDependencies:
       '@types/react':
-        specifier: ^18.3.12
-        version: 18.3.28
+        specifier: ^19.2.15
+        version: 19.2.15
       '@types/react-dom':
-        specifier: ^18.3.1
-        version: 18.3.7(@types/react@18.3.28)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.15)
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.15.0
         version: 8.59.3(@typescript-eslint/parser@8.59.3(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
@@ -209,6 +215,9 @@ importers:
       autoprefixer:
         specifier: ^10.4.20
         version: 10.5.0(postcss@8.5.14)
+      babel-plugin-react-compiler:
+        specifier: ^1.0.0
+        version: 1.0.0
       eslint:
         specifier: ^9.15.0
         version: 9.39.4(jiti@1.21.7)
@@ -1138,6 +1147,15 @@ packages:
     resolution: {integrity: sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w==}
     engines: {node: '>=10'}
 
+  '@tanstack/react-virtual@3.13.25':
+    resolution: {integrity: sha512-bmNoqMu6gcAW9JGrKVB0Q1tN1i5RONZF8r1fW0bbE4Oyf3DwEGnzzQJ2OW+Ozg1P4s8PyugkHg2ULZoFQN+cqw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  '@tanstack/virtual-core@3.15.0':
+    resolution: {integrity: sha512-0AwPGx0I8QxPYjAxShT/+z+ZOe9u8mW5rsXvivCTjRfRmz9a43+3mRyi4wwlyoUqOC56q/jatKa0Bh9M99BEHQ==}
+
   '@tokenizer/token@0.3.0':
     resolution: {integrity: sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A==}
 
@@ -1199,16 +1217,13 @@ packages:
   '@types/plist@3.0.5':
     resolution: {integrity: sha512-E6OCaRmAe4WDmWNsL/9RMqdkkzDCY1etutkflWk4c+AcjDU07Pcz1fQwTX0TQz+Pxqn9i4L1TU3UFpjnrcDgxA==}
 
-  '@types/prop-types@15.7.15':
-    resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
-
-  '@types/react-dom@18.3.7':
-    resolution: {integrity: sha512-MEe3UeoENYVFXzoXEWsvcpg6ZvlrFNlOQ7EOsvhI3CfAXwzPfO8Qwuxd40nepsYKqyyVQnTdEfv68q91yLcKrQ==}
+  '@types/react-dom@19.2.3':
+    resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
     peerDependencies:
-      '@types/react': ^18.0.0
+      '@types/react': ^19.2.0
 
-  '@types/react@18.3.28':
-    resolution: {integrity: sha512-z9VXpC7MWrhfWipitjNdgCauoMLRdIILQsAEV+ZesIzBq/oUlxk0m3ApZuMFCXdnS4U7KrI+l3WRUEGQ8K1QKw==}
+  '@types/react@19.2.15':
+    resolution: {integrity: sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q==}
 
   '@types/responselike@1.0.3':
     resolution: {integrity: sha512-H/+L+UkTV33uf49PH5pCAUBVPNj2nDBXTN+qS1dOwyyg24l3CcicicCA7ca+HMvJBZcFgl5r8e+RR6elsb4Lyw==}
@@ -1462,6 +1477,9 @@ packages:
 
   axios@1.16.1:
     resolution: {integrity: sha512-caYkukvroVPO8KrzuJEb50Hm07KwfBZPEC3VeFHTsqWHvKTsy54hjJz9BS/cdaypROE2rH6xvm9mHX4fgWkr3A==}
+
+  babel-plugin-react-compiler@1.0.0:
+    resolution: {integrity: sha512-Ixm8tFfoKKIPYdCCKYTsqv+Fd4IJ0DQqMyEimo+pxUOMUR9cVPlwTrFt9Avu+3cb6Zp3mAzl+t1MrG2fxxKsxw==}
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
@@ -2684,10 +2702,6 @@ packages:
     resolution: {integrity: sha512-HgMmCqIJSAKqo68l0rS2AanEWfkxaZ5wNiEFb5ggm08lDs9Xl2KxBlX3PTcaD2chBM1gXAYf491/M2Rv8Jwayg==}
     engines: {node: '>= 0.6.0'}
 
-  loose-envify@1.4.0:
-    resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
-    hasBin: true
-
   lowercase-keys@2.0.0:
     resolution: {integrity: sha512-tqNXrS78oMOE73NMxK4EMLQsQowWf8jKooH9g7xPavRT706R6bkQJ6DY2Te7QukaZsulxa30wQ7bk0pm4XiHmA==}
     engines: {node: '>=8'}
@@ -3204,10 +3218,10 @@ packages:
     resolution: {integrity: sha512-WuyALRjWPDGtt/wzJiadO5AXY+8hZ80hVpe6MyivgraREW751X3SbhRvG3eLKOYN+8VEvqLcf3wdnt44Z4S4SA==}
     engines: {node: '>=10'}
 
-  react-dom@18.3.1:
-    resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
+  react-dom@19.2.6:
+    resolution: {integrity: sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g==}
     peerDependencies:
-      react: ^18.3.1
+      react: ^19.2.6
 
   react-hot-toast@2.6.0:
     resolution: {integrity: sha512-bH+2EBMZ4sdyou/DPrfgIouFpcRLCJ+HoCA32UoAYHn6T3Ur5yfcDCeSr5mwldl6pFOsiocmrXMuoCJ1vV8bWg==}
@@ -3233,8 +3247,8 @@ packages:
     peerDependencies:
       react: '>=16.8'
 
-  react@18.3.1:
-    resolution: {integrity: sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==}
+  react@19.2.6:
+    resolution: {integrity: sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q==}
     engines: {node: '>=0.10.0'}
 
   read-binary-file-arch@1.0.6:
@@ -3363,8 +3377,8 @@ packages:
     resolution: {integrity: sha512-6R3J5M4AcbtLUdZmRv2SygeVaM7IhrLXu9BmnOGmmACak8fiUtOsYNWUS4uK7upbmHIBbLBeFeI//477BKLBzA==}
     engines: {node: '>=11.0.0'}
 
-  scheduler@0.23.2:
-    resolution: {integrity: sha512-UOShsPwz7NrMUqhR6t0hWjFduvOzbtv7toDH1/hIrfRNIDBnnBWd0CwJTGvTpngVlmwGCdP9/Zl/tVrDqcuYzQ==}
+  scheduler@0.27.0:
+    resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
 
   sdp-transform@2.15.0:
     resolution: {integrity: sha512-KrOH82c/W+GYQ0LHqtr3caRpM3ITglq3ljGUIb8LTki7ByacJZ9z+piSGiwZDsRyhQbYBOBJgr2k6X4BZXi3Kw==}
@@ -4601,17 +4615,17 @@ snapshots:
       rxjs: 7.8.2
       tslib: 2.8.1
 
-  '@livekit/components-react@2.9.21(livekit-client@2.19.0(@types/dom-mediacapture-record@1.0.22))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tslib@2.8.1)':
+  '@livekit/components-react@2.9.21(livekit-client@2.19.0(@types/dom-mediacapture-record@1.0.22))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tslib@2.8.1)':
     dependencies:
       '@livekit/components-core': 0.12.13(livekit-client@2.19.0(@types/dom-mediacapture-record@1.0.22))(tslib@2.8.1)
       clsx: 2.1.1
       events: 3.3.0
       jose: 6.2.3
       livekit-client: 2.19.0(@types/dom-mediacapture-record@1.0.22)
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
       tslib: 2.8.1
-      usehooks-ts: 3.1.1(react@18.3.1)
+      usehooks-ts: 3.1.1(react@19.2.6)
 
   '@livekit/components-styles@1.2.0': {}
 
@@ -4746,6 +4760,14 @@ snapshots:
     dependencies:
       defer-to-connect: 2.0.1
 
+  '@tanstack/react-virtual@3.13.25(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      '@tanstack/virtual-core': 3.15.0
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+
+  '@tanstack/virtual-core@3.15.0': {}
+
   '@tokenizer/token@0.3.0': {}
 
   '@tootallnate/once@2.0.1': {}
@@ -4818,15 +4840,12 @@ snapshots:
       xmlbuilder: 15.1.1
     optional: true
 
-  '@types/prop-types@15.7.15': {}
-
-  '@types/react-dom@18.3.7(@types/react@18.3.28)':
+  '@types/react-dom@19.2.3(@types/react@19.2.15)':
     dependencies:
-      '@types/react': 18.3.28
+      '@types/react': 19.2.15
 
-  '@types/react@18.3.28':
+  '@types/react@19.2.15':
     dependencies:
-      '@types/prop-types': 15.7.15
       csstype: 3.2.3
 
   '@types/responselike@1.0.3':
@@ -5161,6 +5180,10 @@ snapshots:
     transitivePeerDependencies:
       - debug
       - supports-color
+
+  babel-plugin-react-compiler@1.0.0:
+    dependencies:
+      '@babel/types': 7.29.0
 
   balanced-match@1.0.2: {}
 
@@ -5686,10 +5709,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  emoji-picker-react@4.19.1(react@18.3.1):
+  emoji-picker-react@4.19.1(react@19.2.6):
     dependencies:
       flairup: 1.0.0
-      react: 18.3.1
+      react: 19.2.6
 
   emoji-regex@8.0.0: {}
 
@@ -6564,10 +6587,6 @@ snapshots:
 
   loglevel@1.9.2: {}
 
-  loose-envify@1.4.0:
-    dependencies:
-      js-tokens: 4.0.0
-
   lowercase-keys@2.0.0: {}
 
   lru-cache@10.4.3: {}
@@ -7034,36 +7053,33 @@ snapshots:
 
   quick-lru@5.1.1: {}
 
-  react-dom@18.3.1(react@18.3.1):
+  react-dom@19.2.6(react@19.2.6):
     dependencies:
-      loose-envify: 1.4.0
-      react: 18.3.1
-      scheduler: 0.23.2
+      react: 19.2.6
+      scheduler: 0.27.0
 
-  react-hot-toast@2.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-hot-toast@2.6.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
       csstype: 3.2.3
       goober: 2.1.19(csstype@3.2.3)
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
 
   react-refresh@0.17.0: {}
 
-  react-router-dom@6.30.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-router-dom@6.30.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
       '@remix-run/router': 1.23.2
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-      react-router: 6.30.3(react@18.3.1)
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+      react-router: 6.30.3(react@19.2.6)
 
-  react-router@6.30.3(react@18.3.1):
+  react-router@6.30.3(react@19.2.6):
     dependencies:
       '@remix-run/router': 1.23.2
-      react: 18.3.1
+      react: 19.2.6
 
-  react@18.3.1:
-    dependencies:
-      loose-envify: 1.4.0
+  react@19.2.6: {}
 
   read-binary-file-arch@1.0.6:
     dependencies:
@@ -7250,9 +7266,7 @@ snapshots:
 
   sax@1.6.0: {}
 
-  scheduler@0.23.2:
-    dependencies:
-      loose-envify: 1.4.0
+  scheduler@0.27.0: {}
 
   sdp-transform@2.15.0: {}
 
@@ -7608,10 +7622,10 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  usehooks-ts@3.1.1(react@18.3.1):
+  usehooks-ts@3.1.1(react@19.2.6):
     dependencies:
       lodash.debounce: 4.0.8
-      react: 18.3.1
+      react: 19.2.6
 
   utf8-byte-length@1.0.5: {}
 
@@ -7776,7 +7790,7 @@ snapshots:
       compress-commons: 4.1.2
       readable-stream: 3.6.2
 
-  zustand@5.0.13(@types/react@18.3.28)(react@18.3.1):
+  zustand@5.0.13(@types/react@19.2.15)(react@19.2.6):
     optionalDependencies:
-      '@types/react': 18.3.28
-      react: 18.3.1
+      '@types/react': 19.2.15
+      react: 19.2.6

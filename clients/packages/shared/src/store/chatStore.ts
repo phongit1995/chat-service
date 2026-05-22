@@ -14,6 +14,8 @@ import type { ChatState } from './chat.types'
 
 let typingTimeoutRef: ReturnType<typeof setTimeout> | null = null
 
+const MESSAGE_PAGE_SIZE = 50
+
 export const useChatStore = create<ChatState>((set, get) => {
   registerChatRealtimeListeners(set, get)
 
@@ -21,6 +23,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     conversations: [],
     currentConversation: null,
     messages: [],
+    hasMoreMessages: false,
+    isLoadingMoreMessages: false,
     typingUsers: new Map(),
     typingTimeouts: new Map(),
     isLoading: false,
@@ -50,16 +54,18 @@ export const useChatStore = create<ChatState>((set, get) => {
         set({
           currentConversation: null,
           messages: [],
+          hasMoreMessages: false,
+          isLoadingMoreMessages: false,
           typingUsers: new Map(),
           typingTimeouts: new Map(),
         })
         return
       }
 
-      set({ isLoading: true, error: null })
+      set({ isLoading: true, error: null, hasMoreMessages: false, isLoadingMoreMessages: false })
       try {
         const [messagesResponse, detailResponse] = await Promise.all([
-          messageService.getMessages(conversationId),
+          messageService.getMessages(conversationId, MESSAGE_PAGE_SIZE),
           conversationService.getConversation(conversationId).catch(() => null),
         ])
         const detail = detailResponse?.data as Conversation | undefined
@@ -73,9 +79,11 @@ export const useChatStore = create<ChatState>((set, get) => {
           updates.otherUser = detail.otherUser
         }
 
+        const loadedMessages = messagesResponse.data?.messages || []
         set({
           currentConversation: merged,
-          messages: messagesResponse.data?.messages || [],
+          messages: loadedMessages,
+          hasMoreMessages: loadedMessages.length >= MESSAGE_PAGE_SIZE,
           typingUsers: new Map(),
           typingTimeouts: new Map(),
           isLoading: false,
@@ -98,12 +106,55 @@ export const useChatStore = create<ChatState>((set, get) => {
     loadMessages: async (conversationId: string) => {
       set({ isLoading: true, error: null })
       try {
-        const response = await messageService.getMessages(conversationId)
-        set({ messages: response.data?.messages || [], isLoading: false })
+        const response = await messageService.getMessages(conversationId, MESSAGE_PAGE_SIZE)
+        const loaded = response.data?.messages || []
+        set({
+          messages: loaded,
+          hasMoreMessages: loaded.length >= MESSAGE_PAGE_SIZE,
+          isLoading: false,
+        })
       } catch (error: any) {
         set({
           error: error.response?.data?.error || 'Failed to load messages',
           isLoading: false,
+        })
+      }
+    },
+
+    loadMoreMessages: async (conversationId: string) => {
+      const { messages, hasMoreMessages, isLoadingMoreMessages, currentConversation } = get()
+      if (!hasMoreMessages || isLoadingMoreMessages) return
+      if (!currentConversation || currentConversation.id !== conversationId) return
+      if (messages.length === 0) return
+
+      let oldest = messages[0]
+      for (const m of messages) {
+        if (new Date(m.createdAt).getTime() < new Date(oldest.createdAt).getTime()) {
+          oldest = m
+        }
+      }
+
+      set({ isLoadingMoreMessages: true })
+      try {
+        const response = await messageService.getMessages(
+          conversationId,
+          MESSAGE_PAGE_SIZE,
+          oldest.id,
+        )
+        if (get().currentConversation?.id !== conversationId) return
+
+        const older = response.data?.messages || []
+        const existingIds = new Set(get().messages.map((m) => m.id))
+        const deduped = older.filter((m) => !existingIds.has(m.id))
+        set({
+          messages: [...deduped, ...get().messages],
+          hasMoreMessages: older.length >= MESSAGE_PAGE_SIZE,
+          isLoadingMoreMessages: false,
+        })
+      } catch (error: any) {
+        set({
+          isLoadingMoreMessages: false,
+          error: error.response?.data?.error || 'Failed to load more messages',
         })
       }
     },
@@ -472,6 +523,8 @@ export const useChatStore = create<ChatState>((set, get) => {
         conversations: [],
         currentConversation: null,
         messages: [],
+        hasMoreMessages: false,
+        isLoadingMoreMessages: false,
         typingUsers: new Map(),
         typingTimeouts: new Map(),
         isLoading: false,

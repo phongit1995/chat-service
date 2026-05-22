@@ -23,7 +23,13 @@ export default defineConfig({
   },
   renderer: {
     root: '.',
-    plugins: [react()],
+    plugins: [
+      react({
+        babel: {
+          plugins: [['babel-plugin-react-compiler', { target: '19' }]],
+        },
+      }),
+    ],
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),

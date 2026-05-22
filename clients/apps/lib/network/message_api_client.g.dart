@@ -25,9 +25,14 @@ class _MessageApiClient implements MessageApiClient {
   Future<HttpResponse<ApiResponse<MessagesResponse>>> getMessages(
     String conversationId, {
     int limit = 50,
+    String? before,
   }) async {
     final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{r'limit': limit};
+    final queryParameters = <String, dynamic>{
+      r'limit': limit,
+      r'before': before,
+    };
+    queryParameters.removeWhere((k, v) => v == null);
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
     final _options =

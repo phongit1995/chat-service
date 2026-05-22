@@ -9,10 +9,14 @@ import '../models/models.dart';
 import 'auth_provider.dart';
 import 'core_providers.dart';
 
+const int _kMessagePageSize = 50;
+
 class MessagesState {
   final String? conversationId;
   final List<Message> messages;
   final bool loading;
+  final bool loadingMore;
+  final bool hasMore;
   final bool sending;
   final Object? error;
 
@@ -20,6 +24,8 @@ class MessagesState {
     this.conversationId,
     this.messages = const [],
     this.loading = false,
+    this.loadingMore = false,
+    this.hasMore = false,
     this.sending = false,
     this.error,
   });
@@ -28,6 +34,8 @@ class MessagesState {
     String? conversationId,
     List<Message>? messages,
     bool? loading,
+    bool? loadingMore,
+    bool? hasMore,
     bool? sending,
     Object? error,
     bool clearError = false,
@@ -35,6 +43,8 @@ class MessagesState {
     conversationId: conversationId ?? this.conversationId,
     messages: messages ?? this.messages,
     loading: loading ?? this.loading,
+    loadingMore: loadingMore ?? this.loadingMore,
+    hasMore: hasMore ?? this.hasMore,
     sending: sending ?? this.sending,
     error: clearError ? null : (error ?? this.error),
   );
@@ -49,13 +59,56 @@ class MessagesNotifier extends Notifier<MessagesState> {
     try {
       final list = await ref
           .read(messageServiceProvider)
-          .getMessages(conversationId);
+          .getMessages(conversationId, limit: _kMessagePageSize);
+      final hasMore = list.length >= _kMessagePageSize;
       list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       if (state.conversationId != conversationId) return;
-      state = state.copyWith(messages: list, loading: false, clearError: true);
+      state = state.copyWith(
+        messages: list,
+        loading: false,
+        hasMore: hasMore,
+        clearError: true,
+      );
     } catch (e) {
       if (state.conversationId != conversationId) return;
       state = state.copyWith(loading: false, error: e);
+    }
+  }
+
+  Future<void> loadMore() async {
+    final convId = state.conversationId;
+    if (convId == null) return;
+    if (!state.hasMore || state.loadingMore) return;
+    if (state.messages.isEmpty) return;
+
+    Message oldest = state.messages.first;
+    for (final m in state.messages) {
+      if (m.createdAt.compareTo(oldest.createdAt) < 0) {
+        oldest = m;
+      }
+    }
+
+    state = state.copyWith(loadingMore: true);
+    try {
+      final older = await ref.read(messageServiceProvider).getMessages(
+            convId,
+            limit: _kMessagePageSize,
+            before: oldest.id,
+          );
+      if (state.conversationId != convId) return;
+      final hasMore = older.length >= _kMessagePageSize;
+      final existingIds = state.messages.map((m) => m.id).toSet();
+      final deduped = older.where((m) => !existingIds.contains(m.id)).toList();
+      final merged = [...deduped, ...state.messages]
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      state = state.copyWith(
+        messages: merged,
+        loadingMore: false,
+        hasMore: hasMore,
+      );
+    } catch (e) {
+      if (state.conversationId != convId) return;
+      state = state.copyWith(loadingMore: false, error: e);
     }
   }
 

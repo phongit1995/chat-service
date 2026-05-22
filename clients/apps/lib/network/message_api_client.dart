@@ -14,6 +14,7 @@ abstract class MessageApiClient {
   Future<HttpResponse<ApiResponse<MessagesResponse>>> getMessages(
     @Path('conversationId') String conversationId, {
     @Query('limit') int limit = 50,
+    @Query('before') String? before,
   });
 
   @POST('/messages')

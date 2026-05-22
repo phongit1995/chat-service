@@ -8,6 +8,7 @@ class MessageList extends StatelessWidget {
   final List<Message> messages;
   final User? user;
   final ScrollController scrollController;
+  final bool loadingMore;
   final Future<void> Function(String messageId, String type)? onReact;
   final void Function(Message message)? onEdit;
   final Future<void> Function(String messageId)? onDelete;
@@ -19,6 +20,7 @@ class MessageList extends StatelessWidget {
     required this.messages,
     required this.user,
     required this.scrollController,
+    this.loadingMore = false,
     this.onReact,
     this.onEdit,
     this.onDelete,
@@ -41,12 +43,26 @@ class MessageList extends StatelessWidget {
     final convSeen =
         conversation.isLastMessageFromMe && conversation.seen == true;
     const streakGapMs = 5 * 60 * 1000;
+    final headerOffset = loadingMore ? 1 : 0;
 
     return ListView.builder(
       controller: scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemCount: sortedMessages.length,
-      itemBuilder: (_, i) {
+      itemCount: sortedMessages.length + headerOffset,
+      itemBuilder: (_, rawIndex) {
+        if (loadingMore && rawIndex == 0) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        final i = rawIndex - headerOffset;
         final message = sortedMessages[i];
         final isMine = message.senderId == user?.id;
         final currentTime =

@@ -34,7 +34,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   StreamSubscription<String>? _conversationDeletedSub;
   late final ActiveConversationNotifier _activeConversationNotifier;
   late final PresenceNotifier _presenceNotifier;
-  int _lastMessageCount = 0;
+  String _lastNewestMessageId = '';
   Timer? _stopTypingTimer;
   bool _isTyping = false;
   String? _editingMessageId;
@@ -62,12 +62,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
 
     _input.addListener(_onInputChanged);
+    _scroll.addListener(_onScroll);
 
     final socket = ref.read(socketProvider);
     _conversationDeletedSub = socket.onConversationDeleted.listen((id) {
       if (id != widget.conversationId || !mounted) return;
       _activeConversationNotifier.set(null);
       context.go('/');
+    });
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    if (_scroll.position.pixels <= 120) {
+      final messagesState = ref.read(messagesProvider);
+      if (messagesState.hasMore && !messagesState.loadingMore) {
+        _loadMoreOlder();
+      }
+    }
+  }
+
+  Future<void> _loadMoreOlder() async {
+    final beforeExtent =
+        _scroll.hasClients ? _scroll.position.maxScrollExtent : 0.0;
+    final beforeOffset = _scroll.hasClients ? _scroll.position.pixels : 0.0;
+    await ref.read(messagesProvider.notifier).loadMore();
+    if (!mounted || !_scroll.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final afterExtent = _scroll.position.maxScrollExtent;
+      final delta = afterExtent - beforeExtent;
+      if (delta > 0) {
+        _scroll.jumpTo(beforeOffset + delta);
+      }
     });
   }
 
@@ -93,6 +120,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void dispose() {
     _stopTypingTimer?.cancel();
     _input.removeListener(_onInputChanged);
+    _scroll.removeListener(_onScroll);
     _conversationDeletedSub?.cancel();
     _presenceNotifier.stopFocusPolling();
     _input.dispose();
@@ -238,8 +266,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         widget.conversation ??
         Conversation(id: widget.conversationId, type: 'direct');
 
-    if (messagesState.messages.length != _lastMessageCount) {
-      _lastMessageCount = messagesState.messages.length;
+    final newestId = messagesState.messages.isNotEmpty
+        ? messagesState.messages.last.id
+        : '';
+    if (newestId.isNotEmpty && newestId != _lastNewestMessageId) {
+      _lastNewestMessageId = newestId;
       _scrollToBottom(animated: !messagesState.loading);
     }
 
@@ -271,6 +302,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       messages: messagesState.messages,
                       user: me,
                       scrollController: _scroll,
+                      loadingMore: messagesState.loadingMore,
                       onReact: (mid, type) async {
                         await ref.read(messagesProvider.notifier).toggleReaction(mid, type);
                       },

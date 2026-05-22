@@ -15,8 +15,13 @@ class MessageService {
   Future<List<Message>> getMessages(
     String conversationId, {
     int limit = 50,
+    String? before,
   }) async {
-    final res = await _client.getMessages(conversationId, limit: limit);
+    final res = await _client.getMessages(
+      conversationId,
+      limit: limit,
+      before: before,
+    );
     return res.data.data?.messages ?? [];
   }
 

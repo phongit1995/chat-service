@@ -8,11 +8,16 @@ interface ReactionButtonProps {
   myUserId: string
   isOwnMessage?: boolean
   onSelect: (type: string) => void
+  onOpenChange?: (open: boolean) => void
 }
 
-export const ReactionButton = ({ reactions, visible, myUserId, isOwnMessage = false, onSelect }: ReactionButtonProps) => {
+export const ReactionButton = ({ reactions, visible, myUserId, isOwnMessage = false, onSelect, onOpenChange }: ReactionButtonProps) => {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    onOpenChange?.(open)
+  }, [open, onOpenChange])
 
   useEffect(() => {
     if (!open) return

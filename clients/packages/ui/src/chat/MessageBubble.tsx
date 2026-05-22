@@ -88,7 +88,8 @@ export const MessageBubble = ({
   const imageMeta = isImage ? parseImageMeta(message.metadata) : null
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [bubbleHover, setBubbleHover] = useState(false)
-  const canReact = !!onReact && isLastInStreak && message.status !== 'sending' && message.status !== 'uploading' && message.status !== 'failed'
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false)
+  const canReact = !!onReact && message.status !== 'sending' && message.status !== 'uploading' && message.status !== 'failed'
   const isSent = message.status === 'sent' || !message.status
   const replyToMessage = useChatStore((s) => message.replyToId ? s.messages.find((m) => m.id === message.replyToId) : null)
   const isEdited = message.updatedAt && message.createdAt && message.updatedAt !== message.createdAt && (message.type === 'text')
@@ -109,9 +110,13 @@ export const MessageBubble = ({
   const showAvatar = !isOwnMessage && isLastInStreak
   const showName = !isOwnMessage && isGroup && isFirstInStreak && !!message.senderName
   const marginTop = isFirstInStreak ? 'mt-3' : 'mt-1'
+  const hasReactions =
+    !!message.reactions &&
+    Object.values(message.reactions).some((u) => Array.isArray(u) && u.length > 0)
+  const marginBottom = hasReactions ? 'mb-3' : ''
 
   return (
-    <div className={`${marginTop} flex ${isOwnMessage ? 'justify-end' : 'justify-start'} gap-2 group`}>
+    <div className={`${marginTop} ${marginBottom} flex ${isOwnMessage ? 'justify-end' : 'justify-start'} gap-2 group`}>
       {!isOwnMessage && (
         <div className="w-8 flex-shrink-0 flex items-end">
           {showAvatar ? (
@@ -173,7 +178,7 @@ export const MessageBubble = ({
           <MessageActionsMenu
             message={message}
             isOwnMessage={isOwnMessage}
-            visible={bubbleHover}
+            visible={bubbleHover && !reactionPickerOpen}
           />
         )}
         {canReact && onReact && (
@@ -183,6 +188,7 @@ export const MessageBubble = ({
             myUserId={myUserId}
             isOwnMessage={isOwnMessage}
             onSelect={(type) => onReact(message.id, type)}
+            onOpenChange={setReactionPickerOpen}
           />
         )}
         <div className="relative">
@@ -299,3 +305,4 @@ export const MessageBubble = ({
     </div>
   )
 }
+

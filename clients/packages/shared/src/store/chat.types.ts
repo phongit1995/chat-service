@@ -9,6 +9,8 @@ export interface ChatState {
   conversations: Conversation[]
   currentConversation: Conversation | null
   messages: Message[]
+  hasMoreMessages: boolean
+  isLoadingMoreMessages: boolean
   typingUsers: Map<string, TypingUserInfo>
   typingTimeouts: Map<string, ReturnType<typeof setTimeout>>
   isLoading: boolean
@@ -17,6 +19,7 @@ export interface ChatState {
   loadConversations: () => Promise<void>
   selectConversation: (conversationId: string | null) => Promise<void>
   loadMessages: (conversationId: string) => Promise<void>
+  loadMoreMessages: (conversationId: string) => Promise<void>
   sendMessage: (conversationId: string, content: string, replyToId?: string) => Promise<void>
   sendImageMessage: (conversationId: string, file: File) => Promise<void>
   editMessage: (messageId: string, content: string) => Promise<void>

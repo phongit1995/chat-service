@@ -18,7 +18,7 @@ export const useConversationSearch = ({ isOpen, conversations }: UseConversation
   const [isSearching, setIsSearching] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
