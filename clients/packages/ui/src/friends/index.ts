@@ -1,2 +1,5 @@
 export { FriendsList } from './FriendsList'
 export type { FriendsListProps } from './FriendsList'
+export { FriendsManagementPage } from './FriendsManagementPage'
+export type { FriendsManagementPageProps } from './FriendsManagementPage'
+export { FriendsManagementModal } from './FriendsManagementModal'

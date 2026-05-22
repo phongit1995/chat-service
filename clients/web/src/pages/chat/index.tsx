@@ -11,7 +11,7 @@ import { ChatSidebar } from './ChatSidebar'
 import { ChatArea } from './ChatArea'
 import { NewChatView } from '@chat/ui'
 import { EmptyState } from './EmptyState'
-import { UserProfilePage } from '@chat/ui'
+import { UserProfileModal, FriendsManagementModal } from '@chat/ui'
 import type { UserSearchResult } from '@chat/shared'
 
 export const Chat = () => {
@@ -44,6 +44,7 @@ export const Chat = () => {
   } = useChatUIStore()
 
   const [viewProfileUserId, setViewProfileUserId] = useState<string | null>(null)
+  const [friendsModalOpen, setFriendsModalOpen] = useState(false)
 
   useEffect(() => {
     initialize()
@@ -110,10 +111,9 @@ export const Chat = () => {
     handleConversationClick(conversationId)
   }
 
-  const showRightPane = !!(viewProfileUserId || tempChatUser || currentConversation)
+  const showRightPane = !!(tempChatUser || currentConversation)
   const clearRightPane = () => {
-    if (viewProfileUserId) setViewProfileUserId(null)
-    else if (currentConversation) useChatStore.setState({ currentConversation: null })
+    if (currentConversation) useChatStore.setState({ currentConversation: null })
     else if (tempChatUser) useChatUIStore.setState({ tempChatUser: null })
   }
 
@@ -135,6 +135,7 @@ export const Chat = () => {
           onHideConversation={hideConversation}
           onStartChatWithUser={handleProfileStartChat}
           onOpenUserProfile={(uid) => setViewProfileUserId(uid)}
+          onOpenFriendsManagement={() => setFriendsModalOpen(true)}
         />
       </div>
 
@@ -143,13 +144,7 @@ export const Chat = () => {
           showRightPane ? 'flex' : 'hidden md:flex'
         } flex-1 flex-col bg-surface-base min-w-0`}
       >
-        {viewProfileUserId ? (
-          <UserProfilePage
-            userId={viewProfileUserId}
-            onBack={() => setViewProfileUserId(null)}
-            onStartChat={handleProfileStartChat}
-          />
-        ) : tempChatUser && !currentConversation ? (
+        {tempChatUser && !currentConversation ? (
           <NewChatView
             tempChatUser={tempChatUser}
             messageInput={messageInput}
@@ -187,6 +182,19 @@ export const Chat = () => {
       <ProfileEditModal
         isOpen={showProfileEdit}
         onClose={() => setShowProfileEdit(false)}
+      />
+
+      <FriendsManagementModal
+        isOpen={friendsModalOpen}
+        onClose={() => setFriendsModalOpen(false)}
+        onOpenProfile={(uid) => setViewProfileUserId(uid)}
+      />
+
+      <UserProfileModal
+        isOpen={!!viewProfileUserId}
+        userId={viewProfileUserId}
+        onClose={() => setViewProfileUserId(null)}
+        onStartChat={handleProfileStartChat}
       />
 
     </div>

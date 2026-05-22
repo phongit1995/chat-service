@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Avatar, ConversationItem, ConversationListSkeleton, FriendsList, SidebarTabs } from '@chat/ui'
 import type { SidebarTab } from '@chat/ui'
-import { useChatStore, useFriendsStore } from '@chat/shared'
+import { useChatStore, useFriendsStore, useFriendsManagementStore } from '@chat/shared'
 import type { User, Conversation } from '@chat/shared'
 
 interface ChatSidebarProps {
@@ -15,6 +15,7 @@ interface ChatSidebarProps {
   onHideConversation?: (conversationId: string) => void
   onStartChatWithUser: (userId: string) => void
   onOpenUserProfile: (userId: string) => void
+  onOpenFriendsManagement: () => void
 }
 
 export const ChatSidebar = ({
@@ -28,6 +29,7 @@ export const ChatSidebar = ({
   onHideConversation,
   onStartChatWithUser,
   onOpenUserProfile,
+  onOpenFriendsManagement,
 }: ChatSidebarProps) => {
   const isLoading = useChatStore((s) => s.isLoading)
   const conversationsLoading = isLoading && conversations.length === 0
@@ -43,9 +45,16 @@ export const ChatSidebar = ({
   const loadFriends = useFriendsStore((s) => s.load)
   const loadMoreFriends = useFriendsStore((s) => s.loadMore)
 
+  const pendingTotal = useFriendsManagementStore((s) => s.requests.total)
+  const refreshCounts = useFriendsManagementStore((s) => s.refreshCounts)
+
   useEffect(() => {
     if (activeTab === 'friends' && !friendsLoaded) loadFriends()
   }, [activeTab, friendsLoaded, loadFriends])
+
+  useEffect(() => {
+    if (activeTab === 'friends') refreshCounts()
+  }, [activeTab, refreshCounts])
 
   return (
     <>
@@ -132,16 +141,44 @@ export const ChatSidebar = ({
                 ))
             )
           ) : (
-            <FriendsList
-              friends={friends}
-              loading={friendsLoading}
-              loadingMore={friendsLoadingMore}
-              error={friendsError}
-              total={friendsTotal}
-              onLoadMore={loadMoreFriends}
-              onStartChat={onStartChatWithUser}
-              onOpenProfile={onOpenUserProfile}
-            />
+            <>
+              <button
+                onClick={onOpenFriendsManagement}
+                className="w-full flex items-center gap-3 px-3 py-2.5 mb-2 rounded-xl hover:bg-surface-overlay transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-full bg-gradient-signature flex items-center justify-center text-white">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-3.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-ink-primary text-sm">Manage friends</p>
+                  <p className="text-[12px] text-ink-tertiary truncate">
+                    {pendingTotal > 0 ? `${pendingTotal} pending request${pendingTotal === 1 ? '' : 's'}` : 'Requests, sent, blocked'}
+                  </p>
+                </div>
+                {pendingTotal > 0 && (
+                  <span className="bg-gradient-signature text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-2">
+                    {pendingTotal > 99 ? '99+' : pendingTotal}
+                  </span>
+                )}
+                <svg className="w-4 h-4 text-ink-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              <FriendsList
+                friends={friends}
+                loading={friendsLoading}
+                loadingMore={friendsLoadingMore}
+                error={friendsError}
+                total={friendsTotal}
+                onLoadMore={loadMoreFriends}
+                onStartChat={onStartChatWithUser}
+                onOpenProfile={onOpenUserProfile}
+              />
+            </>
           )}
         </div>
       </div>

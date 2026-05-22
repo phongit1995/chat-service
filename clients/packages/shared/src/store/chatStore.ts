@@ -9,6 +9,7 @@ import { sendWithOptimistic, readImageDimensions } from './optimisticSend'
 import { useAuthStore } from './authStore'
 import { useChatUIStore } from './chatUIStore'
 import { useFriendsStore } from './friendsStore'
+import { useFriendsManagementStore } from './friendsManagementStore'
 import toast from 'react-hot-toast'
 import { updateConversationInList } from './chat.helpers'
 import { registerChatRealtimeListeners } from './chat.realtime'
@@ -535,6 +536,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       useChatUIStore.getState().reset()
       useFriendsStore.getState().reset()
+      useFriendsManagementStore.getState().reset()
     },
   }
 })

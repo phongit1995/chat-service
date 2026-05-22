@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from 'react'
 
-type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'spotlight'
+type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full' | 'spotlight'
 
 interface ModalProps {
   isOpen: boolean
@@ -17,6 +17,7 @@ const sizeClasses: Record<ModalSize, string> = {
   md: 'max-w-lg',
   lg: 'max-w-2xl',
   xl: 'max-w-4xl',
+  full: 'max-w-none w-full h-full',
   spotlight: 'max-w-2xl',
 }
 
@@ -25,6 +26,7 @@ const positionClasses: Record<ModalSize, string> = {
   md: 'items-end sm:items-center',
   lg: 'items-end sm:items-center',
   xl: 'items-end sm:items-center',
+  full: 'items-stretch',
   spotlight: 'items-start pt-[8vh] sm:pt-[15vh]',
 }
 
@@ -70,7 +72,14 @@ export const Modal = ({
       onClick={handleBackdrop}
     >
       <div
-        className={`w-full ${sizeClasses[size]} bg-surface rounded-t-2xl sm:rounded-2xl shadow-soft-xl max-h-[92dvh] sm:max-h-[85vh] flex flex-col overflow-hidden animate-slideInUp sm:animate-scaleIn`}
+        className={[
+          'w-full',
+          sizeClasses[size],
+          'bg-surface shadow-soft-xl flex flex-col overflow-hidden',
+          size === 'full'
+            ? 'rounded-none h-full'
+            : 'rounded-t-2xl sm:rounded-2xl max-h-[92dvh] sm:max-h-[85vh] animate-slideInUp sm:animate-scaleIn',
+        ].join(' ')}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         onClick={(e) => e.stopPropagation()}
       >

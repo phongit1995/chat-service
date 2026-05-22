@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { userService } from '../services/user.service'
 import { relationshipService } from '../services/relationship.service'
 import { useFriendsStore } from './friendsStore'
+import { refreshFriendsManagementAfterAction } from './friendsManagementStore'
 import type { UserPublicProfile } from '../types'
 
 export const ProfileAction = {
@@ -76,6 +77,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
       if (useFriendsStore.getState().loaded) {
         useFriendsStore.getState().refresh()
       }
+      refreshFriendsManagementAfterAction()
     } catch (err) {
       console.error('relationship action failed', err)
       alert('Action failed. Please try again.')
