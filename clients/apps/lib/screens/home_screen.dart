@@ -10,35 +10,14 @@ import '../theme/widgets.dart';
 import 'user_search_screen.dart';
 import 'profile_edit_screen.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+class ChatsTab extends ConsumerStatefulWidget {
+  const ChatsTab({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<ChatsTab> createState() => _ChatsTabState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() {
-      if (!mounted) return;
-      ref.read(presenceProvider.notifier).startListPolling(() {
-        final convs = ref.read(conversationsProvider).value ?? [];
-        return convs
-            .where((c) => c.type == 'direct' && c.otherUser?.id != null)
-            .map((c) => c.otherUser!.id)
-            .toList();
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    ref.read(presenceProvider.notifier).stopListPolling();
-    super.dispose();
-  }
-
+class _ChatsTabState extends ConsumerState<ChatsTab> {
   @override
   Widget build(BuildContext context) {
     final convs = ref.watch(conversationsProvider);

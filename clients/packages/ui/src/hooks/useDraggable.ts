@@ -30,6 +30,10 @@ export function useDraggable({
   const livePos = useRef<Position>({ x: 0, y: 0 })
   const rafId = useRef<number | null>(null)
   const nodeRef = useRef<HTMLDivElement | null>(null)
+  const positionRef = useRef<Position | null>(position)
+  const onChangeRef = useRef(onChange)
+  positionRef.current = position
+  onChangeRef.current = onChange
 
   const clamp = useCallback((x: number, y: number, w: number, h: number) => {
     const maxX = Math.max(MARGIN, window.innerWidth - w - MARGIN)
@@ -87,17 +91,10 @@ export function useDraggable({
     return () => window.removeEventListener('resize', onResize)
   }, [clamp, position, onChange])
 
-  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!position) return
-    dragging.current = true
-    startMouse.current = { x: e.clientX, y: e.clientY }
-    startPos.current = { ...position }
-    livePos.current = { ...position }
-    e.currentTarget.setPointerCapture(e.pointerId)
-    e.preventDefault()
-  }, [position])
+  const moveHandlerRef = useRef<(e: PointerEvent) => void>(() => {})
+  const upHandlerRef = useRef<() => void>(() => {})
 
-  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  moveHandlerRef.current = (e: PointerEvent) => {
     if (!dragging.current) return
     const dx = e.clientX - startMouse.current.x
     const dy = e.clientY - startMouse.current.y
@@ -112,22 +109,44 @@ export function useDraggable({
         applyTransform(livePos.current.x, livePos.current.y)
       })
     }
-  }, [clamp, applyTransform])
+  }
 
-  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  upHandlerRef.current = () => {
     if (!dragging.current) return
     dragging.current = false
-    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch {}
     if (rafId.current !== null) {
       cancelAnimationFrame(rafId.current)
       rafId.current = null
     }
-    onChange(livePos.current)
-  }, [onChange])
+    window.removeEventListener('pointermove', onWindowPointerMove)
+    window.removeEventListener('pointerup', onWindowPointerUp)
+    window.removeEventListener('pointercancel', onWindowPointerUp)
+    onChangeRef.current(livePos.current)
+  }
+
+  const onWindowPointerMove = useCallback((e: PointerEvent) => moveHandlerRef.current(e), [])
+  const onWindowPointerUp = useCallback(() => upHandlerRef.current(), [])
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const pos = positionRef.current
+    if (!pos) return
+    if (e.button !== undefined && e.button !== 0) return
+    dragging.current = true
+    startMouse.current = { x: e.clientX, y: e.clientY }
+    startPos.current = { ...pos }
+    livePos.current = { ...pos }
+    window.addEventListener('pointermove', onWindowPointerMove)
+    window.addEventListener('pointerup', onWindowPointerUp)
+    window.addEventListener('pointercancel', onWindowPointerUp)
+    e.preventDefault()
+  }, [onWindowPointerMove, onWindowPointerUp])
 
   useEffect(() => () => {
     if (rafId.current !== null) cancelAnimationFrame(rafId.current)
-  }, [])
+    window.removeEventListener('pointermove', onWindowPointerMove)
+    window.removeEventListener('pointerup', onWindowPointerUp)
+    window.removeEventListener('pointercancel', onWindowPointerUp)
+  }, [onWindowPointerMove, onWindowPointerUp])
 
   const dragStyle: React.CSSProperties = position
     ? {
@@ -145,5 +164,5 @@ export function useDraggable({
         top: -9999,
       }
 
-  return { dragStyle, dragHandleProps: { onPointerDown, onPointerMove, onPointerUp }, nodeRef }
+  return { dragStyle, dragHandleProps: { onPointerDown }, nodeRef }
 }

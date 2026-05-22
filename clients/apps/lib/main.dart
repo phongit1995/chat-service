@@ -7,7 +7,7 @@ import 'providers/socket_listener_provider.dart';
 import 'models/models.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/home_shell.dart';
 import 'screens/chat_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/call/call_screen.dart';
@@ -60,7 +60,7 @@ class _ChatAppState extends ConsumerState<ChatApp> {
         GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
         GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
         GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-        GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+        GoRoute(path: '/', builder: (_, __) => const HomeShell()),
         GoRoute(
           path: '/chat/:id',
           builder: (_, st) {

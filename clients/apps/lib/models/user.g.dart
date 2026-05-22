@@ -90,5 +90,5 @@ Map<String, dynamic> _$UserPublicProfileToJson(UserPublicProfile instance) =>
       'isOnline': instance.isOnline,
       'lastActiveAt': instance.lastActiveAt,
       'createdAt': instance.createdAt,
-      'relationship': instance.relationship?.toJson(),
+      'relationship': instance.relationship,
     };

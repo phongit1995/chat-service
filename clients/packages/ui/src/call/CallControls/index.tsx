@@ -1,12 +1,6 @@
-import { useLocalParticipant } from '@livekit/components-react'
 import { Track } from 'livekit-client'
-import toast from 'react-hot-toast'
-import { useCallStore } from '@chat/shared'
-import { usePermissionStatus } from '../hooks/usePermissionStatus'
 import { useMicLevel } from '../hooks/useMicLevel'
-import { requestAndPublish, permDeniedHint, type MediaSource } from '../lib/callMedia'
-import { PERM_MIC, PERM_CAM, PERM_STATE, REQUEST_RESULT } from '../constants'
-import type { PermState } from '../interfaces'
+import { useCallMediaToggle } from '../hooks/useCallMediaToggle'
 import { VideoIcon, PhoneIcon } from '../icons'
 import { MicControlButton } from './MicControlButton'
 import { ControlButton } from './ControlButton'
@@ -17,37 +11,11 @@ import type { CallControlsProps } from './CallControls.types'
 export type { CallControlsProps } from './CallControls.types'
 
 export const CallControls = ({ isVideo, onEnd, onOpenSettings }: CallControlsProps) => {
-  const { localParticipant } = useLocalParticipant()
-  const { micMuted, camOff, setMicMuted, setCamOff } = useCallStore()
+  const { localParticipant, micMuted, camOff, micPerm, camPerm, toggleMic, toggleCam } = useCallMediaToggle()
   const micBands = useMicLevel(localParticipant)
-  const micPerm = usePermissionStatus(PERM_MIC)
-  const camPerm = usePermissionStatus(PERM_CAM)
 
   useTrackMuteSync(Track.Source.Microphone, micMuted)
   useTrackMuteSync(Track.Source.Camera, camOff)
-
-  const toggleSource = async (
-    source: MediaSource,
-    perm: PermState,
-    muted: boolean,
-    setMuted: (m: boolean) => void,
-  ) => {
-    if (perm === PERM_STATE.DENIED) {
-      toast.error(permDeniedHint(source))
-      return
-    }
-    const pub = localParticipant.getTrackPublication(source)
-    if (!pub?.track) {
-      const result = await requestAndPublish(localParticipant, source)
-      if (result === REQUEST_RESULT.DENIED) toast.error(permDeniedHint(source))
-      else if (result === REQUEST_RESULT.GRANTED) setMuted(false)
-      return
-    }
-    const next = !muted
-    setMuted(next)
-    if (next) pub.track.mute()
-    else pub.track.unmute()
-  }
 
   return (
     <div
@@ -58,7 +26,7 @@ export const CallControls = ({ isVideo, onEnd, onOpenSettings }: CallControlsPro
         micMuted={micMuted}
         micBands={micBands}
         title={permTitle('Microphone', micPerm, micMuted ? 'Unmute' : 'Mute')}
-        onClick={() => toggleSource(Track.Source.Microphone, micPerm, micMuted, setMicMuted)}
+        onClick={toggleMic}
         perm={micPerm}
       />
 
@@ -66,7 +34,7 @@ export const CallControls = ({ isVideo, onEnd, onOpenSettings }: CallControlsPro
         <ControlButton
           active={camOff}
           title={permTitle('Camera', camPerm, camOff ? 'Camera on' : 'Camera off')}
-          onClick={() => toggleSource(Track.Source.Camera, camPerm, camOff, setCamOff)}
+          onClick={toggleCam}
           perm={camPerm}
         >
           <VideoIcon className="w-6 h-6" />
