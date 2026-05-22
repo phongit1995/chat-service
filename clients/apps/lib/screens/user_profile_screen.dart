@@ -9,6 +9,31 @@ import '../theme/app_typography.dart';
 import '../theme/widgets.dart';
 import '../utils/toast.dart';
 
+Future<void> showUserProfileModal(
+  BuildContext context, {
+  required String userId,
+  String? initialDisplayName,
+  String? initialAvatar,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    useSafeArea: true,
+    builder: (_) => FractionallySizedBox(
+      heightFactor: 0.92,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: UserProfileScreen(
+          userId: userId,
+          initialDisplayName: initialDisplayName,
+          initialAvatar: initialAvatar,
+        ),
+      ),
+    ),
+  );
+}
+
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String userId;
   final String? initialDisplayName;
@@ -59,6 +84,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     try {
       await fn();
       await _refetch();
+      await ref.read(friendsManagementProvider.notifier).refreshAfterAction();
     } catch (e) {
       if (mounted) showErrorToast(errorMsg ?? 'Action failed');
     } finally {
@@ -211,11 +237,25 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     return SliverAppBar(
       expandedHeight: 220,
       pinned: true,
+      automaticallyImplyLeading: false,
       backgroundColor: AppColors.bgSurface,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded),
-        onPressed: () => context.pop(),
-      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Material(
+            color: Colors.black.withValues(alpha: 0.25),
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.of(context).maybePop(),
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.close_rounded, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
           children: [

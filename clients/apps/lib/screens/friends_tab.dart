@@ -10,6 +10,7 @@ import '../theme/widgets.dart';
 import '../utils/relative_time.dart';
 import 'user_search_screen.dart';
 import 'user_profile_screen.dart';
+import 'friends_management_modal.dart';
 
 class FriendsTab extends ConsumerStatefulWidget {
   const FriendsTab({super.key});
@@ -25,6 +26,10 @@ class _FriendsTabState extends ConsumerState<FriendsTab> {
   void initState() {
     super.initState();
     _scrollController = ScrollController()..addListener(_onScroll);
+    Future.microtask(() {
+      if (!mounted) return;
+      ref.read(friendsManagementProvider.notifier).refreshCounts();
+    });
   }
 
   @override
@@ -56,7 +61,6 @@ class _FriendsTabState extends ConsumerState<FriendsTab> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (s) {
-                if (s.friends.isEmpty) return const _EmptyFriends();
                 return RefreshIndicator(
                   color: AppColors.primary,
                   onRefresh: () =>
@@ -67,16 +71,26 @@ class _FriendsTabState extends ConsumerState<FriendsTab> {
                       horizontal: 8,
                       vertical: 12,
                     ),
-                    itemCount: s.friends.length + (s.hasMore ? 1 : 0),
+                    itemCount: 1 +
+                        (s.friends.isEmpty ? 1 : s.friends.length) +
+                        (s.hasMore ? 1 : 0),
                     separatorBuilder: (_, __) => const SizedBox(height: 4),
                     itemBuilder: (_, i) {
-                      if (i >= s.friends.length) {
+                      if (i == 0) return const _ManageFriendsEntry();
+                      final idx = i - 1;
+                      if (s.friends.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32),
+                          child: _EmptyFriends(),
+                        );
+                      }
+                      if (idx >= s.friends.length) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 16),
                           child: Center(child: CircularProgressIndicator()),
                         );
                       }
-                      return _FriendTile(friend: s.friends[i]);
+                      return _FriendTile(friend: s.friends[idx]);
                     },
                   ),
                 );
@@ -141,6 +155,81 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _ManageFriendsEntry extends ConsumerWidget {
+  const _ManageFriendsEntry();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending = ref.watch(friendsManagementProvider).requests.total;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => showFriendsManagementModal(context),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: AppGradients.signature,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.group_rounded, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Manage friends',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    Text(
+                      pending > 0
+                          ? '$pending pending request${pending == 1 ? '' : 's'}'
+                          : 'Requests, sent, blocked',
+                      style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
+              if (pending > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  constraints: const BoxConstraints(minWidth: 22),
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.signature,
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                  ),
+                  child: Text(
+                    pending > 99 ? '99+' : '$pending',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 6),
+              Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyFriends extends StatelessWidget {
   const _EmptyFriends();
   @override
@@ -193,10 +282,11 @@ class _FriendTile extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => UserProfileScreen(userId: friend.id),
-          ),
+        onTap: () => showUserProfileModal(
+          context,
+          userId: friend.id,
+          initialDisplayName: friend.displayName,
+          initialAvatar: friend.avatar,
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Padding(

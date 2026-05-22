@@ -47,14 +47,11 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
   }
 
   void _openProfile(UserSearchResult u) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => UserProfileScreen(
-          userId: u.id,
-          initialDisplayName: u.displayName,
-          initialAvatar: u.avatar,
-        ),
-      ),
+    showUserProfileModal(
+      context,
+      userId: u.id,
+      initialDisplayName: u.displayName,
+      initialAvatar: u.avatar,
     );
   }
 

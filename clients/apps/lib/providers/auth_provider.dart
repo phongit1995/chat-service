@@ -7,6 +7,7 @@ import 'active_conversation_provider.dart';
 import 'conversations_provider.dart';
 import 'core_providers.dart';
 import 'friends_provider.dart';
+import 'friends_management_provider.dart';
 
 class AuthState {
   final User? user;
@@ -100,6 +101,7 @@ class AuthNotifier extends Notifier<AuthState> {
     ref.read(socketProvider).disconnect();
     ref.read(activeConversationProvider.notifier).set(null);
     ref.invalidate(friendsRawProvider);
+    ref.read(friendsManagementProvider.notifier).reset();
     await ref.read(authServiceProvider).logout();
     state = AuthState(initialized: true);
   }

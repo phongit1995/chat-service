@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../models/friend.dart';
+import '../models/relationship.dart';
 
 class RelationshipService {
   final Dio _dio;
@@ -12,6 +13,33 @@ class RelationshipService {
     );
     final data = (res.data?['data'] as Map<String, dynamic>?) ?? const {};
     return FriendListData.fromJson(data);
+  }
+
+  Future<RelationshipListData> getPendingRequests({int limit = 50, int offset = 0}) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/relationships/pending',
+      queryParameters: {'limit': limit, 'offset': offset},
+    );
+    final data = (res.data?['data'] as Map<String, dynamic>?) ?? const {};
+    return RelationshipListData.fromJson(data);
+  }
+
+  Future<RelationshipListData> getSentRequests({int limit = 50, int offset = 0}) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/relationships/sent',
+      queryParameters: {'limit': limit, 'offset': offset},
+    );
+    final data = (res.data?['data'] as Map<String, dynamic>?) ?? const {};
+    return RelationshipListData.fromJson(data);
+  }
+
+  Future<RelationshipListData> getBlockedUsers({int limit = 50, int offset = 0}) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/relationships/blocked',
+      queryParameters: {'limit': limit, 'offset': offset},
+    );
+    final data = (res.data?['data'] as Map<String, dynamic>?) ?? const {};
+    return RelationshipListData.fromJson(data);
   }
 
   Future<void> sendRequest(String userId) async {

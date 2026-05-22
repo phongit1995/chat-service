@@ -176,11 +176,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _openProfile(String userId) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => UserProfileScreen(userId: userId),
-      ),
-    );
+    showUserProfileModal(context, userId: userId);
   }
 
   Future<void> _send() async {
