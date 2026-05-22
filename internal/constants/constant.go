@@ -161,6 +161,8 @@ const (
 	MessageTypeFile  = "file"
 	MessageTypeVideo = "video"
 	MessageTypeAudio = "audio"
+
+	MessageDeletedPreview = "[Tin nhắn đã bị xóa]"
 )
 
 const (

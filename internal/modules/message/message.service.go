@@ -7,7 +7,6 @@ import (
 	"chat-server/internal/constants"
 	"chat-server/internal/services"
 	"chat-server/internal/transport/kafka"
-	"chat-server/internal/models"
 	"chat-server/internal/modules/conversation"
 	userModule "chat-server/internal/modules/user"
 	"chat-server/internal/utils"
@@ -95,16 +94,8 @@ func (s *Service) uploadImageFile(ctx context.Context, userID, conversationID uu
 	}
 
 	rateKey := fmt.Sprintf(constants.CacheKeyRateLimitUpload, userID.String())
-	if count, err := s.redis.Increment(rateKey); err == nil {
-		if count == 1 {
-			if expErr := s.redis.SetExpire(rateKey, time.Duration(constants.RateLimitUploadWindowSeconds)*time.Second); expErr != nil {
-				s.logger.Warnw("Failed to set rate limit expiry, deleting key to prevent permanent block", "key", rateKey, "error", expErr)
-				s.redis.Delete(rateKey)
-			}
-		}
-		if count > int64(constants.RateLimitUploadMaxRequests) {
-			return nil, ErrRateLimit
-		}
+	if err := s.checkRateLimit(rateKey, constants.RateLimitUploadWindowSeconds, constants.RateLimitUploadMaxRequests); err != nil {
+		return nil, err
 	}
 
 	file, err := fileHeader.Open()
@@ -249,6 +240,24 @@ func isActiveMember(members []conversation.ConversationMember, userID uuid.UUID)
 		}
 	}
 	return false
+}
+
+func (s *Service) checkRateLimit(key string, windowSecs, maxReqs int) error {
+	count, err := s.redis.Increment(key)
+	if err != nil {
+		s.logger.Errorw("Rate limit Redis failure, failing closed", "key", key, "error", err)
+		return ErrRateLimit
+	}
+	if count == 1 {
+		if expErr := s.redis.SetExpire(key, time.Duration(windowSecs)*time.Second); expErr != nil {
+			s.logger.Warnw("Failed to set rate limit expiry, deleting key to prevent permanent block", "key", key, "error", expErr)
+			s.redis.Delete(key)
+		}
+	}
+	if count > int64(maxReqs) {
+		return ErrRateLimit
+	}
+	return nil
 }
 
 func isMember(members []conversation.ConversationMember, userID uuid.UUID) bool {
@@ -735,39 +744,25 @@ func (s *Service) GetMessages(userID, conversationID uuid.UUID, limit int, befor
 		}
 	}
 
-	senderIDs := make([]uuid.UUID, 0)
-	senderMap := make(map[uuid.UUID]bool)
-	for _, msg := range messages {
-		if !senderMap[msg.SenderID] {
-			senderIDs = append(senderIDs, msg.SenderID)
-			senderMap[msg.SenderID] = true
-		}
-	}
-
-	var users []models.User
-	if len(senderIDs) > 0 {
-		if err := s.db.Where("id IN ?", senderIDs).Find(&users).Error; err != nil {
-			s.logger.Warnw("Failed to fetch users", "error", err)
-		}
-	}
-
-	userInfoMap := make(map[uuid.UUID]models.User)
-	for _, user := range users {
-		userInfoMap[user.ID] = user
-	}
-
 	responses := make([]MessageResponse, 0, len(messages))
 	for _, msg := range messages {
 		if msg.DeletedAt != nil {
 			continue
 		}
 
+		senderName := msg.SenderName
+		senderAvatar := msg.SenderAvatar
+		if u, err := s.userCache.GetUserCache(msg.SenderID, false); err == nil && u != nil {
+			senderName = u.Username
+			senderAvatar = u.Avatar
+		}
+
 		resp := MessageResponse{
 			ID:             msg.MessageID.String(),
 			ConversationID: msg.ConversationID.String(),
 			SenderID:       msg.SenderID.String(),
-			SenderName:     msg.SenderName,
-			SenderAvatar:   msg.SenderAvatar,
+			SenderName:     senderName,
+			SenderAvatar:   senderAvatar,
 			Type:           msg.MessageType,
 			Content:        msg.Content,
 			Metadata:       msg.Metadata,
@@ -783,11 +778,6 @@ func (s *Service) GetMessages(userID, conversationID uuid.UUID, limit int, befor
 
 		if msg.ReplyToID != nil {
 			resp.ReplyToID = msg.ReplyToID.String()
-		}
-
-		if user, ok := userInfoMap[msg.SenderID]; ok {
-			resp.SenderName = user.Username
-			resp.SenderAvatar = user.Avatar
 		}
 
 		responses = append(responses, resp)
@@ -845,13 +835,11 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 		return nil, fmt.Errorf("failed to update message: %w", err)
 	}
 
-	// Get members for event
-	var sender models.User
 	senderName := ""
 	senderAvatar := ""
-	if err := s.db.First(&sender, "id = ?", userID).Error; err == nil {
-		senderName = sender.Username
-		senderAvatar = sender.Avatar
+	if u, err := s.userCache.GetUserCache(userID, true); err == nil && u != nil {
+		senderName = u.Username
+		senderAvatar = u.Avatar
 	}
 
 	// Update inbox preview if this is the last message
@@ -874,8 +862,14 @@ func (s *Service) UpdateMessage(userID uuid.UUID, conversationIDStr, messageIDSt
 	}
 
 	go func() {
-		s.cache.DeleteMessage(conversationID, messageID)
-		s.cache.DeleteConversationMessages(conversationID)
+		if err := s.cache.DeleteMessage(conversationID, messageID); err != nil {
+			s.logger.Warnw("Failed to invalidate message cache after update",
+				"conversation_id", conversationID, "message_id", messageID, "error", err)
+		}
+		if err := s.cache.DeleteConversationMessages(conversationID); err != nil {
+			s.logger.Warnw("Failed to invalidate conversation messages cache after update",
+				"conversation_id", conversationID, "error", err)
+		}
 	}()
 
 	responseCopy := *response
@@ -1056,12 +1050,13 @@ func (s *Service) publishConversationCreatedEvent(convID, senderID, recipientID 
 		return
 	}
 
-	var senderUser, recipientUser models.User
-	if err := s.db.First(&senderUser, "id = ?", senderID).Error; err != nil {
+	senderUser, err := s.userCache.GetUserCache(senderID, true)
+	if err != nil || senderUser == nil {
 		s.logger.Errorw("Failed to get sender user", "user_id", senderID, "error", err)
 		return
 	}
-	if err := s.db.First(&recipientUser, "id = ?", recipientID).Error; err != nil {
+	recipientUser, err := s.userCache.GetUserCache(recipientID, true)
+	if err != nil || recipientUser == nil {
 		s.logger.Errorw("Failed to get recipient user", "user_id", recipientID, "error", err)
 		return
 	}
@@ -1141,8 +1136,7 @@ func (s *Service) updateInboxPreviewAfterDelete(conversationID uuid.UUID, delete
 		}
 
 		if *inboxEntry.LastMessageID == deletedMessageID {
-			deletedPreview := "[Tin nhắn đã bị xóa]"
-			if err := s.repo.UpdateConversationPreview(m.UserID, conversationID, deletedPreview); err != nil {
+			if err := s.repo.UpdateConversationPreview(m.UserID, conversationID, constants.MessageDeletedPreview); err != nil {
 				s.logger.Errorw("Failed to update inbox preview after delete",
 					"user_id", m.UserID,
 					"conversation_id", conversationID,
@@ -1306,16 +1300,8 @@ func (s *Service) ToggleReaction(ctx context.Context, userID, conversationID uui
 	}
 
 	rateKey := fmt.Sprintf(constants.CacheKeyRateLimitReaction, userID.String())
-	if count, err := s.redis.Increment(rateKey); err == nil {
-		if count == 1 {
-			if expErr := s.redis.SetExpire(rateKey, time.Duration(constants.RateLimitReactionWindowSeconds)*time.Second); expErr != nil {
-				s.logger.Warnw("Failed to set rate limit expiry, deleting key to prevent permanent block", "key", rateKey, "error", expErr)
-				s.redis.Delete(rateKey)
-			}
-		}
-		if count > int64(constants.RateLimitReactionMaxRequests) {
-			return nil, ErrRateLimit
-		}
+	if err := s.checkRateLimit(rateKey, constants.RateLimitReactionWindowSeconds, constants.RateLimitReactionMaxRequests); err != nil {
+		return nil, err
 	}
 
 	lockKey := fmt.Sprintf(constants.CacheKeyReactionLock, messageIDStr)
@@ -1397,6 +1383,8 @@ func (s *Service) ToggleReaction(ctx context.Context, userID, conversationID uui
 	s.cache.DeleteMessage(conversationID, messageID)
 
 	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 		event := &messageEvents.MessageReactionUpdatedEvent{
 			ConversationID: conversationID.String(),
 			MessageID:      messageIDStr,
@@ -1405,7 +1393,7 @@ func (s *Service) ToggleReaction(ctx context.Context, userID, conversationID uui
 			Type:           reactionType,
 			Action:         action,
 		}
-		if err := s.kafkaProducer.PublishMessageReactionUpdated(context.Background(), event); err != nil {
+		if err := s.kafkaProducer.PublishMessageReactionUpdated(ctx, event); err != nil {
 			s.logger.Warnw("Failed to publish reaction event", "error", err)
 		}
 	}()

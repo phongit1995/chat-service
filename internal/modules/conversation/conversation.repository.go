@@ -312,11 +312,11 @@ func (r *Repository) GetOtherUsersLastRead(pairs []OtherUserReadState) (map[stri
 		g.Go(func() error {
 			gocqlUserID, err := gocql.ParseUUID(p.UserID.String())
 			if err != nil {
-				return nil
+				return fmt.Errorf("invalid user ID %s: %w", p.UserID, err)
 			}
 			gocqlConvID, err := gocql.ParseUUID(p.ConversationID.String())
 			if err != nil {
-				return nil
+				return fmt.Errorf("invalid conversation ID %s: %w", p.ConversationID, err)
 			}
 
 			var lastRead *gocql.UUID
@@ -325,7 +325,7 @@ func (r *Repository) GetOtherUsersLastRead(pairs []OtherUserReadState) (map[stri
 				WithContext(ctx).
 				Scan(&lastRead)
 			if err != nil && err != gocql.ErrNotFound {
-				return nil
+				return fmt.Errorf("scan last_read for user %s conv %s: %w", p.UserID, p.ConversationID, err)
 			}
 
 			it := item{

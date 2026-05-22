@@ -114,6 +114,44 @@ func (c *CacheService) InvalidateUser(userID uuid.UUID) error {
 	return nil
 }
 
+func (c *CacheService) GetUsersBatch(userIDs []uuid.UUID, fallbackToDB bool) map[uuid.UUID]*models.User {
+	result := make(map[uuid.UUID]*models.User, len(userIDs))
+	if len(userIDs) == 0 {
+		return result
+	}
+
+	var missing []uuid.UUID
+	for _, id := range userIDs {
+		if u, err := c.GetUser(id); err == nil && u != nil {
+			result[id] = u
+		} else {
+			missing = append(missing, id)
+		}
+	}
+
+	if len(missing) == 0 || !fallbackToDB {
+		return result
+	}
+
+	var users []models.User
+	if err := c.db.Where("id IN ?", missing).Find(&users).Error; err != nil {
+		c.logger.Warnw("Batch user fetch from DB failed", "error", err, "count", len(missing))
+		return result
+	}
+
+	for i := range users {
+		u := &users[i]
+		result[u.ID] = u
+		go func(uid uuid.UUID, model *models.User) {
+			if err := c.SetUser(uid, model); err != nil {
+				c.logger.Warnw("Failed to cache user after batch fetch", "user_id", uid, "error", err)
+			}
+		}(u.ID, u)
+	}
+
+	return result
+}
+
 func (c *CacheService) GetUserCache(userID uuid.UUID, fallbackToDB bool) (*models.User, error) {
 	if cachedUser, err := c.GetUser(userID); err == nil && cachedUser != nil {
 		c.logger.Debugw("User cache HIT", "user_id", userID, "fallback_enabled", fallbackToDB)

@@ -1,9 +1,9 @@
 package user
 
 import (
-	"chat-server/internal/constants"
 	"chat-server/internal/models"
 	"chat-server/internal/modules/relationships"
+	"chat-server/internal/utils"
 	"chat-server/internal/services"
 	"chat-server/internal/transport/websocket"
 	"context"
@@ -232,24 +232,8 @@ func (s *Service) GetPresenceBatch(userIDs []string) *PresenceBatchResponse {
 	lastActive := s.presence.GetLastActiveBatch(userIDs)
 
 	users := make([]UserPresence, 0, len(userIDs))
-	graceWindow := time.Duration(constants.OnlineGraceWindowSecs) * time.Second
-
 	for _, id := range userIDs {
-		isOnline := online[id]
-		lastActiveStr := lastActive[id]
-
-		if !isOnline && lastActiveStr != "" {
-			if t, err := time.Parse(time.RFC3339, lastActiveStr); err == nil {
-				if time.Since(t) <= graceWindow {
-					isOnline = true
-					lastActiveStr = ""
-				}
-			}
-		}
-		if isOnline {
-			lastActiveStr = ""
-		}
-
+		isOnline, lastActiveStr := utils.ApplyOnlineGrace(online[id], lastActive[id])
 		users = append(users, UserPresence{
 			UserID:       id,
 			IsOnline:     isOnline,

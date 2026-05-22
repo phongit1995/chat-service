@@ -165,22 +165,6 @@ func (s *Service) buildConversationResponse(conv ConversationByUser, viewerID uu
 	return resp
 }
 
-func applyOnlineGrace(rawOnline bool, lastActive string) (bool, string) {
-	if rawOnline {
-		return true, ""
-	}
-	if lastActive == "" {
-		return false, ""
-	}
-	t, err := time.Parse(time.RFC3339, lastActive)
-	if err != nil {
-		return false, lastActive
-	}
-	if time.Since(t) <= time.Duration(constants.OnlineGraceWindowSecs)*time.Second {
-		return true, ""
-	}
-	return false, lastActive
-}
 
 func (s *Service) CheckDirectConversation(user1ID, user2ID uuid.UUID) (*ConversationResponse, error) {
 	if user1ID == user2ID {
@@ -475,10 +459,14 @@ func (s *Service) CreateGroupConversation(creatorID uuid.UUID, name string, part
 		uniqueParticipants[id] = true
 	}
 
+	participantIDsToCheck := make([]uuid.UUID, 0, len(uniqueParticipants))
 	for participantID := range uniqueParticipants {
-		var user models.User
-		if err := s.db.First(&user, "id = ?", participantID).Error; err != nil {
-			return nil, fmt.Errorf("participant %s not found: %w", participantID, err)
+		participantIDsToCheck = append(participantIDsToCheck, participantID)
+	}
+	usersFound := s.userCache.GetUsersBatch(participantIDsToCheck, true)
+	for _, pid := range participantIDsToCheck {
+		if u, ok := usersFound[pid]; !ok || u == nil {
+			return nil, fmt.Errorf("participant %s not found", pid)
 		}
 	}
 
@@ -577,10 +565,11 @@ func (s *Service) publishGroupConversationCreated(convID uuid.UUID, name string,
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	usersMap := s.userCache.GetUsersBatch(participantIDs, true)
 	participants := make([]map[string]interface{}, 0, len(participantIDs))
 	for _, pid := range participantIDs {
-		u, err := s.userCache.GetUserCache(pid, true)
-		if err != nil || u == nil {
+		u, ok := usersMap[pid]
+		if !ok || u == nil {
 			continue
 		}
 		participants = append(participants, map[string]interface{}{
@@ -697,7 +686,7 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 					continue
 				}
 				oid := responses[i].OtherUser.ID
-				isOnline, lastActiveOut := applyOnlineGrace(online[oid], lastActive[oid])
+				isOnline, lastActiveOut := utils.ApplyOnlineGrace(online[oid], lastActive[oid])
 				responses[i].OtherUser.IsOnline = isOnline
 				responses[i].OtherUser.LastActiveAt = lastActiveOut
 			}
@@ -780,7 +769,9 @@ func (s *Service) MarkConversationAsRead(userID, conversationID uuid.UUID) error
 					"seen": true,
 				},
 			}
-			if err := s.kafkaProducer.PublishConversationUpdated(context.Background(), event); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.kafkaProducer.PublishConversationUpdated(ctx, event); err != nil {
 				s.logger.Warnw("Failed to publish conversation updated event for seen", "error", err)
 			}
 		}
@@ -1004,7 +995,7 @@ func (s *Service) GetConversationDetail(userID, conversationID uuid.UUID) (*Conv
 		if otherUserID, err := uuid.Parse(conv.OtherUserID.String()); err == nil && s.presence != nil {
 			rawOnline := s.presence.IsUserOnline(otherUserID.String())
 			rawLastActive := s.presence.GetLastActive(otherUserID.String())
-			resp.OtherUser.IsOnline, resp.OtherUser.LastActiveAt = applyOnlineGrace(rawOnline, rawLastActive)
+			resp.OtherUser.IsOnline, resp.OtherUser.LastActiveAt = utils.ApplyOnlineGrace(rawOnline, rawLastActive)
 		}
 	}
 
