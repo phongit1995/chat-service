@@ -89,6 +89,16 @@ export const Chat = () => {
     return () => window.removeEventListener('keydown', onKey)
   }, [setShowSearch])
 
+  useEffect(() => {
+    if (!window.desktop?.onMenuCommand) return
+    const unsubscribe = window.desktop.onMenuCommand((command) => {
+      if (command === 'new-chat' || command === 'search') {
+        setShowSearch(true)
+      }
+    })
+    return unsubscribe
+  }, [setShowSearch])
+
   const handleLogout = () => {
     useChatStore.getState().reset()
     logout()

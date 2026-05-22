@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState, lazy, Suspense, KeyboardEvent } from 'react'
-import { Button } from '@chat/ui'
+import { Button, ErrorBoundary } from '@chat/ui'
 import { ChatHeader, MessageList, ComposerPreview } from '@chat/ui'
 import type { Conversation, Message, User } from '@chat/shared'
 import type { TypingUserInfo } from '@chat/shared'
@@ -82,6 +82,51 @@ export const ChatArea = ({
     }
     onSendImage(file).catch((err) => console.error('send image failed', err))
   }
+
+  const [dragActive, setDragActive] = useState(false)
+  const dragDepth = useRef(0)
+
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types || []).includes('Files')
+
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      dragDepth.current += 1
+      setDragActive(true)
+    }
+    const onDragOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+    }
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragActive(false)
+    }
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      dragDepth.current = 0
+      setDragActive(false)
+      const file = e.dataTransfer?.files?.[0]
+      if (file) handleFileSelect(file)
+    }
+
+    window.addEventListener('dragenter', onDragEnter)
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('dragleave', onDragLeave)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter)
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('dragleave', onDragLeave)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [conversation.id])
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items
@@ -240,14 +285,28 @@ export const ChatArea = ({
 
   return (
     <>
+      {dragActive && (
+        <div className="fixed inset-0 z-50 bg-primary-500/10 backdrop-blur-sm border-4 border-dashed border-primary-500 flex items-center justify-center pointer-events-none">
+          <div className="bg-surface rounded-2xl shadow-soft-lg px-8 py-6 flex flex-col items-center gap-3">
+            <svg className="w-12 h-12 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" />
+            </svg>
+            <p className="text-base font-semibold text-ink-primary">Drop image to send</p>
+            <p className="text-xs text-ink-tertiary">JPG / PNG / GIF / WEBP — max {HARD_UPLOAD_BYTES / 1024 / 1024}MB</p>
+          </div>
+        </div>
+      )}
       <ChatHeader conversation={conversation} onBack={onBack} onOpenProfile={onOpenProfile} />
-      <MessageList
-        conversation={conversation}
-        messages={messages}
-        typingUsers={typingUsers}
-        user={user}
-        onOpenProfile={onOpenProfile}
-      />
+      <ErrorBoundary scope="message-list">
+        <MessageList
+          conversation={conversation}
+          messages={messages}
+          typingUsers={typingUsers}
+          user={user}
+          onOpenProfile={onOpenProfile}
+        />
+      </ErrorBoundary>
 
       <div
         className="border-t border-line-subtle bg-surface/95 backdrop-blur-sm px-3 sm:px-4 pt-3 sm:pt-4"

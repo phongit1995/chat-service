@@ -1,5 +1,6 @@
 import { Avatar } from '@chat/ui'
-import { ConversationItem } from '@chat/ui'
+import { ConversationItem, ConversationListSkeleton } from '@chat/ui'
+import { useChatStore } from '@chat/shared'
 import type { User, Conversation } from '@chat/shared'
 
 interface ChatSidebarProps {
@@ -23,6 +24,8 @@ export const ChatSidebar = ({
   onConversationClick,
   onHideConversation,
 }: ChatSidebarProps) => {
+  const isLoading = useChatStore((s) => s.isLoading)
+  const conversationsLoading = isLoading && conversations.length === 0
   return (
     <>
       <div
@@ -93,7 +96,9 @@ export const ChatSidebar = ({
           <h3 className="text-[11px] font-bold text-ink-tertiary uppercase tracking-wider px-3 py-2 mb-1">
             Messages
           </h3>
-          {conversations.length === 0 ? (
+          {conversationsLoading ? (
+            <ConversationListSkeleton count={8} />
+          ) : conversations.length === 0 ? (
             <div className="text-center py-12 text-ink-tertiary">
               <svg className="w-16 h-16 mx-auto mb-4 text-ink-disabled" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

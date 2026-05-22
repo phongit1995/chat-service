@@ -9,3 +9,5 @@ export { Avatar } from './Avatar'
 export { Card } from './Card'
 
 export { Modal, ModalHeader, ModalBody, ModalFooter } from './Modal'
+
+export { ErrorBoundary } from './ErrorBoundary'

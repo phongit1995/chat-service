@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, shell, Notification, Tray, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell, Notification, Tray, Menu, nativeImage } from 'electron'
 import Store from 'electron-store'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 const isDev = !app.isPackaged
@@ -35,7 +36,7 @@ function createWindow() {
     minHeight: 600,
     show: false,
     icon: path.join(__dirname, '../../build/icon.png'),
-    autoHideMenuBar: true,
+    autoHideMenuBar: process.platform !== 'darwin',
     titleBarStyle: 'hidden',
     trafficLightPosition: process.platform === 'darwin' ? { x: 12, y: 10 } : undefined,
     frame: process.platform !== 'darwin' ? false : true,
@@ -98,6 +99,106 @@ if (!gotLock) {
   })
 }
 
+function buildAppMenu() {
+  const isMac = process.platform === 'darwin'
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [{
+          label: app.name,
+          submenu: [
+            { role: 'about' as const },
+            { type: 'separator' as const },
+            { role: 'services' as const },
+            { type: 'separator' as const },
+            { role: 'hide' as const },
+            { role: 'hideOthers' as const },
+            { role: 'unhide' as const },
+            { type: 'separator' as const },
+            { role: 'quit' as const },
+          ],
+        }]
+      : []),
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New Chat',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => mainWindow?.webContents.send('menu:new-chat'),
+        },
+        {
+          label: 'Search',
+          accelerator: 'CmdOrCtrl+K',
+          click: () => mainWindow?.webContents.send('menu:search'),
+        },
+        { type: 'separator' },
+        isMac ? { role: 'close' as const } : { role: 'quit' as const },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        ...(isMac
+          ? [
+              { role: 'pasteAndMatchStyle' as const },
+              { role: 'delete' as const },
+              { role: 'selectAll' as const },
+            ]
+          : [
+              { role: 'delete' as const },
+              { type: 'separator' as const },
+              { role: 'selectAll' as const },
+            ]),
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac
+          ? [
+              { type: 'separator' as const },
+              { role: 'front' as const },
+              { type: 'separator' as const },
+              { role: 'window' as const },
+            ]
+          : [{ role: 'close' as const }]),
+      ],
+    },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Learn More',
+          click: () => shell.openExternal('https://github.com/phongit1995/chat-service'),
+        },
+      ],
+    },
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
 function createTray() {
   const iconPath = path.join(__dirname, '../../build/icon.png')
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 18, height: 18 })
@@ -137,6 +238,7 @@ app.whenReady().then(() => {
     app.dock.setIcon(path.join(__dirname, '../../build/icon.png'))
   }
   createWindow()
+  buildAppMenu()
   createTray()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -169,3 +271,22 @@ ipcMain.handle('notification:show', (_e, title: string, body: string) => {
 })
 
 ipcMain.handle('badge:set', (_e, count: number) => setUnread(count))
+
+ipcMain.handle('dialog:openImage', async (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender)
+  const result = await dialog.showOpenDialog(w!, {
+    title: 'Select image',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
+    ],
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  const filePath = result.filePaths[0]
+  const data = await readFile(filePath)
+  return {
+    name: path.basename(filePath),
+    size: data.byteLength,
+    data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+  }
+})

@@ -5,7 +5,7 @@ import { Login } from './pages/login'
 import { Register } from './pages/register'
 import { Chat } from './pages/chat'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { IncomingCallModal, CallScreen } from '@chat/ui'
+import { IncomingCallModal, CallScreen, ErrorBoundary } from '@chat/ui'
 import { env } from '@chat/shared'
 
 function App() {
@@ -49,23 +49,27 @@ function App() {
           },
         }}
       />
-      <Router>
-        <Routes>
-          <Route path="/" element={<Navigate to="/chat" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route
-            path="/chat"
-            element={
-              <ProtectedRoute>
-                <Chat />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Router>
-      <IncomingCallModal />
-      <CallScreen />
+      <ErrorBoundary scope="app">
+        <Router>
+          <Routes>
+            <Route path="/" element={<Navigate to="/chat" replace />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <ErrorBoundary scope="chat-page">
+                    <Chat />
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Router>
+        <IncomingCallModal />
+        <CallScreen />
+      </ErrorBoundary>
     </>
   )
 }

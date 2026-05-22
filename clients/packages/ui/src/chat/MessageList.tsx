@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { MessageBubble } from './MessageBubble'
 import { TypingIndicator } from './TypingIndicator'
+import { MessageBubbleSkeleton, MessageListSkeleton } from './Skeletons'
 import { useChatStore } from '@chat/shared'
 import type { Conversation, Message, User } from '@chat/shared'
 import type { TypingUserInfo } from '@chat/shared'
@@ -70,7 +71,9 @@ export const MessageList = ({ conversation, messages, typingUsers, user, onOpenP
   const hasMoreMessages = useChatStore((s) => s.hasMoreMessages)
   const isLoadingMoreMessages = useChatStore((s) => s.isLoadingMoreMessages)
   const loadMoreMessages = useChatStore((s) => s.loadMoreMessages)
+  const isLoading = useChatStore((s) => s.isLoading)
   const toggleReaction = useChatStore((s) => s.toggleReaction)
+  const showInitialSkeleton = isLoading && rows.length === 0
 
   const handleReact = useCallback(
     (mid: string, type: string) => {
@@ -124,13 +127,19 @@ export const MessageList = ({ conversation, messages, typingUsers, user, onOpenP
     return () => el.removeEventListener('scroll', onScroll)
   }, [conversation.id, hasMoreMessages, isLoadingMoreMessages, loadMoreMessages])
 
+  if (showInitialSkeleton) return <MessageListSkeleton />
+
   return (
     <div
       ref={scrollParentRef}
       className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 scrollbar-thin bg-surface-base"
     >
       {isLoadingMoreMessages && (
-        <div className="flex justify-center py-2 text-xs text-text-secondary">Loading…</div>
+        <div className="space-y-3 py-3" role="status" aria-label="Loading older messages">
+          <MessageBubbleSkeleton width="w-44" />
+          <MessageBubbleSkeleton isOwn width="w-32" />
+          <MessageBubbleSkeleton width="w-52" />
+        </div>
       )}
       <div style={{ height: totalSize, width: '100%', position: 'relative' }}>
         {virtualItems.map((vi) => {

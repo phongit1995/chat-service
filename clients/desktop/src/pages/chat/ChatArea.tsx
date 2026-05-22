@@ -83,6 +83,81 @@ export const ChatArea = ({
     onSendImage(file).catch((err) => console.error('send image failed', err))
   }
 
+  const extToMime = (name: string): string => {
+    const ext = name.split('.').pop()?.toLowerCase() || ''
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+    if (ext === 'png') return 'image/png'
+    if (ext === 'gif') return 'image/gif'
+    if (ext === 'webp') return 'image/webp'
+    return ''
+  }
+
+  const handleNativePick = async () => {
+    if (!window.desktop?.pickImage) {
+      fileInputRef.current?.click()
+      return
+    }
+    try {
+      const picked = await window.desktop.pickImage()
+      if (!picked) return
+      const mime = extToMime(picked.name)
+      if (!mime) {
+        alert(`Định dạng không hỗ trợ: ${picked.name}. Chỉ chấp nhận ${ALLOWED_IMAGE_MIMES.map((m) => m.replace('image/', '').toUpperCase()).join(' / ')}.`)
+        return
+      }
+      const file = new File([picked.data], picked.name, { type: mime })
+      handleFileSelect(file)
+    } catch (err) {
+      console.error('native pick failed', err)
+      fileInputRef.current?.click()
+    }
+  }
+
+  const [dragActive, setDragActive] = useState(false)
+  const dragDepth = useRef(0)
+
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types || []).includes('Files')
+
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      dragDepth.current += 1
+      setDragActive(true)
+    }
+    const onDragOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+    }
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragActive(false)
+    }
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      dragDepth.current = 0
+      setDragActive(false)
+      const file = e.dataTransfer?.files?.[0]
+      if (file) handleFileSelect(file)
+    }
+
+    window.addEventListener('dragenter', onDragEnter)
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('dragleave', onDragLeave)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter)
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('dragleave', onDragLeave)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [conversation.id])
+
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items
     if (!items) return
@@ -240,6 +315,18 @@ export const ChatArea = ({
 
   return (
     <>
+      {dragActive && (
+        <div className="fixed inset-0 z-50 bg-primary-500/10 backdrop-blur-sm border-4 border-dashed border-primary-500 flex items-center justify-center pointer-events-none">
+          <div className="bg-surface rounded-2xl shadow-soft-lg px-8 py-6 flex flex-col items-center gap-3">
+            <svg className="w-12 h-12 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" />
+            </svg>
+            <p className="text-base font-semibold text-ink-primary">Drop image to send</p>
+            <p className="text-xs text-ink-tertiary">JPG / PNG / GIF / WEBP — max {HARD_UPLOAD_BYTES / 1024 / 1024}MB</p>
+          </div>
+        </div>
+      )}
       <ChatHeader conversation={conversation} onBack={onBack} onOpenProfile={onOpenProfile} />
       <MessageList
         conversation={conversation}
@@ -264,7 +351,7 @@ export const ChatArea = ({
         <form onSubmit={onSendMessage} className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={handleNativePick}
             aria-label="Attach image"
             title="Gửi ảnh — JPG / PNG / GIF / WEBP, tối đa 2 MB sau khi nén"
             className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-overlay transition-colors shrink-0"

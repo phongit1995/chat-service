@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+export interface PickedImage {
+  name: string
+  size: number
+  data: ArrayBuffer
+}
+
 const api = {
   getVersion: () => ipcRenderer.invoke('app:version') as Promise<string>,
   getPlatform: () => ipcRenderer.invoke('app:platform') as Promise<NodeJS.Platform>,
@@ -10,6 +16,16 @@ const api = {
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
+  pickImage: () => ipcRenderer.invoke('dialog:openImage') as Promise<PickedImage | null>,
+  onMenuCommand: (handler: (command: 'new-chat' | 'search') => void) => {
+    const listener = (_e: unknown, command: 'new-chat' | 'search') => handler(command)
+    ipcRenderer.on('menu:new-chat', () => listener(null, 'new-chat'))
+    ipcRenderer.on('menu:search', () => listener(null, 'search'))
+    return () => {
+      ipcRenderer.removeAllListeners('menu:new-chat')
+      ipcRenderer.removeAllListeners('menu:search')
+    }
+  },
 }
 
 contextBridge.exposeInMainWorld('desktop', api)
