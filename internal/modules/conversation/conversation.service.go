@@ -127,7 +127,11 @@ func (s *Service) buildConversationResponse(conv ConversationByUser, viewerID uu
 
 	if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
 		if otherUserID, err := uuid.Parse(conv.OtherUserID.String()); err == nil {
-			if u, err := s.userCache.GetUserCache(otherUserID, false); err == nil && u != nil {
+			u, err := s.userCache.GetUserCache(otherUserID, true)
+			if err != nil || u == nil {
+				s.logger.Warnw("buildConversationResponse: failed to fetch other user",
+					"conversation_id", conv.ConversationID, "other_user_id", otherUserID, "error", err)
+			} else {
 				resp.Name = displayName(u)
 				resp.Avatar = u.Avatar
 				resp.OtherUser = &OtherUserBrief{
@@ -139,6 +143,9 @@ func (s *Service) buildConversationResponse(conv ConversationByUser, viewerID uu
 				}
 			}
 		}
+	} else if conv.ConversationType == constants.ConversationTypeDirect {
+		s.logger.Warnw("Direct conversation missing OtherUserID",
+			"conversation_id", conv.ConversationID, "viewer_id", viewerID)
 	}
 
 	if conv.LastMessageSender != nil {
