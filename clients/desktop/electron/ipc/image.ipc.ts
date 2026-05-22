@@ -55,31 +55,43 @@ export function registerImageIpc() {
 
   ipcMain.handle(IPC.IMAGE_SAVE, async (e, payload: SaveImagePayload) => {
     const w = BrowserWindow.fromWebContents(e.sender)
-    const defaultPath = defaultFileNameFor(payload.url, payload.suggestedName)
+    if (!w) return { saved: false, error: 'window-not-found' }
 
-    const result = await dialog.showSaveDialog(w!, { title: 'Save image', defaultPath })
-    if (result.canceled || !result.filePath) return { saved: false }
+    try {
+      const defaultPath = defaultFileNameFor(payload.url, payload.suggestedName)
+      const result = await dialog.showSaveDialog(w, { title: 'Save image', defaultPath })
+      if (result.canceled || !result.filePath) return { saved: false }
 
-    const buffer = await fetchToBuffer(payload.url)
-    await writeFile(result.filePath, buffer)
-    return { saved: true, path: result.filePath }
+      const buffer = await fetchToBuffer(payload.url)
+      await writeFile(result.filePath, buffer)
+      return { saved: true, path: result.filePath }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      return { saved: false, error: message }
+    }
   })
 
   ipcMain.handle(IPC.DIALOG_OPEN_IMAGE, async (e) => {
     const w = BrowserWindow.fromWebContents(e.sender)
-    const result = await dialog.showOpenDialog(w!, {
-      title: 'Select image',
-      properties: ['openFile'],
-      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] }],
-    })
-    if (result.canceled || result.filePaths.length === 0) return null
+    if (!w) return null
 
-    const filePath = result.filePaths[0]
-    const data = await readFile(filePath)
-    return {
-      name: path.basename(filePath),
-      size: data.byteLength,
-      data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+    try {
+      const result = await dialog.showOpenDialog(w, {
+        title: 'Select image',
+        properties: ['openFile'],
+        filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] }],
+      })
+      if (result.canceled || result.filePaths.length === 0) return null
+
+      const filePath = result.filePaths[0]
+      const data = await readFile(filePath)
+      return {
+        name: path.basename(filePath),
+        size: data.byteLength,
+        data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+      }
+    } catch {
+      return null
     }
   })
 }

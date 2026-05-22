@@ -1,4 +1,5 @@
 import type { StoreApi } from 'zustand'
+import { MessageType } from '../types'
 import type {
   ConversationCreatedData,
   ConversationDeletedData,
@@ -17,6 +18,7 @@ import type {
   Conversation,
 } from '../types'
 import { WebSocketEventType } from '../types/realtime'
+import { MessageStatus } from '../types'
 import { conversationService } from '../services/conversation.service'
 import { socketService } from '../services/socket'
 import { useAuthStore } from './authStore'
@@ -31,10 +33,10 @@ let registered = false
 
 const buildLastMessagePreview = (message: { type?: string; content?: string }): string => {
   const content = (message.content || '').trim()
-  if (message.type === 'image') return content ? `📷 ${content}` : '📷 Photo'
-  if (message.type === 'file') return content ? `📎 ${content}` : '📎 File'
-  if (message.type === 'video') return content ? `🎬 ${content}` : '🎬 Video'
-  if (message.type === 'audio') return content ? `🎵 ${content}` : '🎵 Audio'
+  if (message.type === MessageType.IMAGE) return content ? `📷 ${content}` : '📷 Photo'
+  if (message.type === MessageType.FILE) return content ? `📎 ${content}` : '📎 File'
+  if (message.type === MessageType.VIDEO) return content ? `🎬 ${content}` : '🎬 Video'
+  if (message.type === MessageType.AUDIO) return content ? `🎵 ${content}` : '🎵 Audio'
   return content
 }
 
@@ -53,7 +55,7 @@ export const registerChatRealtimeListeners = (set: ChatSetState, get: ChatGetSta
       )
       if (idx >= 0) {
         const updated = [...messages]
-        updated[idx] = { ...message, status: 'sent' }
+        updated[idx] = { ...message, status: MessageStatus.SENT }
         set({ messages: updated })
       } else {
         set({ messages: [...messages, message] })

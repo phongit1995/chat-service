@@ -8,6 +8,9 @@ export { ReactionButton } from './ReactionButton'
 export { ReactionPicker } from './ReactionPicker'
 export { MessageActionsMenu } from './MessageActionsMenu'
 export { ComposerPreview } from './ComposerPreview'
+export { NewChatView } from './NewChatView'
+export type { NewChatViewProps } from './NewChatView'
+export * from './composer'
 export {
   ConversationItemSkeleton,
   ConversationListSkeleton,

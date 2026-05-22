@@ -1,4 +1,4 @@
-import { useChatStore, useChatUIStore } from '@chat/shared'
+import { useChatStore, useChatUIStore, MessageType} from '@chat/shared'
 
 export const ComposerPreview = () => {
   const replyTo = useChatUIStore((s) => s.replyTo)
@@ -16,7 +16,7 @@ export const ComposerPreview = () => {
   const label = isEdit ? 'Editing message' : `Replying to ${replyTo?.senderName || 'message'}`
   const content = isEdit
     ? editingMsg!.content
-    : replyTo?.type === 'image'
+    : replyTo?.type === MessageType.IMAGE
       ? '📷 Photo'
       : replyTo?.content
 

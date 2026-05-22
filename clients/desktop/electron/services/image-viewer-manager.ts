@@ -3,7 +3,15 @@ import { isDev, preloadPath, rendererIndexPath } from './paths'
 
 const viewers = new Map<string, BrowserWindow>()
 
+export function closeAllImageViewers() {
+  for (const win of viewers.values()) {
+    if (!win.isDestroyed()) win.destroy()
+  }
+  viewers.clear()
+}
+
 export function openImageViewer(url: string, alt?: string) {
+  if (!url) return
   const existing = viewers.get(url)
   if (existing && !existing.isDestroyed()) {
     if (existing.isMinimized()) existing.restore()

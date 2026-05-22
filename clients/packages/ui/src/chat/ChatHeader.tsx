@@ -1,4 +1,4 @@
-import { Conversation } from '@chat/shared'
+import { Conversation, ConversationType} from '@chat/shared'
 import { Avatar } from '../common'
 import { CallButton } from '../call'
 import { formatLastActive } from '@chat/shared'
@@ -21,7 +21,7 @@ export const ChatHeader = ({ conversation, onBack, onOpenProfile }: ChatHeaderPr
   }
 
   const displayName =
-    conversation.name || (conversation.type === 'group' ? 'Group Chat' : 'Unknown')
+    conversation.name || (conversation.type === ConversationType.GROUP ? 'Group Chat' : 'Unknown')
 
   return (
     <div className="bg-surface/90 backdrop-blur-sm border-b border-line-subtle px-3 sm:px-4 py-3 sm:py-4">
@@ -39,7 +39,7 @@ export const ChatHeader = ({ conversation, onBack, onOpenProfile }: ChatHeaderPr
         )}
 
         {(() => {
-          const isDirect = conversation.type === 'direct'
+          const isDirect = conversation.type === ConversationType.DIRECT
           const isOnline = isDirect && !!conversation.otherUser?.isOnline
           const subtitle = isDirect
             ? isOnline
@@ -81,7 +81,7 @@ export const ChatHeader = ({ conversation, onBack, onOpenProfile }: ChatHeaderPr
         })()}
 
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-          {conversation.type === 'direct' && conversation.otherUser && (
+          {conversation.type === ConversationType.DIRECT && conversation.otherUser && (
             <CallButton
               conversationId={conversation.id}
               peer={{

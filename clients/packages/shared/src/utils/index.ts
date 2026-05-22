@@ -1,3 +1,4 @@
+export * from './desktop'
 export * from './emoji'
 export * from './imageLimits'
 export * from './imageMeta'

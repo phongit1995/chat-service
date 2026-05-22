@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Message } from '@chat/shared'
-import { useChatStore, useChatUIStore } from '@chat/shared'
+import { useChatStore, useChatUIStore, MessageStatus, MessageType} from '@chat/shared'
 
 interface Props {
   message: Message
@@ -27,9 +27,9 @@ export const MessageActionsMenu = ({ message, isOwnMessage, visible }: Props) =>
 
   if (!visible && !open) return null
 
-  const canEdit = isOwnMessage && message.type === 'text'
+  const canEdit = isOwnMessage && message.type === MessageType.TEXT
   const canDelete = isOwnMessage
-  const canReply = message.status === 'sent' || !message.status
+  const canReply = message.status === MessageStatus.SENT || !message.status
 
   const handleReply = () => {
     setReplyTo(message)

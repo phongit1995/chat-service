@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { MessageType, MessageStatus } from '../types'
 import type { Conversation, Message, UserSearchResult } from '../types'
 import { conversationService } from '../services/conversation.service'
 import { messageService } from '../services/message.service'
@@ -170,14 +171,14 @@ export const useChatStore = create<ChatState>((set, get) => {
           ...sender,
           content,
           type: 'text',
-          status: 'sending',
+          status: MessageStatus.SENDING,
           createdAt: now,
           updatedAt: now,
           clientMsgId,
           replyToId,
         }),
         send: (clientMsgId) =>
-          messageService.sendMessage({ conversationId, content, messageType: 'text', clientMsgId, replyToId }),
+          messageService.sendMessage({ conversationId, content, messageType: MessageType.TEXT, clientMsgId, replyToId }),
         errorFallback: 'Failed to send message',
         rethrow: true,
       })
@@ -197,7 +198,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           ...sender,
           content: '',
           type: 'image',
-          status: 'uploading',
+          status: MessageStatus.UPLOADING,
           createdAt: now,
           updatedAt: now,
           clientMsgId,

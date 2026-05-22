@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@chat/shared'
+import { useAuthStore, ConversationType} from '@chat/shared'
 import { useChatStore } from '@chat/shared'
 import { useChatUIStore } from '@chat/shared'
 import { usePresenceStore } from '@chat/shared'
 import { useConversationsWithPresence, useConversationWithPresence } from '@chat/shared'
 import { ProfileEditModal } from '@chat/ui'
-import { SearchModal } from '../../components/search/SearchModal'
+import { SearchModal } from '@chat/ui'
 import { ChatSidebar } from './ChatSidebar'
 import { ChatArea } from './ChatArea'
-import { NewChatView } from './NewChatView'
+import { NewChatView } from '@chat/ui'
 import { EmptyState } from './EmptyState'
-import { UserProfilePage } from '../user-profile/UserProfilePage'
+import { UserProfilePage } from '@chat/ui'
 import type { UserSearchResult } from '@chat/shared'
 
 export const Chat = () => {
@@ -55,7 +55,7 @@ export const Chat = () => {
       return useChatStore
         .getState()
         .conversations
-        .filter((c) => c.type === 'direct' && c.otherUser?.id)
+        .filter((c) => c.type === ConversationType.DIRECT && c.otherUser?.id)
         .map((c) => c.otherUser!.id)
     })
     return () => {
@@ -65,7 +65,7 @@ export const Chat = () => {
 
   useEffect(() => {
     const presence = usePresenceStore.getState()
-    const otherId = currentConversation?.type === 'direct' ? currentConversation.otherUser?.id : null
+    const otherId = currentConversation?.type === ConversationType.DIRECT ? currentConversation.otherUser?.id : null
     if (otherId) {
       presence.startFocusPolling(otherId)
     } else {

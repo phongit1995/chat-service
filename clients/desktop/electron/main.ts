@@ -4,6 +4,7 @@ import { iconPath } from './services/paths'
 import { buildAppMenu } from './services/menu'
 import { createTray } from './services/tray'
 import { createMainWindow, setQuitting, showMainWindow } from './services/window-manager'
+import { closeAllImageViewers } from './services/image-viewer-manager'
 
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
@@ -27,7 +28,10 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('before-quit', () => setQuitting(true))
+app.on('before-quit', () => {
+  setQuitting(true)
+  closeAllImageViewers()
+})
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })

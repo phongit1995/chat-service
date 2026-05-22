@@ -1,5 +1,6 @@
 import toast from 'react-hot-toast'
 import type { StoreApi } from 'zustand'
+import { MessageStatus } from '../types'
 import type { ApiResponse, Message } from '../types'
 import type { ChatState } from './chat.types'
 import { useAuthStore } from './authStore'
@@ -61,7 +62,7 @@ export const sendWithOptimistic = async (args: OptimisticSendArgs): Promise<void
       if (cc?.id === conversationId) {
         set({
           messages: latest.map((m) =>
-            m.clientMsgId === clientMsgId ? { ...serverMsg, status: 'sent' } : m,
+            m.clientMsgId === clientMsgId ? { ...serverMsg, status: MessageStatus.SENT } : m,
           ),
         })
       }
@@ -73,7 +74,7 @@ export const sendWithOptimistic = async (args: OptimisticSendArgs): Promise<void
     if (cc?.id === conversationId) {
       set({
         messages: latest.map((m) =>
-          m.clientMsgId === clientMsgId ? { ...m, status: 'failed' } : m,
+          m.clientMsgId === clientMsgId ? { ...m, status: MessageStatus.FAILED } : m,
         ),
       })
     }

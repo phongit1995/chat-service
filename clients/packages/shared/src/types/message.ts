@@ -1,3 +1,22 @@
+export const MessageStatus = {
+  SENDING: 'sending',
+  UPLOADING: 'uploading',
+  SENT: 'sent',
+  FAILED: 'failed',
+} as const
+
+export type MessageStatus = (typeof MessageStatus)[keyof typeof MessageStatus]
+
+export const MessageType = {
+  TEXT: 'text',
+  IMAGE: 'image',
+  FILE: 'file',
+  AUDIO: 'audio',
+  VIDEO: 'video',
+} as const
+
+export type MessageType = (typeof MessageType)[keyof typeof MessageType]
+
 export type ReactionType = 'LIKE' | 'LOVE' | 'HAHA' | 'WOW' | 'SAD' | 'ANGRY'
 
 export const REACTION_EMOJIS: Record<ReactionType, string> = {
@@ -18,8 +37,8 @@ export interface Message {
   senderName?: string
   senderAvatar?: string
   content: string
-  type: string
-  status: string
+  type: MessageType | string
+  status: MessageStatus | string
   createdAt: string
   updatedAt: string
   replyToId?: string

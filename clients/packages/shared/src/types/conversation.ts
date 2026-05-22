@@ -1,5 +1,12 @@
 import type { Message } from './message'
 
+export const ConversationType = {
+  DIRECT: 'direct',
+  GROUP: 'group',
+} as const
+
+export type ConversationType = (typeof ConversationType)[keyof typeof ConversationType]
+
 export interface OtherUserBrief {
   id: string
   username: string
@@ -12,7 +19,7 @@ export interface OtherUserBrief {
 
 export interface Conversation {
   id: string
-  type: string
+  type: ConversationType | string
   name?: string
   avatar?: string
   lastMessageText?: string

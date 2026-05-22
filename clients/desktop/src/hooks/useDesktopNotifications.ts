@@ -1,13 +1,13 @@
 import { useEffect } from 'react'
-import { useAuthStore, useChatStore, socketService } from '@chat/shared'
+import { useAuthStore, useChatStore, socketService, MessageType} from '@chat/shared'
 import { WebSocketEventType } from '@chat/shared'
 
 const previewText = (msg: { type?: string; content?: string }): string => {
   const c = (msg.content || '').trim()
-  if (msg.type === 'image') return c || '📷 Photo'
-  if (msg.type === 'file') return c || '📎 File'
-  if (msg.type === 'video') return c || '🎬 Video'
-  if (msg.type === 'audio') return c || '🎵 Audio'
+  if (msg.type === MessageType.IMAGE) return c || '📷 Photo'
+  if (msg.type === MessageType.FILE) return c || '📎 File'
+  if (msg.type === MessageType.VIDEO) return c || '🎬 Video'
+  if (msg.type === MessageType.AUDIO) return c || '🎵 Audio'
   return c
 }
 
