@@ -97,7 +97,10 @@ func (s *Service) uploadImageFile(ctx context.Context, userID, conversationID uu
 	rateKey := fmt.Sprintf(constants.CacheKeyRateLimitUpload, userID.String())
 	if count, err := s.redis.Increment(rateKey); err == nil {
 		if count == 1 {
-			_ = s.redis.SetExpire(rateKey, time.Duration(constants.RateLimitUploadWindowSeconds)*time.Second)
+			if expErr := s.redis.SetExpire(rateKey, time.Duration(constants.RateLimitUploadWindowSeconds)*time.Second); expErr != nil {
+				s.logger.Warnw("Failed to set rate limit expiry, deleting key to prevent permanent block", "key", rateKey, "error", expErr)
+				s.redis.Delete(rateKey)
+			}
 		}
 		if count > int64(constants.RateLimitUploadMaxRequests) {
 			return nil, ErrRateLimit
@@ -545,7 +548,11 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 func (s *Service) applyInboxFanout(conversationID uuid.UUID, members []conversation.ConversationMember,
 	messageID gocql.UUID, shortContent string, senderID uuid.UUID, now time.Time) {
 
-	conv, _ := s.getConversationByIDCached(conversationID)
+	conv, err := s.getConversationByIDCached(conversationID)
+	if err != nil {
+		s.logger.Warnw("Failed to fetch conversation for inbox fanout, skipping hidden-member processing",
+			"conversation_id", conversationID, "error", err)
+	}
 
 	activeIDs := make([]uuid.UUID, 0, len(members))
 	for _, m := range members {
@@ -603,7 +610,7 @@ func (s *Service) applyInboxFanout(conversationID uuid.UUID, members []conversat
 		}
 	}
 
-	if len(hiddenMembers) > 0 {
+	if len(hiddenMembers) > 0 && conv != nil {
 		s.processHiddenMembers(hiddenMembers, conv, members, conversationID, messageID, shortContent, senderID)
 	}
 }
@@ -614,33 +621,7 @@ func (s *Service) processHiddenMembers(hiddenMembers []conversation.Conversation
 	for _, m := range hiddenMembers {
 		s.logger.Infow("Auto-unhiding conversation", "user_id", m.UserID, "conversation_id", conversationID)
 
-		var conversationType, displayName, displayAvatar string
-		var otherUserID *gocql.UUID
-		var otherUserName, otherUserAvatar string
-
-		if conv.Type == constants.ConversationTypeDirect {
-			conversationType = constants.ConversationTypeDirect
-			for _, member := range allMembers {
-				if member.UserID != m.UserID && member.IsActive {
-					if otherUser, err := s.userCache.GetUserCache(member.UserID, true); err == nil {
-						displayName = otherUser.FullName
-						if displayName == "" {
-							displayName = otherUser.Username
-						}
-						displayAvatar = otherUser.Avatar
-						otherUserName = displayName
-						otherUserAvatar = otherUser.Avatar
-						gocqlOtherID, _ := utils.ToGocqlUUID(member.UserID)
-						otherUserID = &gocqlOtherID
-					}
-					break
-				}
-			}
-		} else {
-			conversationType = constants.ConversationTypeGroupDB
-			displayName = conv.Name
-			displayAvatar = conv.Avatar
-		}
+		d := conversation.ResolveConversationDisplay(conv, m.UserID, allMembers, s.userCache)
 
 		unreadAfterUnhide := 0
 		if m.UserID != senderID {
@@ -649,7 +630,7 @@ func (s *Service) processHiddenMembers(hiddenMembers []conversation.Conversation
 
 		if err := s.convRepo.UnhideConversation(m.UserID, conversationID, messageID,
 			&messageID, shortContent, &senderID,
-			conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar,
+			d.ConversationType, d.DisplayName, d.DisplayAvatar, d.OtherUserID, d.OtherUserName, d.OtherUserAvatar,
 			unreadAfterUnhide); err != nil {
 			s.logger.Errorw("Failed to auto-unhide", "user_id", m.UserID, "error", err)
 			continue
@@ -1327,7 +1308,10 @@ func (s *Service) ToggleReaction(ctx context.Context, userID, conversationID uui
 	rateKey := fmt.Sprintf(constants.CacheKeyRateLimitReaction, userID.String())
 	if count, err := s.redis.Increment(rateKey); err == nil {
 		if count == 1 {
-			_ = s.redis.SetExpire(rateKey, time.Duration(constants.RateLimitReactionWindowSeconds)*time.Second)
+			if expErr := s.redis.SetExpire(rateKey, time.Duration(constants.RateLimitReactionWindowSeconds)*time.Second); expErr != nil {
+				s.logger.Warnw("Failed to set rate limit expiry, deleting key to prevent permanent block", "key", rateKey, "error", expErr)
+				s.redis.Delete(rateKey)
+			}
 		}
 		if count > int64(constants.RateLimitReactionMaxRequests) {
 			return nil, ErrRateLimit

@@ -48,6 +48,123 @@ func NewService(
 	}
 }
 
+type userCacheGetter interface {
+	GetUserCache(userID uuid.UUID, fallbackToDB bool) (*models.User, error)
+}
+
+type ResolvedDisplay struct {
+	ConversationType string
+	DisplayName      string
+	DisplayAvatar    string
+	OtherUserID      *gocql.UUID
+	OtherUserName    string
+	OtherUserAvatar  string
+}
+
+func (s *Service) resolveConversationDisplay(conv *Conversation, viewerID uuid.UUID, members []ConversationMember) ResolvedDisplay {
+	return ResolveConversationDisplay(conv, viewerID, members, s.userCache)
+}
+
+func ResolveConversationDisplay(conv *Conversation, viewerID uuid.UUID, members []ConversationMember, userCache userCacheGetter) ResolvedDisplay {
+	if conv.Type == constants.ConversationTypeDirect {
+		for _, m := range members {
+			if m.UserID == viewerID || !m.IsActive {
+				continue
+			}
+			if otherUser, err := userCache.GetUserCache(m.UserID, true); err == nil {
+				name := otherUser.FullName
+				if name == "" {
+					name = otherUser.Username
+				}
+				gocqlID, _ := utils.ToGocqlUUID(m.UserID)
+				return ResolvedDisplay{
+					ConversationType: constants.ConversationTypeDirect,
+					DisplayName:      name,
+					DisplayAvatar:    otherUser.Avatar,
+					OtherUserID:      &gocqlID,
+					OtherUserName:    name,
+					OtherUserAvatar:  otherUser.Avatar,
+				}
+			}
+			break
+		}
+		return ResolvedDisplay{ConversationType: constants.ConversationTypeDirect}
+	}
+	return ResolvedDisplay{
+		ConversationType: constants.ConversationTypeGroupDB,
+		DisplayName:      conv.Name,
+		DisplayAvatar:    conv.Avatar,
+	}
+}
+
+func requireActiveMember(members []ConversationMember, userID uuid.UUID) bool {
+	for _, m := range members {
+		if m.UserID == userID && m.IsActive {
+			return true
+		}
+	}
+	return false
+}
+
+func displayName(u *models.User) string {
+	if u.FullName != "" {
+		return u.FullName
+	}
+	return u.Username
+}
+
+func (s *Service) buildConversationResponse(conv ConversationByUser, viewerID uuid.UUID, otherLastRead *gocql.UUID) ConversationResponse {
+	resp := ConversationResponse{
+		ID:              conv.ConversationID.String(),
+		Type:            conv.ConversationType,
+		Name:            conv.DisplayName,
+		Avatar:          conv.DisplayAvatar,
+		LastMessageText: conv.LastMessagePreview,
+		UnreadCount:     conv.UnreadCount,
+		IsMuted:         conv.IsMuted,
+		LastMessageAt:   conv.LastMessageAt.Time().Format(time.RFC3339),
+	}
+
+	if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
+		if otherUserID, err := uuid.Parse(conv.OtherUserID.String()); err == nil {
+			if u, err := s.userCache.GetUserCache(otherUserID, false); err == nil && u != nil {
+				resp.Name = displayName(u)
+				resp.Avatar = u.Avatar
+				resp.OtherUser = &OtherUserBrief{
+					ID:       otherUserID.String(),
+					Username: u.Username,
+					FullName: u.FullName,
+					Avatar:   u.Avatar,
+					Bio:      u.Bio,
+				}
+			}
+		}
+	}
+
+	if conv.LastMessageSender != nil {
+		senderIDStr := conv.LastMessageSender.String()
+		resp.LastMessageSenderID = senderIDStr
+		resp.IsLastMessageFromMe = senderIDStr == viewerID.String()
+		if senderUUID, err := uuid.Parse(senderIDStr); err == nil {
+			if u, err := s.userCache.GetUserCache(senderUUID, false); err == nil && u != nil {
+				resp.LastMessageSenderName = displayName(u)
+			}
+		}
+	}
+
+	if conv.LastMessageID == nil {
+		resp.Seen = true
+	} else if resp.IsLastMessageFromMe {
+		if otherLastRead != nil {
+			resp.Seen = *otherLastRead == *conv.LastMessageID
+		}
+	} else {
+		resp.Seen = conv.LastReadMessageID != nil && *conv.LastReadMessageID == *conv.LastMessageID
+	}
+
+	return resp
+}
+
 func applyOnlineGrace(rawOnline bool, lastActive string) (bool, string) {
 	if rawOnline {
 		return true, ""
@@ -552,76 +669,15 @@ func (s *Service) GetUserConversations(userID uuid.UUID, limit int) (*Conversati
 
 	responses := make([]ConversationResponse, 0, len(conversations))
 	for _, conv := range conversations {
-		resp := ConversationResponse{
-			ID:              conv.ConversationID.String(),
-			LastMessageText: conv.LastMessagePreview,
-			UnreadCount:     conv.UnreadCount,
-			IsMuted:         conv.IsMuted,
-		}
-
-		resp.Type = conv.ConversationType
-		resp.Name = conv.DisplayName
-		resp.Avatar = conv.DisplayAvatar
-
+		var otherLastRead *gocql.UUID
 		if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
-			otherUserID, err := uuid.Parse(conv.OtherUserID.String())
-			if err == nil {
-				if cachedUser, cacheErr := s.userCache.GetUserCache(otherUserID, false); cacheErr == nil && cachedUser != nil {
-					displayName := cachedUser.FullName
-					if displayName == "" {
-						displayName = cachedUser.Username
-					}
-					resp.Name = displayName
-					resp.Avatar = cachedUser.Avatar
-					resp.OtherUser = &OtherUserBrief{
-						ID:       otherUserID.String(),
-						Username: cachedUser.Username,
-						FullName: cachedUser.FullName,
-						Avatar:   cachedUser.Avatar,
-						Bio:      cachedUser.Bio,
-					}
+			if otherUUID, err := uuid.Parse(conv.OtherUserID.String()); err == nil {
+				if convUUID, err := uuid.Parse(conv.ConversationID.String()); err == nil {
+					otherLastRead = otherReads[otherUUID.String()+":"+convUUID.String()]
 				}
 			}
 		}
-
-		if conv.LastMessageSender != nil {
-			senderIDStr := conv.LastMessageSender.String()
-			resp.LastMessageSenderID = senderIDStr
-			resp.IsLastMessageFromMe = senderIDStr == userID.String()
-			if senderUUID, err := uuid.Parse(senderIDStr); err == nil {
-				if u, cerr := s.userCache.GetUserCache(senderUUID, false); cerr == nil && u != nil {
-					name := u.FullName
-					if name == "" {
-						name = u.Username
-					}
-					resp.LastMessageSenderName = name
-				}
-			}
-		}
-
-		if conv.LastMessageID == nil {
-			resp.Seen = true
-		} else if resp.IsLastMessageFromMe {
-			if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
-				otherUUID, perr := uuid.Parse(conv.OtherUserID.String())
-				convUUID, cerr := uuid.Parse(conv.ConversationID.String())
-				if perr == nil && cerr == nil {
-					key := otherUUID.String() + ":" + convUUID.String()
-					if otherLastRead, ok := otherReads[key]; ok && otherLastRead != nil {
-						resp.Seen = *otherLastRead == *conv.LastMessageID
-					}
-				}
-			}
-		} else {
-			if conv.LastReadMessageID != nil && *conv.LastReadMessageID == *conv.LastMessageID {
-				resp.Seen = true
-			}
-		}
-
-		t := conv.LastMessageAt.Time()
-		resp.LastMessageAt = t.Format(time.RFC3339)
-
-		responses = append(responses, resp)
+		responses = append(responses, s.buildConversationResponse(conv, userID, otherLastRead))
 	}
 
 	if s.presence != nil {
@@ -659,16 +715,7 @@ func (s *Service) MarkConversationAsRead(userID, conversationID uuid.UUID) error
 	if err != nil {
 		return fmt.Errorf("failed to get members: %w", err)
 	}
-
-	isMember := false
-	for _, m := range members {
-		if m.UserID == userID && m.IsActive {
-			isMember = true
-			break
-		}
-	}
-
-	if !isMember {
+	if !requireActiveMember(members, userID) {
 		return fmt.Errorf("user is not a member of this conversation")
 	}
 
@@ -777,14 +824,7 @@ func (s *Service) SetConversationMuted(userID, conversationID uuid.UUID, muted b
 	if err != nil {
 		return fmt.Errorf("failed to get members: %w", err)
 	}
-	isMember := false
-	for _, m := range members {
-		if m.UserID == userID && m.IsActive {
-			isMember = true
-			break
-		}
-	}
-	if !isMember {
+	if !requireActiveMember(members, userID) {
 		return fmt.Errorf("user is not a member of this conversation")
 	}
 
@@ -801,16 +841,7 @@ func (s *Service) HideConversation(userID, conversationID uuid.UUID) error {
 	if err != nil {
 		return fmt.Errorf("failed to get members: %w", err)
 	}
-
-	isMember := false
-	for _, m := range members {
-		if m.UserID == userID && m.IsActive {
-			isMember = true
-			break
-		}
-	}
-
-	if !isMember {
+	if !requireActiveMember(members, userID) {
 		return fmt.Errorf("user is not a member of this conversation")
 	}
 
@@ -842,40 +873,12 @@ func (s *Service) UnhideConversation(userID, conversationID uuid.UUID) error {
 		return fmt.Errorf("failed to get conversation: %w", err)
 	}
 
-	var conversationType, displayName, displayAvatar string
-	var otherUserID *gocql.UUID
-	var otherUserName, otherUserAvatar string
-
-	if conv.Type == constants.ConversationTypeDirect {
-		conversationType = constants.ConversationTypeDirect
-		members, err := s.GetMembersCached(conversationID)
-		if err == nil {
-			for _, member := range members {
-				if member.UserID != userID && member.IsActive {
-					if otherUser, userErr := s.userCache.GetUserCache(member.UserID, true); userErr == nil {
-						displayName = otherUser.FullName
-						if displayName == "" {
-							displayName = otherUser.Username
-						}
-						displayAvatar = otherUser.Avatar
-						otherUserName = displayName
-						otherUserAvatar = otherUser.Avatar
-						gocqlOtherID, _ := utils.ToGocqlUUID(member.UserID)
-						otherUserID = &gocqlOtherID
-					}
-					break
-				}
-			}
-		}
-	} else {
-		conversationType = constants.ConversationTypeGroupDB
-		displayName = conv.Name
-		displayAvatar = conv.Avatar
-	}
+	members, _ := s.GetMembersCached(conversationID)
+	d := s.resolveConversationDisplay(conv, userID, members)
 
 	newLastMessageAt := gocql.TimeUUID()
 	if err := s.repo.UnhideConversation(userID, conversationID, newLastMessageAt, nil, "", nil,
-		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar, 0); err != nil {
+		d.ConversationType, d.DisplayName, d.DisplayAvatar, d.OtherUserID, d.OtherUserName, d.OtherUserAvatar, 0); err != nil {
 		return fmt.Errorf("failed to unhide conversation: %w", err)
 	}
 
@@ -913,36 +916,8 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 		return fmt.Errorf("failed to get conversation: %w", err)
 	}
 
-	var conversationType, displayName, displayAvatar string
-	var otherUserID *gocql.UUID
-	var otherUserName, otherUserAvatar string
-
-	if conv.Type == constants.ConversationTypeDirect {
-		conversationType = constants.ConversationTypeDirect
-		members, membersErr := s.GetMembersCached(conversationID)
-		if membersErr == nil {
-			for _, member := range members {
-				if member.UserID != userID && member.IsActive {
-					if otherUser, userErr := s.userCache.GetUserCache(member.UserID, true); userErr == nil {
-						displayName = otherUser.FullName
-						if displayName == "" {
-							displayName = otherUser.Username
-						}
-						displayAvatar = otherUser.Avatar
-						otherUserName = displayName
-						otherUserAvatar = otherUser.Avatar
-						gocqlOtherID, _ := utils.ToGocqlUUID(member.UserID)
-						otherUserID = &gocqlOtherID
-					}
-					break
-				}
-			}
-		}
-	} else {
-		conversationType = constants.ConversationTypeGroupDB
-		displayName = conv.Name
-		displayAvatar = conv.Avatar
-	}
+	members, _ := s.GetMembersCached(conversationID)
+	d := s.resolveConversationDisplay(conv, userID, members)
 
 	unreadAfter := 0
 	if userID != senderID {
@@ -950,7 +925,7 @@ func (s *Service) AutoUnhideOnNewMessage(userID, conversationID uuid.UUID, messa
 	}
 
 	if err := s.repo.UnhideConversation(userID, conversationID, messageID, &messageID, messageBody, &senderID,
-		conversationType, displayName, displayAvatar, otherUserID, otherUserName, otherUserAvatar, unreadAfter); err != nil {
+		d.ConversationType, d.DisplayName, d.DisplayAvatar, d.OtherUserID, d.OtherUserName, d.OtherUserAvatar, unreadAfter); err != nil {
 		return fmt.Errorf("failed to auto-unhide conversation: %w", err)
 	}
 
@@ -978,27 +953,19 @@ func (s *Service) SendTypingIndicator(userID, conversationID uuid.UUID, isTyping
 		return fmt.Errorf("failed to get members: %w", err)
 	}
 
-	isMember := false
-	for _, m := range members {
-		if m.UserID == userID && m.IsActive {
-			isMember = true
-			break
-		}
-	}
-
-	if !isMember {
+	if !requireActiveMember(members, userID) {
 		return fmt.Errorf("user is not a member of this conversation")
 	}
 
-	var user models.User
-	if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
+	u, err := s.userCache.GetUserCache(userID, true)
+	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
 
 	event := &conversationEvents.TypingEvent{
 		ConversationID: conversationID.String(),
 		UserID:         userID.String(),
-		Username:       user.Username,
+		Username:       u.Username,
 		Time:           time.Now(),
 	}
 
@@ -1023,76 +990,23 @@ func (s *Service) GetConversationDetail(userID, conversationID uuid.UUID) (*Conv
 		return nil, fmt.Errorf("conversation not found")
 	}
 
-	resp := ConversationResponse{
-		ID:               conv.ConversationID.String(),
-		Type:             conv.ConversationType,
-		Name:             conv.DisplayName,
-		Avatar:           conv.DisplayAvatar,
-		LastMessageText:  conv.LastMessagePreview,
-		UnreadCount:      conv.UnreadCount,
-		ParticipantCount: 0,
-		IsMuted:          conv.IsMuted,
-	}
-
+	var otherLastRead *gocql.UUID
 	if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
-		otherUserID, perr := uuid.Parse(conv.OtherUserID.String())
-		if perr == nil {
-			if cachedUser, cerr := s.userCache.GetUserCache(otherUserID, true); cerr == nil && cachedUser != nil {
-				displayName := cachedUser.FullName
-				if displayName == "" {
-					displayName = cachedUser.Username
-				}
-				resp.Name = displayName
-				resp.Avatar = cachedUser.Avatar
-				resp.OtherUser = &OtherUserBrief{
-					ID:       otherUserID.String(),
-					Username: cachedUser.Username,
-					FullName: cachedUser.FullName,
-					Avatar:   cachedUser.Avatar,
-					Bio:      cachedUser.Bio,
-				}
-			}
-			if s.presence != nil && resp.OtherUser != nil {
-				rawOnline := s.presence.IsUserOnline(otherUserID.String())
-				rawLastActive := s.presence.GetLastActive(otherUserID.String())
-				resp.OtherUser.IsOnline, resp.OtherUser.LastActiveAt = applyOnlineGrace(rawOnline, rawLastActive)
-			}
+		if otherUUID, err := uuid.Parse(conv.OtherUserID.String()); err == nil {
+			otherLastRead, _, _ = s.repo.GetReadStatus(conversationID, otherUUID)
 		}
 	}
 
-	if conv.LastMessageSender != nil {
-		senderIDStr := conv.LastMessageSender.String()
-		resp.LastMessageSenderID = senderIDStr
-		resp.IsLastMessageFromMe = senderIDStr == userID.String()
-		if senderUUID, perr := uuid.Parse(senderIDStr); perr == nil {
-			if u, cerr := s.userCache.GetUserCache(senderUUID, false); cerr == nil && u != nil {
-				name := u.FullName
-				if name == "" {
-					name = u.Username
-				}
-				resp.LastMessageSenderName = name
-			}
+	resp := s.buildConversationResponse(*conv, userID, otherLastRead)
+	resp.ParticipantCount = 0
+
+	if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil && resp.OtherUser != nil {
+		if otherUserID, err := uuid.Parse(conv.OtherUserID.String()); err == nil && s.presence != nil {
+			rawOnline := s.presence.IsUserOnline(otherUserID.String())
+			rawLastActive := s.presence.GetLastActive(otherUserID.String())
+			resp.OtherUser.IsOnline, resp.OtherUser.LastActiveAt = applyOnlineGrace(rawOnline, rawLastActive)
 		}
 	}
-
-	if conv.LastMessageID == nil {
-		resp.Seen = true
-	} else if resp.IsLastMessageFromMe {
-		if conv.ConversationType == constants.ConversationTypeDirect && conv.OtherUserID != nil {
-			otherUUID, perr := uuid.Parse(conv.OtherUserID.String())
-			if perr == nil {
-				if otherLastRead, _, rerr := s.repo.GetReadStatus(conversationID, otherUUID); rerr == nil && otherLastRead != nil {
-					resp.Seen = *otherLastRead == *conv.LastMessageID
-				}
-			}
-		}
-	} else {
-		if conv.LastReadMessageID != nil && *conv.LastReadMessageID == *conv.LastMessageID {
-			resp.Seen = true
-		}
-	}
-
-	resp.LastMessageAt = conv.LastMessageAt.Time().Format(time.RFC3339)
 
 	if members, merr := s.GetMembersCached(conversationID); merr == nil {
 		resp.ParticipantCount = len(members)
