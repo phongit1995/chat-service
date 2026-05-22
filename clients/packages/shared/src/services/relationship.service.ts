@@ -1,4 +1,4 @@
-import type { ApiResponse } from '../types'
+import type { ApiResponse, FriendListData } from '../types'
 import { http } from './http'
 
 export interface RelationshipResponse {
@@ -44,6 +44,13 @@ export const relationshipService = {
 
   async unblock(relationshipId: string): Promise<ApiResponse<unknown>> {
     const res = await http.delete<ApiResponse<unknown>>(`/relationships/${relationshipId}/unblock`)
+    return res.data
+  },
+
+  async getFriends(limit = 50, offset = 0): Promise<ApiResponse<FriendListData>> {
+    const res = await http.get<ApiResponse<FriendListData>>('/relationships/friends', {
+      params: { limit, offset },
+    })
     return res.data
   },
 }

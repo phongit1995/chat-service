@@ -1,8 +1,72 @@
 basePath: /api
 definitions:
-  auth.AuthSuccessResponse:
+  chat-server_internal_utils.APIError:
+    properties:
+      error:
+        example: validation error
+        type: string
+      path:
+        example: /api/v1/auth/login
+        type: string
+      status:
+        example: 400
+        type: integer
+      success:
+        example: false
+        type: boolean
+      timestamp:
+        example: "2025-11-29T10:00:00Z"
+        type: string
+      traceId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
     type: object
-  auth.ChangePasswordRequest:
+  chat-server_internal_utils.BaseResponse-internal_modules_auth_RefreshTokenResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_auth.RefreshTokenResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_auth.AuthResponse:
+    properties:
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      user:
+        $ref: '#/definitions/internal_modules_auth.UserResponse'
+    type: object
+  internal_modules_auth.AuthSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_auth.AuthResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_auth.ChangePasswordRequest:
     properties:
       currentPassword:
         example: oldpassword123
@@ -15,9 +79,30 @@ definitions:
     - currentPassword
     - newPassword
     type: object
-  auth.ChangePasswordSuccessResponse:
+  internal_modules_auth.ChangePasswordResponse:
+    properties:
+      message:
+        example: Password changed successfully
+        type: string
     type: object
-  auth.LoginRequest:
+  internal_modules_auth.ChangePasswordSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_auth.ChangePasswordResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_auth.LoginRequest:
     properties:
       email:
         example: john@example.com
@@ -29,7 +114,24 @@ definitions:
     - email
     - password
     type: object
-  auth.RegisterRequest:
+  internal_modules_auth.RefreshTokenRequest:
+    properties:
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    required:
+    - refreshToken
+    type: object
+  internal_modules_auth.RefreshTokenResponse:
+    properties:
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  internal_modules_auth.RegisterRequest:
     properties:
       avatar:
         example: https://example.com/avatar.jpg
@@ -55,11 +157,49 @@ definitions:
     - password
     - username
     type: object
-  auth.RegisterSuccessResponse:
+  internal_modules_auth.RegisterSuccessResponse:
     type: object
-  call.CallTokenSuccessResponse:
+  internal_modules_auth.UserResponse:
     type: object
-  call.SimpleSuccessResponse:
+  internal_modules_call.CallTokenResponse:
+    properties:
+      callId:
+        type: string
+      callType:
+        type: string
+      callerId:
+        type: string
+      conversationId:
+        type: string
+      roomName:
+        type: string
+      startedAt:
+        type: string
+      status:
+        type: string
+      token:
+        type: string
+      wsUrl:
+        type: string
+    type: object
+  internal_modules_call.CallTokenSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_call.CallTokenResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_call.SimpleSuccessResponse:
     properties:
       message:
         example: OK
@@ -68,7 +208,7 @@ definitions:
         example: true
         type: boolean
     type: object
-  call.StartCallRequest:
+  internal_modules_call.StartCallRequest:
     properties:
       callType:
         enum:
@@ -81,11 +221,104 @@ definitions:
     - callType
     - conversationId
     type: object
-  conversation.ConversationSuccessResponse:
+  internal_modules_conversation.ConversationResponse:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      createdAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      id:
+        example: ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd
+        type: string
+      isLastMessageFromMe:
+        example: false
+        type: boolean
+      isMuted:
+        example: false
+        type: boolean
+      isNew:
+        example: true
+        type: boolean
+      lastMessageAt:
+        example: "2024-01-15T15:45:00Z"
+        type: string
+      lastMessageSenderId:
+        example: ca4c6d54-870c-4735-b9a6-cce05a04aedb
+        type: string
+      lastMessageSenderName:
+        example: John Doe
+        type: string
+      lastMessageText:
+        example: Hello, how are you?
+        type: string
+      name:
+        example: John Doe
+        type: string
+      otherUser:
+        $ref: '#/definitions/internal_modules_conversation.OtherUserBrief'
+      participantCount:
+        example: 2
+        type: integer
+      seen:
+        example: true
+        type: boolean
+      type:
+        example: direct
+        type: string
+      unreadCount:
+        example: 5
+        type: integer
+      updatedAt:
+        example: "2024-01-15T15:45:00Z"
+        type: string
     type: object
-  conversation.ConversationsListSuccessResponse:
+  internal_modules_conversation.ConversationSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_conversation.ConversationResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
     type: object
-  conversation.CreateDirectConversationRequest:
+  internal_modules_conversation.ConversationsListResponse:
+    properties:
+      conversations:
+        items:
+          $ref: '#/definitions/internal_modules_conversation.ConversationResponse'
+        type: array
+      total:
+        example: 10
+        type: integer
+    type: object
+  internal_modules_conversation.ConversationsListSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_conversation.ConversationsListResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_conversation.CreateDirectConversationRequest:
     properties:
       recipientId:
         example: ca4c6d54-870c-4735-b9a6-cce05a04aedb
@@ -93,7 +326,7 @@ definitions:
     required:
     - recipientId
     type: object
-  conversation.CreateGroupConversationRequest:
+  internal_modules_conversation.CreateGroupConversationRequest:
     properties:
       name:
         example: Project Team
@@ -112,7 +345,7 @@ definitions:
     - name
     - participantIds
     type: object
-  conversation.HideConversationResponse:
+  internal_modules_conversation.HideConversationResponse:
     properties:
       message:
         example: Conversation hidden successfully
@@ -121,7 +354,31 @@ definitions:
         example: true
         type: boolean
     type: object
-  conversation.SimpleSuccessResponse:
+  internal_modules_conversation.OtherUserBrief:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      bio:
+        example: Software developer
+        type: string
+      fullName:
+        example: John Doe
+        type: string
+      id:
+        example: ca4c6d54-870c-4735-b9a6-cce05a04aedb
+        type: string
+      isOnline:
+        example: true
+        type: boolean
+      lastActiveAt:
+        example: "2024-01-15T15:45:00Z"
+        type: string
+      username:
+        example: johndoe
+        type: string
+    type: object
+  internal_modules_conversation.SimpleSuccessResponse:
     properties:
       message:
         example: Operation completed successfully
@@ -130,7 +387,7 @@ definitions:
         example: true
         type: boolean
     type: object
-  conversation.TypingIndicatorRequest:
+  internal_modules_conversation.TypingIndicatorRequest:
     properties:
       conversationId:
         example: ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd
@@ -138,7 +395,7 @@ definitions:
     required:
     - conversationId
     type: object
-  conversation.TypingIndicatorResponse:
+  internal_modules_conversation.TypingIndicatorResponse:
     properties:
       message:
         example: Typing indicator sent
@@ -147,7 +404,7 @@ definitions:
         example: true
         type: boolean
     type: object
-  conversation.UnhideConversationResponse:
+  internal_modules_conversation.UnhideConversationResponse:
     properties:
       message:
         example: Conversation unhidden successfully
@@ -156,13 +413,132 @@ definitions:
         example: true
         type: boolean
     type: object
-  health.HealthSuccessResponse:
+  internal_modules_health.HealthResponse:
+    properties:
+      services:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        example: healthy
+        type: string
+      version:
+        example: 1.0.0
+        type: string
     type: object
-  message.MessageSuccessResponse:
+  internal_modules_health.HealthSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_health.HealthResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
     type: object
-  message.MessagesListSuccessResponse:
+  internal_modules_message.MessageResponse:
+    properties:
+      clientMsgId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      content:
+        example: Hello, how are you?
+        type: string
+      conversationId:
+        example: ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd
+        type: string
+      createdAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      editedAt:
+        example: "2024-01-15T10:35:00Z"
+        type: string
+      id:
+        example: fa7f9g87-ba3f-7a68-e2d9-ffh38d37dhge
+        type: string
+      metadata:
+        example: '{"fileName":"image.png"}'
+        type: string
+      reactions:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      replyToId:
+        example: ga8g0h98-cb4g-8b79-f3e0-ggi49e48eihf
+        type: string
+      senderAvatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      senderId:
+        example: ca4c6d54-870c-4735-b9a6-cce05a04aedb
+        type: string
+      senderName:
+        example: John Doe
+        type: string
+      status:
+        example: sent
+        type: string
+      type:
+        example: text
+        type: string
+      updatedAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
     type: object
-  message.SendDirectMessageRequest:
+  internal_modules_message.MessageSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_message.MessageResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_message.MessagesListResponse:
+    properties:
+      messages:
+        items:
+          $ref: '#/definitions/internal_modules_message.MessageResponse'
+        type: array
+      total:
+        example: 50
+        type: integer
+    type: object
+  internal_modules_message.MessagesListSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_message.MessagesListResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_message.SendDirectMessageRequest:
     properties:
       clientMsgId:
         example: 550e8400-e29b-41d4-a716-446655440000
@@ -191,7 +567,7 @@ definitions:
     - recipientId
     - type
     type: object
-  message.SendMessageRequest:
+  internal_modules_message.SendMessageRequest:
     properties:
       clientMsgId:
         example: 550e8400-e29b-41d4-a716-446655440000
@@ -223,7 +599,7 @@ definitions:
     - conversationId
     - type
     type: object
-  message.SimpleSuccessResponse:
+  internal_modules_message.SimpleSuccessResponse:
     properties:
       message:
         example: Operation completed successfully
@@ -232,7 +608,7 @@ definitions:
         example: true
         type: boolean
     type: object
-  message.ToggleReactionRequest:
+  internal_modules_message.ToggleReactionRequest:
     properties:
       type:
         enum:
@@ -247,7 +623,7 @@ definitions:
     required:
     - type
     type: object
-  message.UpdateMessageRequest:
+  internal_modules_message.UpdateMessageRequest:
     properties:
       content:
         example: Updated message content
@@ -257,7 +633,7 @@ definitions:
     required:
     - content
     type: object
-  relationships.BlockUserRequest:
+  internal_modules_relationships.BlockUserRequest:
     properties:
       userId:
         example: 550e8400-e29b-41d4-a716-446655440001
@@ -265,13 +641,142 @@ definitions:
     required:
     - userId
     type: object
-  relationships.FriendListSuccessResponse:
+  internal_modules_relationships.FriendListResponse:
+    properties:
+      friends:
+        items:
+          $ref: '#/definitions/internal_modules_relationships.FriendResponse'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 5
+        type: integer
     type: object
-  relationships.RelationshipListSuccessResponse:
+  internal_modules_relationships.FriendListSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_relationships.FriendListResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
     type: object
-  relationships.RelationshipSuccessResponse:
+  internal_modules_relationships.FriendResponse:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      email:
+        example: john@example.com
+        type: string
+      friendAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      fullName:
+        example: John Doe
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      isOnline:
+        example: true
+        type: boolean
+      lastActiveAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      username:
+        example: john_doe
+        type: string
     type: object
-  relationships.RespondToRequestRequest:
+  internal_modules_relationships.RelationshipListResponse:
+    properties:
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      relationships:
+        items:
+          $ref: '#/definitions/internal_modules_relationships.RelationshipResponse'
+        type: array
+      total:
+        example: 10
+        type: integer
+    type: object
+  internal_modules_relationships.RelationshipListSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_relationships.RelationshipListResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_relationships.RelationshipResponse:
+    properties:
+      actionedAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      addressee:
+        $ref: '#/definitions/internal_modules_relationships.UserInfo'
+      addresseeId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      createdAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      requester:
+        $ref: '#/definitions/internal_modules_relationships.UserInfo'
+      requesterId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      status:
+        example: pending
+        type: string
+    type: object
+  internal_modules_relationships.RelationshipSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_relationships.RelationshipResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_relationships.RespondToRequestRequest:
     properties:
       action:
         enum:
@@ -282,7 +787,7 @@ definitions:
     required:
     - action
     type: object
-  relationships.SendFriendRequestRequest:
+  internal_modules_relationships.SendFriendRequestRequest:
     properties:
       userId:
         example: 550e8400-e29b-41d4-a716-446655440001
@@ -290,7 +795,25 @@ definitions:
     required:
     - userId
     type: object
-  user.PresenceBatchRequest:
+  internal_modules_relationships.UserInfo:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      email:
+        example: john@example.com
+        type: string
+      fullName:
+        example: John Doe
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      username:
+        example: john_doe
+        type: string
+    type: object
+  internal_modules_user.PresenceBatchRequest:
     properties:
       userIds:
         example:
@@ -303,11 +826,70 @@ definitions:
     required:
     - userIds
     type: object
-  user.PresenceBatchSuccessResponse:
+  internal_modules_user.PresenceBatchResponse:
+    properties:
+      users:
+        items:
+          $ref: '#/definitions/internal_modules_user.UserPresence'
+        type: array
     type: object
-  user.SearchUsersSuccessResponse:
+  internal_modules_user.PresenceBatchSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_user.PresenceBatchResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
     type: object
-  user.UpdateProfileRequest:
+  internal_modules_user.RelationshipInfo:
+    properties:
+      requestId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      since:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      status:
+        example: friend
+        type: string
+    type: object
+  internal_modules_user.SearchUsersResponse:
+    properties:
+      total:
+        example: 5
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/internal_modules_user.UserSearchResult'
+        type: array
+    type: object
+  internal_modules_user.SearchUsersSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_user.SearchUsersResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_user.UpdateProfileRequest:
     properties:
       avatar:
         example: https://example.com/avatar.jpg
@@ -331,31 +913,123 @@ definitions:
         maxLength: 20
         type: string
     type: object
-  user.UploadAvatarSuccessResponse:
-    type: object
-  user.UserProfileSuccessResponse:
-    type: object
-  user.UserPublicProfileSuccessResponse:
-    type: object
-  utils.APIError:
+  internal_modules_user.UploadAvatarResponse:
     properties:
+      format:
+        example: webp
+        type: string
+      height:
+        example: 0
+        type: integer
+      publicId:
+        example: uploads/abc123.webp
+        type: string
+      secureUrl:
+        example: http://localhost:9000/chat-uploads/uploads/abc123.webp
+        type: string
+      url:
+        example: http://localhost:9000/chat-uploads/uploads/abc123.webp
+        type: string
+      width:
+        example: 0
+        type: integer
+    type: object
+  internal_modules_user.UploadAvatarSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_user.UploadAvatarResponse'
       error:
-        example: validation error
         type: string
       path:
-        example: /api/v1/auth/login
         type: string
       status:
-        example: 400
         type: integer
       success:
-        example: false
         type: boolean
       timestamp:
-        example: "2025-11-29T10:00:00Z"
         type: string
       traceId:
+        type: string
+    type: object
+  internal_modules_user.UserPresence:
+    properties:
+      isOnline:
+        example: true
+        type: boolean
+      lastActiveAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      userId:
         example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  internal_modules_user.UserProfileSuccessResponse:
+    type: object
+  internal_modules_user.UserPublicProfileResponse:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      bio:
+        example: Software developer
+        type: string
+      createdAt:
+        example: "2024-01-01T00:00:00Z"
+        type: string
+      fullName:
+        example: John Doe
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      isOnline:
+        example: true
+        type: boolean
+      lastActiveAt:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      relationship:
+        $ref: '#/definitions/internal_modules_user.RelationshipInfo'
+      username:
+        example: john_doe
+        type: string
+    type: object
+  internal_modules_user.UserPublicProfileSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_modules_user.UserPublicProfileResponse'
+      error:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      success:
+        type: boolean
+      timestamp:
+        type: string
+      traceId:
+        type: string
+    type: object
+  internal_modules_user.UserSearchResult:
+    properties:
+      avatar:
+        example: https://example.com/avatar.jpg
+        type: string
+      bio:
+        example: Software developer
+        type: string
+      fullName:
+        example: John Doe
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      isOnline:
+        example: true
+        type: boolean
+      username:
+        example: john_doe
         type: string
     type: object
 info:
@@ -381,22 +1055,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/auth.ChangePasswordRequest'
+          $ref: '#/definitions/internal_modules_auth.ChangePasswordRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.ChangePasswordSuccessResponse'
+            $ref: '#/definitions/internal_modules_auth.ChangePasswordSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Change password
@@ -413,23 +1087,76 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/auth.LoginRequest'
+          $ref: '#/definitions/internal_modules_auth.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.AuthSuccessResponse'
+            $ref: '#/definitions/internal_modules_auth.AuthSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       summary: Login user
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      description: Blacklist the caller's JWT so it cannot be used again before its
+        natural expiry
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Logout (invalidate token)
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange a valid refresh token for a new access token (rotates
+        the refresh token)
+      parameters:
+      - description: Refresh Token Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_auth.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.BaseResponse-internal_modules_auth_RefreshTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      summary: Refresh access token
       tags:
       - auth
   /auth/register:
@@ -443,22 +1170,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/auth.RegisterRequest'
+          $ref: '#/definitions/internal_modules_auth.RegisterRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/auth.RegisterSuccessResponse'
+            $ref: '#/definitions/internal_modules_auth.RegisterSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       summary: Register a new user
       tags:
       - auth
@@ -476,7 +1203,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/call.CallTokenSuccessResponse'
+            $ref: '#/definitions/internal_modules_call.CallTokenSuccessResponse'
       security:
       - BearerAuth: []
       summary: Answer a call
@@ -496,7 +1223,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/call.SimpleSuccessResponse'
+            $ref: '#/definitions/internal_modules_call.SimpleSuccessResponse'
       security:
       - BearerAuth: []
       summary: Decline a call
@@ -516,7 +1243,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/call.SimpleSuccessResponse'
+            $ref: '#/definitions/internal_modules_call.SimpleSuccessResponse'
       security:
       - BearerAuth: []
       summary: End a call
@@ -533,30 +1260,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/call.StartCallRequest'
+          $ref: '#/definitions/internal_modules_call.StartCallRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/call.CallTokenSuccessResponse'
+            $ref: '#/definitions/internal_modules_call.CallTokenSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Start a call
@@ -577,11 +1304,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/conversation.ConversationsListSuccessResponse'
+            $ref: '#/definitions/internal_modules_conversation.ConversationsListSuccessResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get user conversations
@@ -603,19 +1330,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/conversation.ConversationSuccessResponse'
+            $ref: '#/definitions/internal_modules_conversation.ConversationSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get conversation detail
@@ -637,22 +1364,55 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/conversation.HideConversationResponse'
+            $ref: '#/definitions/internal_modules_conversation.HideConversationResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Hide conversation
+      tags:
+      - conversations
+  /conversations/{id}/mute:
+    post:
+      description: Mute notifications for a conversation
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_conversation.SimpleSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Mute conversation
       tags:
       - conversations
   /conversations/{id}/read:
@@ -671,19 +1431,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/conversation.SimpleSuccessResponse'
+            $ref: '#/definitions/internal_modules_conversation.SimpleSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Mark conversation as read
@@ -704,22 +1464,51 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/conversation.UnhideConversationResponse'
+            $ref: '#/definitions/internal_modules_conversation.UnhideConversationResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Unhide conversation
+      tags:
+      - conversations
+  /conversations/{id}/unmute:
+    post:
+      description: Re-enable notifications for a conversation
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_conversation.SimpleSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
+      security:
+      - BearerAuth: []
+      summary: Unmute conversation
       tags:
       - conversations
   /conversations/direct:
@@ -733,26 +1522,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/conversation.CreateDirectConversationRequest'
+          $ref: '#/definitions/internal_modules_conversation.CreateDirectConversationRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/conversation.ConversationSuccessResponse'
+            $ref: '#/definitions/internal_modules_conversation.ConversationSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Create direct conversation
@@ -773,15 +1562,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/conversation.ConversationSuccessResponse'
+            $ref: '#/definitions/internal_modules_conversation.ConversationSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Check direct conversation
@@ -798,22 +1587,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/conversation.CreateGroupConversationRequest'
+          $ref: '#/definitions/internal_modules_conversation.CreateGroupConversationRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/conversation.ConversationSuccessResponse'
+            $ref: '#/definitions/internal_modules_conversation.ConversationSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Create group conversation
@@ -831,26 +1620,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/conversation.TypingIndicatorRequest'
+          $ref: '#/definitions/internal_modules_conversation.TypingIndicatorRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/conversation.TypingIndicatorResponse'
+            $ref: '#/definitions/internal_modules_conversation.TypingIndicatorResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Send typing indicator
@@ -865,11 +1654,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/health.HealthSuccessResponse'
+            $ref: '#/definitions/internal_modules_health.HealthSuccessResponse'
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       summary: Health check
       tags:
       - health
@@ -884,30 +1673,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/message.SendMessageRequest'
+          $ref: '#/definitions/internal_modules_message.SendMessageRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/message.MessageSuccessResponse'
+            $ref: '#/definitions/internal_modules_message.MessageSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Send message
@@ -937,23 +1726,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/message.MessagesListSuccessResponse'
+            $ref: '#/definitions/internal_modules_message.MessagesListSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get messages
@@ -979,23 +1768,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/message.SimpleSuccessResponse'
+            $ref: '#/definitions/internal_modules_message.SimpleSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Delete message
@@ -1021,30 +1810,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/message.UpdateMessageRequest'
+          $ref: '#/definitions/internal_modules_message.UpdateMessageRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/message.MessageSuccessResponse'
+            $ref: '#/definitions/internal_modules_message.MessageSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Update message
@@ -1072,30 +1861,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/message.ToggleReactionRequest'
+          $ref: '#/definitions/internal_modules_message.ToggleReactionRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/message.MessageSuccessResponse'
+            $ref: '#/definitions/internal_modules_message.MessageSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Toggle reaction
@@ -1113,26 +1902,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/message.SendDirectMessageRequest'
+          $ref: '#/definitions/internal_modules_message.SendDirectMessageRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/message.MessageSuccessResponse'
+            $ref: '#/definitions/internal_modules_message.MessageSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Send direct message
@@ -1165,27 +1954,27 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/message.MessageSuccessResponse'
+            $ref: '#/definitions/internal_modules_message.MessageSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "413":
           description: Request Entity Too Large
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Send image message
@@ -1212,11 +2001,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Cancel friend request
@@ -1238,26 +2027,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/relationships.RespondToRequestRequest'
+          $ref: '#/definitions/internal_modules_relationships.RespondToRequestRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/relationships.RelationshipSuccessResponse'
+            $ref: '#/definitions/internal_modules_relationships.RelationshipSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Respond to friend request
@@ -1284,11 +2073,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Unblock a user
@@ -1315,11 +2104,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Unfriend a user
@@ -1336,22 +2125,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/relationships.BlockUserRequest'
+          $ref: '#/definitions/internal_modules_relationships.BlockUserRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/relationships.RelationshipSuccessResponse'
+            $ref: '#/definitions/internal_modules_relationships.RelationshipSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Block a user
@@ -1377,11 +2166,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/relationships.RelationshipListSuccessResponse'
+            $ref: '#/definitions/internal_modules_relationships.RelationshipListSuccessResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get blocked users
@@ -1407,11 +2196,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/relationships.FriendListSuccessResponse'
+            $ref: '#/definitions/internal_modules_relationships.FriendListSuccessResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get friends list
@@ -1437,11 +2226,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/relationships.RelationshipListSuccessResponse'
+            $ref: '#/definitions/internal_modules_relationships.RelationshipListSuccessResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get pending friend requests
@@ -1458,26 +2247,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/relationships.SendFriendRequestRequest'
+          $ref: '#/definitions/internal_modules_relationships.SendFriendRequestRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/relationships.RelationshipSuccessResponse'
+            $ref: '#/definitions/internal_modules_relationships.RelationshipSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Send friend request
@@ -1503,11 +2292,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/relationships.RelationshipListSuccessResponse'
+            $ref: '#/definitions/internal_modules_relationships.RelationshipListSuccessResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get sent friend requests
@@ -1529,19 +2318,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/user.UserPublicProfileSuccessResponse'
+            $ref: '#/definitions/internal_modules_user.UserPublicProfileSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get user public info
@@ -1556,15 +2345,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/user.UserProfileSuccessResponse'
+            $ref: '#/definitions/internal_modules_user.UserProfileSuccessResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get user profile
@@ -1580,26 +2369,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/user.UpdateProfileRequest'
+          $ref: '#/definitions/internal_modules_user.UpdateProfileRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/user.UserProfileSuccessResponse'
+            $ref: '#/definitions/internal_modules_user.UserProfileSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Update user profile
@@ -1617,22 +2406,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/user.PresenceBatchRequest'
+          $ref: '#/definitions/internal_modules_user.PresenceBatchRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/user.PresenceBatchSuccessResponse'
+            $ref: '#/definitions/internal_modules_user.PresenceBatchSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Get presence status for multiple users
@@ -1658,11 +2447,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/user.SearchUsersSuccessResponse'
+            $ref: '#/definitions/internal_modules_user.SearchUsersSuccessResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Search users
@@ -1685,23 +2474,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/user.UploadAvatarSuccessResponse'
+            $ref: '#/definitions/internal_modules_user.UploadAvatarSuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "413":
           description: File too large
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/utils.APIError'
+            $ref: '#/definitions/chat-server_internal_utils.APIError'
       security:
       - BearerAuth: []
       summary: Upload image

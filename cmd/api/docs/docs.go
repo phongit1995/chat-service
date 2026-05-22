@@ -48,7 +48,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.ChangePasswordRequest"
+                            "$ref": "#/definitions/internal_modules_auth.ChangePasswordRequest"
                         }
                     }
                 ],
@@ -56,19 +56,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.ChangePasswordSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_auth.ChangePasswordSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -94,7 +94,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginRequest"
+                            "$ref": "#/definitions/internal_modules_auth.LoginRequest"
                         }
                     }
                 ],
@@ -102,19 +102,99 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.AuthSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_auth.AuthSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Blacklist the caller's JWT so it cannot be used again before its natural expiry",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout (invalidate token)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "description": "Exchange a valid refresh token for a new access token (rotates the refresh token)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh access token",
+                "parameters": [
+                    {
+                        "description": "Refresh Token Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_auth.RefreshTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.BaseResponse-internal_modules_auth_RefreshTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -140,7 +220,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.RegisterRequest"
+                            "$ref": "#/definitions/internal_modules_auth.RegisterRequest"
                         }
                     }
                 ],
@@ -148,19 +228,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/auth.RegisterSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_auth.RegisterSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -191,7 +271,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/call.StartCallRequest"
+                            "$ref": "#/definitions/internal_modules_call.StartCallRequest"
                         }
                     }
                 ],
@@ -199,31 +279,31 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/call.CallTokenSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_call.CallTokenSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -256,7 +336,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/call.CallTokenSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_call.CallTokenSuccessResponse"
                         }
                     }
                 }
@@ -289,7 +369,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/call.SimpleSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_call.SimpleSuccessResponse"
                         }
                     }
                 }
@@ -322,7 +402,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/call.SimpleSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_call.SimpleSuccessResponse"
                         }
                     }
                 }
@@ -356,13 +436,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/conversation.ConversationsListSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_conversation.ConversationsListSuccessResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -393,7 +473,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/conversation.CreateDirectConversationRequest"
+                            "$ref": "#/definitions/internal_modules_conversation.CreateDirectConversationRequest"
                         }
                     }
                 ],
@@ -401,25 +481,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/conversation.ConversationSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_conversation.ConversationSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -453,19 +533,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/conversation.ConversationSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_conversation.ConversationSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -496,7 +576,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/conversation.CreateGroupConversationRequest"
+                            "$ref": "#/definitions/internal_modules_conversation.CreateGroupConversationRequest"
                         }
                     }
                 ],
@@ -504,19 +584,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/conversation.ConversationSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_conversation.ConversationSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -547,7 +627,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/conversation.TypingIndicatorRequest"
+                            "$ref": "#/definitions/internal_modules_conversation.TypingIndicatorRequest"
                         }
                     }
                 ],
@@ -555,25 +635,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/conversation.TypingIndicatorResponse"
+                            "$ref": "#/definitions/internal_modules_conversation.TypingIndicatorResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -607,25 +687,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/conversation.ConversationSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_conversation.ConversationSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -659,25 +739,77 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/conversation.HideConversationResponse"
+                            "$ref": "#/definitions/internal_modules_conversation.HideConversationResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/{id}/mute": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mute notifications for a conversation",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Mute conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_conversation.SimpleSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -711,25 +843,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/conversation.SimpleSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_conversation.SimpleSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -763,25 +895,71 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/conversation.UnhideConversationResponse"
+                            "$ref": "#/definitions/internal_modules_conversation.UnhideConversationResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/{id}/unmute": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Re-enable notifications for a conversation",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Unmute conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_conversation.SimpleSuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -801,13 +979,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/health.HealthSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_health.HealthSuccessResponse"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -838,7 +1016,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/message.SendMessageRequest"
+                            "$ref": "#/definitions/internal_modules_message.SendMessageRequest"
                         }
                     }
                 ],
@@ -846,31 +1024,31 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/message.MessageSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_message.MessageSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -901,7 +1079,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/message.SendDirectMessageRequest"
+                            "$ref": "#/definitions/internal_modules_message.SendDirectMessageRequest"
                         }
                     }
                 ],
@@ -909,25 +1087,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/message.MessageSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_message.MessageSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -977,37 +1155,37 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/message.MessageSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_message.MessageSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1054,31 +1232,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/message.MessagesListSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_message.MessagesListSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1119,31 +1297,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/message.SimpleSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_message.SimpleSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1186,7 +1364,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/message.UpdateMessageRequest"
+                            "$ref": "#/definitions/internal_modules_message.UpdateMessageRequest"
                         }
                     }
                 ],
@@ -1194,31 +1372,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/message.MessageSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_message.MessageSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1263,7 +1441,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/message.ToggleReactionRequest"
+                            "$ref": "#/definitions/internal_modules_message.ToggleReactionRequest"
                         }
                     }
                 ],
@@ -1271,31 +1449,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/message.MessageSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_message.MessageSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1326,7 +1504,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/relationships.BlockUserRequest"
+                            "$ref": "#/definitions/internal_modules_relationships.BlockUserRequest"
                         }
                     }
                 ],
@@ -1334,19 +1512,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/relationships.RelationshipSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_relationships.RelationshipSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1387,13 +1565,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/relationships.RelationshipListSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_relationships.RelationshipListSuccessResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1434,13 +1612,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/relationships.FriendListSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_relationships.FriendListSuccessResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1481,13 +1659,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/relationships.RelationshipListSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_relationships.RelationshipListSuccessResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1518,7 +1696,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/relationships.SendFriendRequestRequest"
+                            "$ref": "#/definitions/internal_modules_relationships.SendFriendRequestRequest"
                         }
                     }
                 ],
@@ -1526,25 +1704,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/relationships.RelationshipSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_relationships.RelationshipSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1585,13 +1763,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/relationships.RelationshipListSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_relationships.RelationshipListSuccessResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1634,13 +1812,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1678,7 +1856,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/relationships.RespondToRequestRequest"
+                            "$ref": "#/definitions/internal_modules_relationships.RespondToRequestRequest"
                         }
                     }
                 ],
@@ -1686,25 +1864,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/relationships.RelationshipSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_relationships.RelationshipSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1747,13 +1925,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1796,13 +1974,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1827,19 +2005,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/user.UserProfileSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_user.UserProfileSuccessResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1868,7 +2046,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/user.UpdateProfileRequest"
+                            "$ref": "#/definitions/internal_modules_user.UpdateProfileRequest"
                         }
                     }
                 ],
@@ -1876,25 +2054,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/user.UserProfileSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_user.UserProfileSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1925,7 +2103,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/user.PresenceBatchRequest"
+                            "$ref": "#/definitions/internal_modules_user.PresenceBatchRequest"
                         }
                     }
                 ],
@@ -1933,19 +2111,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/user.PresenceBatchSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_user.PresenceBatchSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -1986,13 +2164,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/user.SearchUsersSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_user.SearchUsersSuccessResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -2029,31 +2207,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/user.UploadAvatarSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_user.UploadAvatarSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "413": {
                         "description": "File too large",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -2087,25 +2265,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/user.UserPublicProfileSuccessResponse"
+                            "$ref": "#/definitions/internal_modules_user.UserPublicProfileSuccessResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIError"
+                            "$ref": "#/definitions/chat-server_internal_utils.APIError"
                         }
                     }
                 }
@@ -2113,10 +2291,104 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "auth.AuthSuccessResponse": {
-            "type": "object"
+        "chat-server_internal_utils.APIError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "validation error"
+                },
+                "path": {
+                    "type": "string",
+                    "example": "/api/v1/auth/login"
+                },
+                "status": {
+                    "type": "integer",
+                    "example": 400
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2025-11-29T10:00:00Z"
+                },
+                "traceId": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                }
+            }
         },
-        "auth.ChangePasswordRequest": {
+        "chat-server_internal_utils.BaseResponse-internal_modules_auth_RefreshTokenResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_auth.RefreshTokenResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_auth.AuthResponse": {
+            "type": "object",
+            "properties": {
+                "refreshToken": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                },
+                "token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                },
+                "user": {
+                    "$ref": "#/definitions/internal_modules_auth.UserResponse"
+                }
+            }
+        },
+        "internal_modules_auth.AuthSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_auth.AuthResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_auth.ChangePasswordRequest": {
             "type": "object",
             "required": [
                 "currentPassword",
@@ -2134,10 +2406,42 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.ChangePasswordSuccessResponse": {
-            "type": "object"
+        "internal_modules_auth.ChangePasswordResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Password changed successfully"
+                }
+            }
         },
-        "auth.LoginRequest": {
+        "internal_modules_auth.ChangePasswordSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_auth.ChangePasswordResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_auth.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -2154,7 +2458,32 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.RegisterRequest": {
+        "internal_modules_auth.RefreshTokenRequest": {
+            "type": "object",
+            "required": [
+                "refreshToken"
+            ],
+            "properties": {
+                "refreshToken": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+            }
+        },
+        "internal_modules_auth.RefreshTokenResponse": {
+            "type": "object",
+            "properties": {
+                "refreshToken": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                },
+                "token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+            }
+        },
+        "internal_modules_auth.RegisterRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -2188,13 +2517,71 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.RegisterSuccessResponse": {
+        "internal_modules_auth.RegisterSuccessResponse": {
             "type": "object"
         },
-        "call.CallTokenSuccessResponse": {
+        "internal_modules_auth.UserResponse": {
             "type": "object"
         },
-        "call.SimpleSuccessResponse": {
+        "internal_modules_call.CallTokenResponse": {
+            "type": "object",
+            "properties": {
+                "callId": {
+                    "type": "string"
+                },
+                "callType": {
+                    "type": "string"
+                },
+                "callerId": {
+                    "type": "string"
+                },
+                "conversationId": {
+                    "type": "string"
+                },
+                "roomName": {
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "wsUrl": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_call.CallTokenSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_call.CallTokenResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_call.SimpleSuccessResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -2207,7 +2594,7 @@ const docTemplate = `{
                 }
             }
         },
-        "call.StartCallRequest": {
+        "internal_modules_call.StartCallRequest": {
             "type": "object",
             "required": [
                 "callType",
@@ -2226,13 +2613,146 @@ const docTemplate = `{
                 }
             }
         },
-        "conversation.ConversationSuccessResponse": {
-            "type": "object"
+        "internal_modules_conversation.ConversationResponse": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"
+                },
+                "isLastMessageFromMe": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "isMuted": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "isNew": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "lastMessageAt": {
+                    "type": "string",
+                    "example": "2024-01-15T15:45:00Z"
+                },
+                "lastMessageSenderId": {
+                    "type": "string",
+                    "example": "ca4c6d54-870c-4735-b9a6-cce05a04aedb"
+                },
+                "lastMessageSenderName": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "lastMessageText": {
+                    "type": "string",
+                    "example": "Hello, how are you?"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "otherUser": {
+                    "$ref": "#/definitions/internal_modules_conversation.OtherUserBrief"
+                },
+                "participantCount": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "seen": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "type": {
+                    "type": "string",
+                    "example": "direct"
+                },
+                "unreadCount": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "example": "2024-01-15T15:45:00Z"
+                }
+            }
         },
-        "conversation.ConversationsListSuccessResponse": {
-            "type": "object"
+        "internal_modules_conversation.ConversationSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_conversation.ConversationResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
         },
-        "conversation.CreateDirectConversationRequest": {
+        "internal_modules_conversation.ConversationsListResponse": {
+            "type": "object",
+            "properties": {
+                "conversations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_conversation.ConversationResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
+        "internal_modules_conversation.ConversationsListSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_conversation.ConversationsListResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_conversation.CreateDirectConversationRequest": {
             "type": "object",
             "required": [
                 "recipientId"
@@ -2244,7 +2764,7 @@ const docTemplate = `{
                 }
             }
         },
-        "conversation.CreateGroupConversationRequest": {
+        "internal_modules_conversation.CreateGroupConversationRequest": {
             "type": "object",
             "required": [
                 "name",
@@ -2270,7 +2790,7 @@ const docTemplate = `{
                 }
             }
         },
-        "conversation.HideConversationResponse": {
+        "internal_modules_conversation.HideConversationResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -2283,7 +2803,40 @@ const docTemplate = `{
                 }
             }
         },
-        "conversation.SimpleSuccessResponse": {
+        "internal_modules_conversation.OtherUserBrief": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "bio": {
+                    "type": "string",
+                    "example": "Software developer"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "ca4c6d54-870c-4735-b9a6-cce05a04aedb"
+                },
+                "isOnline": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "lastActiveAt": {
+                    "type": "string",
+                    "example": "2024-01-15T15:45:00Z"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "johndoe"
+                }
+            }
+        },
+        "internal_modules_conversation.SimpleSuccessResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -2296,7 +2849,7 @@ const docTemplate = `{
                 }
             }
         },
-        "conversation.TypingIndicatorRequest": {
+        "internal_modules_conversation.TypingIndicatorRequest": {
             "type": "object",
             "required": [
                 "conversationId"
@@ -2308,7 +2861,7 @@ const docTemplate = `{
                 }
             }
         },
-        "conversation.TypingIndicatorResponse": {
+        "internal_modules_conversation.TypingIndicatorResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -2321,7 +2874,7 @@ const docTemplate = `{
                 }
             }
         },
-        "conversation.UnhideConversationResponse": {
+        "internal_modules_conversation.UnhideConversationResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -2334,16 +2887,189 @@ const docTemplate = `{
                 }
             }
         },
-        "health.HealthSuccessResponse": {
-            "type": "object"
+        "internal_modules_health.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "services": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string",
+                    "example": "healthy"
+                },
+                "version": {
+                    "type": "string",
+                    "example": "1.0.0"
+                }
+            }
         },
-        "message.MessageSuccessResponse": {
-            "type": "object"
+        "internal_modules_health.HealthSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_health.HealthResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
         },
-        "message.MessagesListSuccessResponse": {
-            "type": "object"
+        "internal_modules_message.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "clientMsgId": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "content": {
+                    "type": "string",
+                    "example": "Hello, how are you?"
+                },
+                "conversationId": {
+                    "type": "string",
+                    "example": "ea6e8f76-a92e-6957-d1c8-eeg27c26cgfd"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "editedAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:35:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "fa7f9g87-ba3f-7a68-e2d9-ffh38d37dhge"
+                },
+                "metadata": {
+                    "type": "string",
+                    "example": "{\"fileName\":\"image.png\"}"
+                },
+                "reactions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "replyToId": {
+                    "type": "string",
+                    "example": "ga8g0h98-cb4g-8b79-f3e0-ggi49e48eihf"
+                },
+                "senderAvatar": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "senderId": {
+                    "type": "string",
+                    "example": "ca4c6d54-870c-4735-b9a6-cce05a04aedb"
+                },
+                "senderName": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "sent"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "text"
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                }
+            }
         },
-        "message.SendDirectMessageRequest": {
+        "internal_modules_message.MessageSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_message.MessageResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_message.MessagesListResponse": {
+            "type": "object",
+            "properties": {
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_message.MessageResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 50
+                }
+            }
+        },
+        "internal_modules_message.MessagesListSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_message.MessagesListResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_message.SendDirectMessageRequest": {
             "type": "object",
             "required": [
                 "recipientId",
@@ -2381,7 +3107,7 @@ const docTemplate = `{
                 }
             }
         },
-        "message.SendMessageRequest": {
+        "internal_modules_message.SendMessageRequest": {
             "type": "object",
             "required": [
                 "conversationId",
@@ -2423,7 +3149,7 @@ const docTemplate = `{
                 }
             }
         },
-        "message.SimpleSuccessResponse": {
+        "internal_modules_message.SimpleSuccessResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -2436,7 +3162,7 @@ const docTemplate = `{
                 }
             }
         },
-        "message.ToggleReactionRequest": {
+        "internal_modules_message.ToggleReactionRequest": {
             "type": "object",
             "required": [
                 "type"
@@ -2456,7 +3182,7 @@ const docTemplate = `{
                 }
             }
         },
-        "message.UpdateMessageRequest": {
+        "internal_modules_message.UpdateMessageRequest": {
             "type": "object",
             "required": [
                 "content"
@@ -2470,7 +3196,7 @@ const docTemplate = `{
                 }
             }
         },
-        "relationships.BlockUserRequest": {
+        "internal_modules_relationships.BlockUserRequest": {
             "type": "object",
             "required": [
                 "userId"
@@ -2482,16 +3208,203 @@ const docTemplate = `{
                 }
             }
         },
-        "relationships.FriendListSuccessResponse": {
-            "type": "object"
+        "internal_modules_relationships.FriendListResponse": {
+            "type": "object",
+            "properties": {
+                "friends": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_relationships.FriendResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 5
+                }
+            }
         },
-        "relationships.RelationshipListSuccessResponse": {
-            "type": "object"
+        "internal_modules_relationships.FriendListSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_relationships.FriendListResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
         },
-        "relationships.RelationshipSuccessResponse": {
-            "type": "object"
+        "internal_modules_relationships.FriendResponse": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                },
+                "friendAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "isOnline": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "lastActiveAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "john_doe"
+                }
+            }
         },
-        "relationships.RespondToRequestRequest": {
+        "internal_modules_relationships.RelationshipListResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "relationships": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_relationships.RelationshipResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
+        "internal_modules_relationships.RelationshipListSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_relationships.RelationshipListResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_relationships.RelationshipResponse": {
+            "type": "object",
+            "properties": {
+                "actionedAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "addressee": {
+                    "$ref": "#/definitions/internal_modules_relationships.UserInfo"
+                },
+                "addresseeId": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440001"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440002"
+                },
+                "requester": {
+                    "$ref": "#/definitions/internal_modules_relationships.UserInfo"
+                },
+                "requesterId": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "pending"
+                }
+            }
+        },
+        "internal_modules_relationships.RelationshipSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_relationships.RelationshipResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_relationships.RespondToRequestRequest": {
             "type": "object",
             "required": [
                 "action"
@@ -2507,7 +3420,7 @@ const docTemplate = `{
                 }
             }
         },
-        "relationships.SendFriendRequestRequest": {
+        "internal_modules_relationships.SendFriendRequestRequest": {
             "type": "object",
             "required": [
                 "userId"
@@ -2519,7 +3432,32 @@ const docTemplate = `{
                 }
             }
         },
-        "user.PresenceBatchRequest": {
+        "internal_modules_relationships.UserInfo": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "john_doe"
+                }
+            }
+        },
+        "internal_modules_user.PresenceBatchRequest": {
             "type": "object",
             "required": [
                 "userIds"
@@ -2538,13 +3476,102 @@ const docTemplate = `{
                 }
             }
         },
-        "user.PresenceBatchSuccessResponse": {
-            "type": "object"
+        "internal_modules_user.PresenceBatchResponse": {
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_user.UserPresence"
+                    }
+                }
+            }
         },
-        "user.SearchUsersSuccessResponse": {
-            "type": "object"
+        "internal_modules_user.PresenceBatchSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_user.PresenceBatchResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
         },
-        "user.UpdateProfileRequest": {
+        "internal_modules_user.RelationshipInfo": {
+            "type": "object",
+            "properties": {
+                "requestId": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "since": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "friend"
+                }
+            }
+        },
+        "internal_modules_user.SearchUsersResponse": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_user.UserSearchResult"
+                    }
+                }
+            }
+        },
+        "internal_modules_user.SearchUsersSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_user.SearchUsersResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_user.UpdateProfileRequest": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -2576,41 +3603,173 @@ const docTemplate = `{
                 }
             }
         },
-        "user.UploadAvatarSuccessResponse": {
-            "type": "object"
-        },
-        "user.UserProfileSuccessResponse": {
-            "type": "object"
-        },
-        "user.UserPublicProfileSuccessResponse": {
-            "type": "object"
-        },
-        "utils.APIError": {
+        "internal_modules_user.UploadAvatarResponse": {
             "type": "object",
             "properties": {
-                "error": {
+                "format": {
                     "type": "string",
-                    "example": "validation error"
+                    "example": "webp"
+                },
+                "height": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "publicId": {
+                    "type": "string",
+                    "example": "uploads/abc123.webp"
+                },
+                "secureUrl": {
+                    "type": "string",
+                    "example": "http://localhost:9000/chat-uploads/uploads/abc123.webp"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "http://localhost:9000/chat-uploads/uploads/abc123.webp"
+                },
+                "width": {
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "internal_modules_user.UploadAvatarSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_user.UploadAvatarResponse"
+                },
+                "error": {
+                    "type": "string"
                 },
                 "path": {
-                    "type": "string",
-                    "example": "/api/v1/auth/login"
+                    "type": "string"
                 },
                 "status": {
-                    "type": "integer",
-                    "example": 400
+                    "type": "integer"
                 },
                 "success": {
-                    "type": "boolean",
-                    "example": false
+                    "type": "boolean"
                 },
                 "timestamp": {
-                    "type": "string",
-                    "example": "2025-11-29T10:00:00Z"
+                    "type": "string"
                 },
                 "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_user.UserPresence": {
+            "type": "object",
+            "properties": {
+                "isOnline": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "lastActiveAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "userId": {
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440000"
+                }
+            }
+        },
+        "internal_modules_user.UserProfileSuccessResponse": {
+            "type": "object"
+        },
+        "internal_modules_user.UserPublicProfileResponse": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "bio": {
+                    "type": "string",
+                    "example": "Software developer"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2024-01-01T00:00:00Z"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "isOnline": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "lastActiveAt": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "relationship": {
+                    "$ref": "#/definitions/internal_modules_user.RelationshipInfo"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "john_doe"
+                }
+            }
+        },
+        "internal_modules_user.UserPublicProfileSuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_modules_user.UserPublicProfileResponse"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "traceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_user.UserSearchResult": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "bio": {
+                    "type": "string",
+                    "example": "Software developer"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "isOnline": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "username": {
+                    "type": "string",
+                    "example": "john_doe"
                 }
             }
         }

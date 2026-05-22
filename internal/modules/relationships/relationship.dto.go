@@ -34,12 +34,14 @@ type RelationshipResponse struct {
 }
 
 type FriendResponse struct {
-	ID       string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Username string `json:"username" example:"john_doe"`
-	Email    string `json:"email" example:"john@example.com"`
-	Avatar   string `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
-	FullName string `json:"fullName,omitempty" example:"John Doe"`
-	FriendAt string `json:"friendAt" example:"2024-01-15T10:30:00Z"`
+	ID           string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Username     string `json:"username" example:"john_doe"`
+	Email        string `json:"email" example:"john@example.com"`
+	Avatar       string `json:"avatar,omitempty" example:"https://example.com/avatar.jpg"`
+	FullName     string `json:"fullName,omitempty" example:"John Doe"`
+	FriendAt     string `json:"friendAt" example:"2024-01-15T10:30:00Z"`
+	IsOnline     bool   `json:"isOnline" example:"true"`
+	LastActiveAt string `json:"lastActiveAt,omitempty" example:"2024-01-15T10:30:00Z"`
 }
 
 type RelationshipListResponse struct {

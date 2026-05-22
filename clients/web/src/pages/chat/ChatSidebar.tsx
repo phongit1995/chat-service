@@ -1,6 +1,7 @@
-import { Avatar } from '@chat/ui'
-import { ConversationItem, ConversationListSkeleton } from '@chat/ui'
-import { useChatStore } from '@chat/shared'
+import { useEffect, useState } from 'react'
+import { Avatar, ConversationItem, ConversationListSkeleton, FriendsList, SidebarTabs } from '@chat/ui'
+import type { SidebarTab } from '@chat/ui'
+import { useChatStore, useFriendsStore } from '@chat/shared'
 import type { User, Conversation } from '@chat/shared'
 
 interface ChatSidebarProps {
@@ -12,6 +13,8 @@ interface ChatSidebarProps {
   onLogout: () => void
   onConversationClick: (conversationId: string) => void
   onHideConversation?: (conversationId: string) => void
+  onStartChatWithUser: (userId: string) => void
+  onOpenUserProfile: (userId: string) => void
 }
 
 export const ChatSidebar = ({
@@ -23,9 +26,27 @@ export const ChatSidebar = ({
   onLogout,
   onConversationClick,
   onHideConversation,
+  onStartChatWithUser,
+  onOpenUserProfile,
 }: ChatSidebarProps) => {
   const isLoading = useChatStore((s) => s.isLoading)
   const conversationsLoading = isLoading && conversations.length === 0
+
+  const [activeTab, setActiveTab] = useState<SidebarTab>('chats')
+
+  const friends = useFriendsStore((s) => s.friends)
+  const friendsLoading = useFriendsStore((s) => s.loading)
+  const friendsLoadingMore = useFriendsStore((s) => s.loadingMore)
+  const friendsError = useFriendsStore((s) => s.error)
+  const friendsTotal = useFriendsStore((s) => s.total)
+  const friendsLoaded = useFriendsStore((s) => s.loaded)
+  const loadFriends = useFriendsStore((s) => s.load)
+  const loadMoreFriends = useFriendsStore((s) => s.loadMore)
+
+  useEffect(() => {
+    if (activeTab === 'friends' && !friendsLoaded) loadFriends()
+  }, [activeTab, friendsLoaded, loadFriends])
+
   return (
     <>
       <div
@@ -77,52 +98,50 @@ export const ChatSidebar = ({
         </div>
       </div>
 
-      <button
-        onClick={onNewChatClick}
-        className="mx-3 mt-3 flex items-center gap-3 px-4 py-2.5 bg-surface-overlay hover:bg-surface-elevated text-ink-secondary rounded-xl text-sm transition-colors text-left"
-      >
-        <svg className="w-4 h-4 text-ink-tertiary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
-        </svg>
-        <span className="flex-1">Search people, conversations...</span>
-        <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-ink-tertiary bg-surface border border-line rounded">
-          ⌘K
-        </kbd>
-      </button>
+      <SidebarTabs activeTab={activeTab} onChange={setActiveTab} friendsCount={friendsTotal} />
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         <div className="p-3">
-          <h3 className="text-[11px] font-bold text-ink-tertiary uppercase tracking-wider px-3 py-2 mb-1">
-            Messages
-          </h3>
-          {conversationsLoading ? (
-            <ConversationListSkeleton count={8} />
-          ) : conversations.length === 0 ? (
-            <div className="text-center py-12 text-ink-tertiary">
-              <svg className="w-16 h-16 mx-auto mb-4 text-ink-disabled" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <p className="font-medium text-ink-primary">No conversations yet</p>
-              <p className="text-[13px] mt-1">Start a new chat!</p>
-            </div>
+          {activeTab === 'chats' ? (
+            conversationsLoading ? (
+              <ConversationListSkeleton count={8} />
+            ) : conversations.length === 0 ? (
+              <div className="text-center py-12 text-ink-tertiary">
+                <svg className="w-16 h-16 mx-auto mb-4 text-ink-disabled" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p className="font-medium text-ink-primary">No conversations yet</p>
+                <p className="text-[13px] mt-1">Start a new chat!</p>
+              </div>
+            ) : (
+              [...conversations]
+                .sort((a, b) => {
+                  const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
+                  const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
+                  return timeB - timeA
+                })
+                .map((conv) => (
+                  <ConversationItem
+                    key={conv.id}
+                    conversation={conv}
+                    isActive={currentConversation?.id === conv.id}
+                    onClick={() => onConversationClick(conv.id)}
+                    onHide={onHideConversation ? () => onHideConversation(conv.id) : undefined}
+                  />
+                ))
+            )
           ) : (
-            [...conversations]
-              .sort((a, b) => {
-                const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
-                const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
-                return timeB - timeA
-              })
-              .map((conv) => (
-                <ConversationItem
-                  key={conv.id}
-                  conversation={conv}
-                  isActive={currentConversation?.id === conv.id}
-                  onClick={() => onConversationClick(conv.id)}
-                  onHide={onHideConversation ? () => onHideConversation(conv.id) : undefined}
-                />
-              ))
+            <FriendsList
+              friends={friends}
+              loading={friendsLoading}
+              loadingMore={friendsLoadingMore}
+              error={friendsError}
+              total={friendsTotal}
+              onLoadMore={loadMoreFriends}
+              onStartChat={onStartChatWithUser}
+              onOpenProfile={onOpenUserProfile}
+            />
           )}
         </div>
       </div>

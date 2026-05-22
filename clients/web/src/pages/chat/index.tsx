@@ -133,6 +133,8 @@ export const Chat = () => {
           onLogout={handleLogout}
           onConversationClick={handleConversationClick}
           onHideConversation={hideConversation}
+          onStartChatWithUser={handleProfileStartChat}
+          onOpenUserProfile={(uid) => setViewProfileUserId(uid)}
         />
       </div>
 

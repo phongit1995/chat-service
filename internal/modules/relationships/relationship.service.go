@@ -2,6 +2,8 @@ package relationships
 
 import (
 	"chat-server/internal/models"
+	"chat-server/internal/transport/websocket"
+	"chat-server/internal/utils"
 	"errors"
 	"fmt"
 	"time"
@@ -17,14 +19,16 @@ func nowPtr() *time.Time {
 }
 
 type Service struct {
-	repo   *Repository
-	logger *zap.SugaredLogger
+	repo     *Repository
+	presence *websocket.PresenceService
+	logger   *zap.SugaredLogger
 }
 
-func NewService(repo *Repository, logger *zap.SugaredLogger) *Service {
+func NewService(repo *Repository, presence *websocket.PresenceService, logger *zap.SugaredLogger) *Service {
 	return &Service{
-		repo:   repo,
-		logger: logger.Named("[relationship_service]"),
+		repo:     repo,
+		presence: presence,
+		logger:   logger.Named("[relationship_service]"),
 	}
 }
 
@@ -355,6 +359,7 @@ func (s *Service) GetFriends(userID uuid.UUID, limit, offset int) (*FriendListRe
 	}
 
 	friends := make([]FriendResponse, len(relationships))
+	friendIDs := make([]string, len(relationships))
 	for i, rel := range relationships {
 		var friend *models.User
 		if rel.RequesterID == userID {
@@ -363,6 +368,7 @@ func (s *Service) GetFriends(userID uuid.UUID, limit, offset int) (*FriendListRe
 			friend = rel.Requester
 		}
 
+		friendIDs[i] = friend.ID.String()
 		friends[i] = FriendResponse{
 			ID:       friend.ID.String(),
 			Username: friend.Username,
@@ -373,6 +379,16 @@ func (s *Service) GetFriends(userID uuid.UUID, limit, offset int) (*FriendListRe
 
 		if rel.ActionedAt != nil {
 			friends[i].FriendAt = rel.ActionedAt.Format("2006-01-02T15:04:05Z07:00")
+		}
+	}
+
+	if len(friendIDs) > 0 {
+		online := s.presence.GetOnlineUsers(friendIDs)
+		lastActive := s.presence.GetLastActiveBatch(friendIDs)
+		for i, id := range friendIDs {
+			isOnline, lastActiveStr := utils.ApplyOnlineGrace(online[id], lastActive[id])
+			friends[i].IsOnline = isOnline
+			friends[i].LastActiveAt = lastActiveStr
 		}
 	}
 

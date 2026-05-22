@@ -10,6 +10,8 @@ export { MessageActionsMenu } from './MessageActionsMenu'
 export { ComposerPreview } from './ComposerPreview'
 export { NewChatView } from './NewChatView'
 export type { NewChatViewProps } from './NewChatView'
+export { SidebarTabs } from './SidebarTabs'
+export type { SidebarTab } from './SidebarTabs'
 export * from './composer'
 export {
   ConversationItemSkeleton,
