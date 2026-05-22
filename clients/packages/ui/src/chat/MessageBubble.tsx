@@ -19,6 +19,7 @@ interface MessageBubbleProps {
   myUserId?: string
   onReact?: (messageId: string, type: string) => void
   onOpenProfile?: (userId: string) => void
+  onImageLoaded?: () => void
 }
 
 const formatTime = (dateString: string) => {
@@ -38,6 +39,7 @@ export const MessageBubble = ({
   myUserId = '',
   onReact,
   onOpenProfile,
+  onImageLoaded,
 }: MessageBubbleProps) => {
   const renderStatus = () => {
     if (!isOwnMessage) return null
@@ -205,7 +207,16 @@ export const MessageBubble = ({
               <img
                 src={imageMeta.url}
                 alt={imageMeta.fileName || 'image'}
-                onClick={() => message.status !== 'uploading' && setLightboxOpen(true)}
+                onLoad={onImageLoaded}
+                onClick={() => {
+                  if (message.status === 'uploading') return
+                  const desktop = (window as unknown as { desktop?: { openImageViewer?: (url: string, alt?: string) => void } }).desktop
+                  if (desktop?.openImageViewer) {
+                    desktop.openImageViewer(imageMeta.url, imageMeta.fileName || '')
+                  } else {
+                    setLightboxOpen(true)
+                  }
+                }}
                 style={{
                   aspectRatio: imageMeta.width && imageMeta.height ? `${imageMeta.width} / ${imageMeta.height}` : '4 / 3',
                   width: 280,

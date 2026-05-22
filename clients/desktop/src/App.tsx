@@ -4,20 +4,35 @@ import { Toaster } from 'react-hot-toast'
 import { Login } from './pages/login'
 import { Register } from './pages/register'
 import { Chat } from './pages/chat'
+import { ImageViewerPage } from './pages/image-viewer'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { IncomingCallModal, CallScreen } from '@chat/ui'
 import { env } from '@chat/shared'
 import { TitleBar } from './components/TitleBar'
 import { useDesktopNotifications } from './hooks/useDesktopNotifications'
 
+const isImageViewerWindow = () => window.location.hash.startsWith('#/image-viewer')
+
 function App() {
-  useDesktopNotifications()
+  const imageViewer = isImageViewerWindow()
+  useDesktopNotifications(!imageViewer)
   useEffect(() => {
+    if (imageViewer) return
     document.title = 'Chat'
     if (env.isDevelopment) {
       console.log('API:', env.apiBaseUrl, 'WS:', env.wsUrl)
     }
-  }, [])
+  }, [imageViewer])
+
+  if (imageViewer) {
+    return (
+      <Router>
+        <Routes>
+          <Route path="/image-viewer" element={<ImageViewerPage />} />
+        </Routes>
+      </Router>
+    )
+  }
 
   return (
     <div className="h-screen flex flex-col">

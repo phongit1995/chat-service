@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { MessageBubble } from './MessageBubble'
 import { TypingIndicator } from './TypingIndicator'
 import { MessageBubbleSkeleton, MessageListSkeleton } from './Skeletons'
@@ -25,8 +24,7 @@ interface MessageRow {
 
 const STREAK_GAP_MS = 5 * 60 * 1000
 const LOAD_MORE_THRESHOLD_PX = 200
-const ESTIMATED_ROW_HEIGHT = 72
-const OVERSCAN = 8
+const STICK_TO_BOTTOM_PX = 120
 
 export const MessageList = ({ conversation, messages, typingUsers, user, onOpenProfile }: MessageListProps) => {
   const rows = useMemo<MessageRow[]>(() => {
@@ -65,8 +63,11 @@ export const MessageList = ({ conversation, messages, typingUsers, user, onOpenP
   }, [messages, user?.id])
 
   const scrollParentRef = useRef<HTMLDivElement>(null)
+  const bottomAnchorRef = useRef<HTMLDivElement>(null)
   const lastNewestIdRef = useRef<string>('')
   const lastConversationIdRef = useRef<string>('')
+  const stickToBottomRef = useRef<boolean>(true)
+  const prevScrollHeightRef = useRef<number>(0)
 
   const hasMoreMessages = useChatStore((s) => s.hasMoreMessages)
   const isLoadingMoreMessages = useChatStore((s) => s.isLoadingMoreMessages)
@@ -87,45 +88,60 @@ export const MessageList = ({ conversation, messages, typingUsers, user, onOpenP
   const myUserId = user?.id || ''
   const profileHandler = isGroup ? onOpenProfile : undefined
 
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollParentRef.current,
-    estimateSize: () => ESTIMATED_ROW_HEIGHT,
-    overscan: OVERSCAN,
-    getItemKey: (index) => rows[index].message.id,
-  })
-
-  const virtualItems = virtualizer.getVirtualItems()
-  const totalSize = virtualizer.getTotalSize()
-
   const newestId = rows.length > 0 ? rows[rows.length - 1].message.id : ''
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const el = scrollParentRef.current
+    if (!el) return
+
     if (lastConversationIdRef.current !== conversation.id) {
       lastConversationIdRef.current = conversation.id
-      lastNewestIdRef.current = ''
-      if (rows.length > 0) {
-        virtualizer.scrollToIndex(rows.length - 1, { align: 'end' })
-      }
+      lastNewestIdRef.current = newestId
+      stickToBottomRef.current = true
+      el.scrollTop = el.scrollHeight
+      prevScrollHeightRef.current = el.scrollHeight
       return
     }
+
+    if (isLoadingMoreMessages || (prevScrollHeightRef.current > 0 && el.scrollHeight > prevScrollHeightRef.current && newestId === lastNewestIdRef.current)) {
+      const delta = el.scrollHeight - prevScrollHeightRef.current
+      if (delta > 0) el.scrollTop = el.scrollTop + delta
+      prevScrollHeightRef.current = el.scrollHeight
+      return
+    }
+
     if (newestId && newestId !== lastNewestIdRef.current) {
       lastNewestIdRef.current = newestId
-      virtualizer.scrollToIndex(rows.length - 1, { align: 'end', behavior: 'smooth' })
+      if (stickToBottomRef.current) {
+        el.scrollTop = el.scrollHeight
+      }
     }
-  }, [conversation.id, newestId, rows.length, virtualizer])
+
+    prevScrollHeightRef.current = el.scrollHeight
+  }, [conversation.id, newestId, rows.length, isLoadingMoreMessages])
 
   useEffect(() => {
     const el = scrollParentRef.current
     if (!el) return
     const onScroll = () => {
+      const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      stickToBottomRef.current = distanceToBottom < STICK_TO_BOTTOM_PX
       if (el.scrollTop < LOAD_MORE_THRESHOLD_PX && hasMoreMessages && !isLoadingMoreMessages) {
+        prevScrollHeightRef.current = el.scrollHeight
         loadMoreMessages(conversation.id)
       }
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
   }, [conversation.id, hasMoreMessages, isLoadingMoreMessages, loadMoreMessages])
+
+  const onImageLoaded = useCallback(() => {
+    const el = scrollParentRef.current
+    if (!el) return
+    if (stickToBottomRef.current) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [])
 
   if (showInitialSkeleton) return <MessageListSkeleton />
 
@@ -141,41 +157,25 @@ export const MessageList = ({ conversation, messages, typingUsers, user, onOpenP
           <MessageBubbleSkeleton width="w-52" />
         </div>
       )}
-      <div style={{ height: totalSize, width: '100%', position: 'relative' }}>
-        {virtualItems.map((vi) => {
-          const row = rows[vi.index]
-          return (
-            <div
-              key={vi.key}
-              data-index={vi.index}
-              ref={virtualizer.measureElement}
-              className="hover:z-30 focus-within:z-30"
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                transform: `translateY(${vi.start}px)`,
-              }}
-            >
-              <MessageBubble
-                message={row.message}
-                isOwnMessage={row.isOwnMessage}
-                isLastOwnMessage={row.isLastOwnMessage}
-                conversationSeen={conversationSeen}
-                isGroup={isGroup}
-                isFirstInStreak={row.isFirstInStreak}
-                isLastInStreak={row.isLastInStreak}
-                showTime={row.isLastInStreak}
-                myUserId={myUserId}
-                onReact={handleReact}
-                onOpenProfile={profileHandler}
-              />
-            </div>
-          )
-        })}
-      </div>
+      {rows.map((row) => (
+        <MessageBubble
+          key={row.message.id}
+          message={row.message}
+          isOwnMessage={row.isOwnMessage}
+          isLastOwnMessage={row.isLastOwnMessage}
+          conversationSeen={conversationSeen}
+          isGroup={isGroup}
+          isFirstInStreak={row.isFirstInStreak}
+          isLastInStreak={row.isLastInStreak}
+          showTime={row.isLastInStreak}
+          myUserId={myUserId}
+          onReact={handleReact}
+          onOpenProfile={profileHandler}
+          onImageLoaded={onImageLoaded}
+        />
+      ))}
       {typingUsers.size > 0 && <TypingIndicator typingUsers={typingUsers} />}
+      <div ref={bottomAnchorRef} />
     </div>
   )
 }

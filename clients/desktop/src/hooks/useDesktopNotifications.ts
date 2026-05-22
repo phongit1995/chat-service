@@ -11,8 +11,9 @@ const previewText = (msg: { type?: string; content?: string }): string => {
   return c
 }
 
-export const useDesktopNotifications = () => {
+export const useDesktopNotifications = (enabled: boolean = true) => {
   useEffect(() => {
+    if (!enabled) return
     const me = useAuthStore.getState().user
     if (!me) return
 
@@ -28,9 +29,10 @@ export const useDesktopNotifications = () => {
     })
 
     return () => off()
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
+    if (!enabled) return
     const update = () => {
       const conversations = useChatStore.getState().conversations
       const unread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
@@ -39,5 +41,5 @@ export const useDesktopNotifications = () => {
     update()
     const unsub = useChatStore.subscribe(update)
     return () => unsub()
-  }, [])
+  }, [enabled])
 }

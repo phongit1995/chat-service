@@ -17,6 +17,10 @@ const api = {
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
   pickImage: () => ipcRenderer.invoke('dialog:openImage') as Promise<PickedImage | null>,
+  openImageViewer: (url: string, alt?: string) =>
+    ipcRenderer.invoke('image:open', { url, alt }),
+  saveImage: (url: string, suggestedName?: string) =>
+    ipcRenderer.invoke('image:save', { url, suggestedName }) as Promise<{ saved: boolean; path?: string }>,
   onMenuCommand: (handler: (command: 'new-chat' | 'search') => void) => {
     const listener = (_e: unknown, command: 'new-chat' | 'search') => handler(command)
     ipcRenderer.on('menu:new-chat', () => listener(null, 'new-chat'))
