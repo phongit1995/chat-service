@@ -176,6 +176,15 @@ export const MessageBubble = ({
           onMouseEnter={() => setBubbleHover(true)}
           onMouseLeave={() => setBubbleHover(false)}
         >
+        {isEdited && (
+          <span
+            className={`absolute bottom-1 text-[10px] italic text-ink-tertiary whitespace-nowrap pointer-events-none ${
+              isOwnMessage ? 'right-full mr-2' : 'left-full ml-2'
+            }`}
+          >
+            edited
+          </span>
+        )}
         {isSent && (
           <MessageActionsMenu
             message={message}
@@ -308,7 +317,6 @@ export const MessageBubble = ({
             }`}
           >
             <span className="text-ink-tertiary">{formatTime(message.createdAt)}</span>
-            {isEdited && <span className="text-ink-tertiary italic">edited</span>}
             {renderStatus()}
           </div>
         )}
