@@ -201,6 +201,65 @@ class MessagesNotifier extends Notifier<MessagesState> {
     }
   }
 
+  Future<bool> sendAudio(File file, double duration, List<double> waveform) async {
+    final convId = state.conversationId;
+    if (convId == null) return false;
+    final clientMsgId = const Uuid().v4();
+    final me = ref.read(authProvider).user;
+
+    final size = await file.length();
+    final localMeta = jsonEncode({
+      'url': 'file://${file.path}',
+      'mimeType': 'audio/mp4',
+      'size': size,
+      'duration': duration,
+      'waveform': waveform,
+      '_localPath': file.path,
+    });
+
+    final optimistic = Message(
+      id: clientMsgId,
+      conversationId: convId,
+      senderId: me?.id ?? '',
+      senderName: me?.displayName,
+      senderAvatar: me?.avatar ?? me?.avatarURL,
+      content: '',
+      type: MessageType.audio.value,
+      status: MessageStatus.uploading.value,
+      createdAt: DateTime.now().toIso8601String(),
+      clientMsgId: clientMsgId,
+      metadata: localMeta,
+    );
+
+    state = state.copyWith(messages: [...state.messages, optimistic]);
+
+    try {
+      final server = await ref
+          .read(messageServiceProvider)
+          .sendAudioMessage(convId, file, duration, waveform, clientMsgId: clientMsgId);
+      if (state.conversationId == convId) {
+        state = state.copyWith(
+          messages: state.messages
+              .map((m) => m.clientMsgId == clientMsgId ? server : m)
+              .toList(),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (state.conversationId == convId) {
+        state = state.copyWith(
+          messages: state.messages
+              .map((m) => m.clientMsgId == clientMsgId
+                  ? m.copyWith(status: MessageStatus.failed.value)
+                  : m)
+              .toList(),
+          error: e,
+        );
+      }
+      return false;
+    }
+  }
+
   Future<bool> toggleReaction(String messageId, String type) async {
     final convId = state.conversationId;
     if (convId == null) return false;

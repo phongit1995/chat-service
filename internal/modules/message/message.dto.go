@@ -64,5 +64,13 @@ type ImageMetadata struct {
 	FileName string `json:"fileName,omitempty"`
 }
 
+type AudioMetadata struct {
+	URL      string    `json:"url"`
+	MimeType string    `json:"mimeType"`
+	Size     int64     `json:"size"`
+	Duration float64   `json:"duration"`
+	Waveform []float64 `json:"waveform,omitempty"`
+}
+
 type MessageSuccessResponse = utils.BaseResponse[MessageResponse]
 type MessagesListSuccessResponse = utils.BaseResponse[MessagesListResponse]

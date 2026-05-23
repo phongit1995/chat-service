@@ -27,6 +27,7 @@ export const Chat = () => {
     hideConversation,
     initialize,
     sendImageMessage,
+    sendAudioMessage,
   } = useChatStore()
 
   const conversations = useConversationsWithPresence()
@@ -163,6 +164,7 @@ export const Chat = () => {
             onSetMessageInput={setMessageInput}
             onSendMessage={(e) => { e.preventDefault(); handleSendMessage(); }}
             onSendImage={(file) => sendImageMessage(currentConversation.id, file)}
+            onSendAudio={(blob, duration, waveform) => sendAudioMessage(currentConversation.id, blob, duration, waveform)}
             onBack={clearRightPane}
             onOpenProfile={(uid) => setViewProfileUserId(uid)}
           />

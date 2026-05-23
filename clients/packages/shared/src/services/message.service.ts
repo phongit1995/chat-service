@@ -89,6 +89,34 @@ export const messageService = {
     return res.data
   },
 
+  async sendAudioMessage(
+    conversationId: string,
+    blob: Blob,
+    duration: number,
+    waveform: number[],
+    clientMsgId?: string,
+    onProgress?: (pct: number) => void,
+  ): Promise<ApiResponse<Message>> {
+    const form = new FormData()
+    form.append('conversationId', conversationId)
+    const ext = blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'm4a' : 'audio'
+    form.append('file', blob, `voice.${ext}`)
+    form.append('duration', String(duration))
+    form.append('waveform', JSON.stringify(waveform))
+    if (clientMsgId) form.append('clientMsgId', clientMsgId)
+    const res = await http.post<ApiResponse<Message>>(
+      '/messages/audio',
+      form,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e) => {
+          if (onProgress && e.total) onProgress(Math.round((e.loaded / e.total) * 100))
+        },
+      },
+    )
+    return res.data
+  },
+
   async sendDirectMessage(
     recipientId: string,
     content: string,

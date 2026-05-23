@@ -72,11 +72,13 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       final result = await ref
           .read(userServiceProvider)
           .uploadAvatar(picked.path);
+      if (!mounted) return;
       setState(() {
         _uploadedAvatarUrl = result.secureUrl;
         _uploading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       showErrorToast('Failed to upload image. Please try again.');
       setState(() {
         _pickedImage = null;
@@ -111,6 +113,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         Navigator.of(context).pop();
       }
     } catch (e) {
+      if (!mounted) return;
       final msg = e is Exception ? e.toString().replaceFirst('Exception: ', '') : 'Failed to save profile. Please try again.';
       showErrorToast(msg);
       setState(() {

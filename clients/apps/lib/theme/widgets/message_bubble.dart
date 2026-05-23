@@ -10,6 +10,7 @@ import '../../models/message_type.dart';
 import '../../utils/image_meta.dart';
 import '../../utils/reactions.dart';
 import '../app_colors.dart';
+import 'audio_bubble.dart';
 import '../app_gradients.dart';
 import '../app_typography.dart';
 import 'gradient_avatar.dart';
@@ -118,6 +119,14 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context, BorderRadius radius) {
+    if (_type == MessageType.audio) {
+      return AudioBubble(
+        messageId: messageId,
+        metadata: metadata,
+        isMine: isMine,
+        borderRadius: radius,
+      );
+    }
     if (_type == MessageType.image) {
       final meta = ImageMetadata.parse(metadata);
       if (meta == null) {

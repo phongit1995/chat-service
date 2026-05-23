@@ -244,8 +244,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  Future<void> _sendAudio(File file, double duration, List<double> waveform) async {
+    _scrollToBottom();
+    final ok = await ref
+        .read(messagesProvider.notifier)
+        .sendAudio(file, duration, waveform);
+    if (!ok && mounted) {
+      final err = ref.read(messagesProvider).error;
+      final msg = err is DioException
+          ? (err.message ?? err.response?.statusMessage ?? 'Failed to send audio')
+          : 'Failed to send audio';
+      showErrorToast(msg);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(messagesProvider, (prev, next) {
+      final newestId = next.messages.isNotEmpty ? next.messages.last.id : '';
+      if (newestId.isEmpty || newestId == _lastNewestMessageId) return;
+      _lastNewestMessageId = newestId;
+      _scrollToBottom(animated: !next.loading);
+    });
+
     final me = ref.watch(authProvider).user;
     final convsState = ref.watch(conversationsProvider);
     final messagesState = ref.watch(messagesProvider);
@@ -261,14 +282,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         liveConv ??
         widget.conversation ??
         Conversation(id: widget.conversationId, type: ConversationType.direct.value);
-
-    final newestId = messagesState.messages.isNotEmpty
-        ? messagesState.messages.last.id
-        : '';
-    if (newestId.isNotEmpty && newestId != _lastNewestMessageId) {
-      _lastNewestMessageId = newestId;
-      _scrollToBottom(animated: !messagesState.loading);
-    }
 
     return PopScope(
       canPop: true,
@@ -313,6 +326,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               sending: messagesState.sending,
               onSend: _send,
               onSendImage: _sendImage,
+              onSendAudio: _sendAudio,
               editing: _editingMessageId != null,
               onCancelEdit: _cancelEdit,
             ),

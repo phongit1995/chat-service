@@ -149,8 +149,8 @@ export const CallMiniWidget = ({ statusLabel }: CallMiniWidgetProps) => {
               </div>
 
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold truncate" style={{ color: '#fff' }}>{name}</h3>
-                <p className="text-[11px] truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <h3 className="text-sm font-semibold truncate text-white">{name}</h3>
+                <p className="text-[11px] truncate text-white/70">
                   {isVideo ? '📹' : '📞'} {statusLabel}
                 </p>
               </div>

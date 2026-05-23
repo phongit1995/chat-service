@@ -224,6 +224,44 @@ export const useChatStore = create<ChatState>((set, get) => {
       })
     },
 
+    sendAudioMessage: async (
+      conversationId: string,
+      blob: Blob,
+      duration: number,
+      waveform: number[],
+    ) => {
+      const localUrl = URL.createObjectURL(blob)
+      await sendWithOptimistic({
+        conversationId,
+        get,
+        set,
+        build: (clientMsgId, now, sender) => ({
+          id: clientMsgId,
+          conversationId,
+          ...sender,
+          content: '',
+          type: MessageType.AUDIO,
+          status: MessageStatus.UPLOADING,
+          createdAt: now,
+          updatedAt: now,
+          clientMsgId,
+          metadata: JSON.stringify({
+            url: localUrl,
+            mimeType: blob.type || 'audio/webm',
+            size: blob.size,
+            duration,
+            waveform,
+            _localBlob: true,
+          }),
+        }),
+        send: (clientMsgId) =>
+          messageService.sendAudioMessage(conversationId, blob, duration, waveform, clientMsgId),
+        cleanup: () => URL.revokeObjectURL(localUrl),
+        errorFallback: 'Failed to upload audio',
+        toastOnError: true,
+      })
+    },
+
     editMessage: async (messageId: string, content: string) => {
       const { currentConversation, messages } = get()
       if (!currentConversation) return

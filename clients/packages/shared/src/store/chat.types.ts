@@ -22,6 +22,7 @@ export interface ChatState {
   loadMoreMessages: (conversationId: string) => Promise<void>
   sendMessage: (conversationId: string, content: string, replyToId?: string) => Promise<void>
   sendImageMessage: (conversationId: string, file: File) => Promise<void>
+  sendAudioMessage: (conversationId: string, blob: Blob, duration: number, waveform: number[]) => Promise<void>
   editMessage: (messageId: string, content: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
   toggleReaction: (messageId: string, type: string) => Promise<void>

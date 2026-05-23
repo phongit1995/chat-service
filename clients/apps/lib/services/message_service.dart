@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -60,6 +61,35 @@ class MessageService {
         contentType: 'multipart/form-data',
         sendTimeout: const Duration(seconds: 60),
         receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    return Message.fromJson(res.data!['data'] as Map<String, dynamic>);
+  }
+
+  Future<Message> sendAudioMessage(
+    String conversationId,
+    File file,
+    double duration,
+    List<double> waveform, {
+    String? clientMsgId,
+  }) async {
+    final fileName = file.uri.pathSegments.isNotEmpty
+        ? file.uri.pathSegments.last
+        : 'voice.m4a';
+    final form = FormData.fromMap({
+      'conversationId': conversationId,
+      'duration': duration.toString(),
+      'waveform': jsonEncode(waveform),
+      if (clientMsgId != null) 'clientMsgId': clientMsgId,
+      'file': await MultipartFile.fromFile(file.path, filename: fileName),
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/messages/audio',
+      data: form,
+      options: Options(
+        contentType: 'multipart/form-data',
+        sendTimeout: const Duration(seconds: 90),
+        receiveTimeout: const Duration(seconds: 90),
       ),
     );
     return Message.fromJson(res.data!['data'] as Map<String, dynamic>);

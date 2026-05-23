@@ -154,6 +154,144 @@ func isAllowedImageMime(mime string) bool {
 	return false
 }
 
+func isAllowedAudioMime(mime string) bool {
+	base := mime
+	if idx := strings.Index(base, ";"); idx >= 0 {
+		base = strings.TrimSpace(base[:idx])
+	}
+	for _, m := range constants.AllowedAudioMimes {
+		if strings.EqualFold(m, base) {
+			return true
+		}
+	}
+	return false
+}
+
+func pickAudioExtension(mime, originalName string) string {
+	base := mime
+	if idx := strings.Index(base, ";"); idx >= 0 {
+		base = strings.TrimSpace(base[:idx])
+	}
+	switch strings.ToLower(base) {
+	case "audio/webm":
+		return ".webm"
+	case "audio/mp4", "audio/aac":
+		return ".m4a"
+	case "audio/mpeg":
+		return ".mp3"
+	case "audio/wav", "audio/x-wav":
+		return ".wav"
+	case "audio/ogg":
+		return ".ogg"
+	}
+	if ext := strings.ToLower(filepath.Ext(originalName)); ext != "" {
+		return ext
+	}
+	return ".bin"
+}
+
+func (s *Service) SendAudioMessage(ctx context.Context, userID, conversationID uuid.UUID, fileHeader *multipart.FileHeader, duration float64, waveform []float64, clientMsgID string) (*MessageResponse, error) {
+	if duration <= 0 {
+		return nil, fmt.Errorf("%w: duration required", ErrInvalidMetadata)
+	}
+	if duration > constants.MaxAudioDurationSeconds {
+		return nil, fmt.Errorf("%w: max %d seconds", ErrInvalidMetadata, constants.MaxAudioDurationSeconds)
+	}
+
+	meta, err := s.uploadAudioFile(ctx, userID, conversationID, fileHeader, duration, waveform)
+	if err != nil {
+		return nil, err
+	}
+	metaJSON, err := json.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal audio metadata: %w", err)
+	}
+	return s.SendMessage(userID, conversationID, constants.MessageTypeAudio, "", string(metaJSON), nil, clientMsgID)
+}
+
+func (s *Service) uploadAudioFile(ctx context.Context, userID, conversationID uuid.UUID, fileHeader *multipart.FileHeader, duration float64, waveform []float64) (*AudioMetadata, error) {
+	if fileHeader.Size > constants.MaxAudioUploadSize {
+		return nil, fmt.Errorf("%w: max %d bytes", ErrFileTooLarge, constants.MaxAudioUploadSize)
+	}
+
+	if _, err := s.getConversationByIDCached(conversationID); err != nil {
+		return nil, fmt.Errorf("conversation not found: %w", err)
+	}
+	members, err := s.getMembersCached(conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get members: %w", err)
+	}
+	if !isActiveMember(members, userID) {
+		return nil, ErrNotMember
+	}
+
+	rateKey := fmt.Sprintf(constants.CacheKeyRateLimitUpload, userID.String())
+	if err := s.checkRateLimit(rateKey, constants.RateLimitUploadWindowSeconds, constants.RateLimitUploadMaxRequests); err != nil {
+		return nil, err
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	if int64(len(data)) > constants.MaxAudioUploadSize {
+		return nil, ErrFileTooLarge
+	}
+
+	declaredMime := fileHeader.Header.Get("Content-Type")
+	detectedMime := http.DetectContentType(data)
+	finalMime := declaredMime
+	if !isAllowedAudioMime(finalMime) {
+		finalMime = detectedMime
+	}
+	if !isAllowedAudioMime(finalMime) {
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedImage, finalMime)
+	}
+
+	ext := pickAudioExtension(finalMime, fileHeader.Filename)
+	safeName := fmt.Sprintf("audio%s", ext)
+	folder := fmt.Sprintf("%s/%s", constants.UploadFolderMessages, conversationID.String())
+
+	upload, err := s.minio.UploadFile(ctx, &multipartFileReader{Reader: bytes.NewReader(data), size: int64(len(data))}, safeName, folder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload to storage: %w", err)
+	}
+
+	return &AudioMetadata{
+		URL:      upload.URL,
+		MimeType: finalMime,
+		Size:     int64(len(data)),
+		Duration: duration,
+		Waveform: waveform,
+	}, nil
+}
+
+func validateAudioMetadata(metadata string) error {
+	if strings.TrimSpace(metadata) == "" {
+		return fmt.Errorf("%w: required", ErrInvalidMetadata)
+	}
+	var meta AudioMetadata
+	if err := json.Unmarshal([]byte(metadata), &meta); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidMetadata, err)
+	}
+	if meta.URL == "" {
+		return fmt.Errorf("%w: url required", ErrInvalidMetadata)
+	}
+	if !isAllowedAudioMime(meta.MimeType) {
+		return fmt.Errorf("%w: mimeType %s", ErrInvalidMetadata, meta.MimeType)
+	}
+	if meta.Duration <= 0 || meta.Duration > constants.MaxAudioDurationSeconds {
+		return fmt.Errorf("%w: invalid duration", ErrInvalidMetadata)
+	}
+	return nil
+}
+
 func pickExtension(mime, originalName string) string {
 	switch strings.ToLower(mime) {
 	case "image/jpeg":
@@ -283,6 +421,10 @@ func imagePreviewText(content string) string {
 		return "📷 Photo"
 	}
 	return "📷 " + truncatePreview(c, 50)
+}
+
+func audioPreviewText() string {
+	return "🎵 Audio"
 }
 
 func (s *Service) SendDirectMessage(senderID, recipientID uuid.UUID, messageType, content, metadata, clientMsgID string) (*MessageResponse, error) {
@@ -478,6 +620,10 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 		if err := validateImageMetadata(metadata, nil); err != nil {
 			return nil, err
 		}
+	} else if messageType == constants.MessageTypeAudio {
+		if err := validateAudioMetadata(metadata); err != nil {
+			return nil, err
+		}
 	} else if messageType == constants.MessageTypeText {
 		if strings.TrimSpace(content) == "" {
 			return nil, fmt.Errorf("content required for text message")
@@ -513,6 +659,8 @@ func (s *Service) SendMessage(senderID, conversationID uuid.UUID, messageType, c
 	var shortContent string
 	if messageType == constants.MessageTypeImage {
 		shortContent = imagePreviewText(content)
+	} else if messageType == constants.MessageTypeAudio {
+		shortContent = audioPreviewText()
 	} else {
 		shortContent = truncatePreview(content, 100)
 	}

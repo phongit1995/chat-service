@@ -3,7 +3,9 @@ package message
 import (
 	"chat-server/internal/middleware"
 	"chat-server/internal/utils"
+	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -235,6 +237,70 @@ func (ctrl *Controller) SendImageMessage(c *gin.Context) (interface{}, error) {
 		msg := err.Error()
 		if status == http.StatusInternalServerError {
 			msg = "failed to send image message"
+		}
+		return nil, utils.NewHTTPError(status, msg)
+	}
+
+	return result, nil
+}
+
+// SendAudioMessage godoc
+// @Summary      Send audio message
+// @Description  Upload voice recording and create a message of type=audio (≤10MB, ≤300s)
+// @Tags         messages
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        file formData file true "Audio file (webm/m4a/mp3/wav/ogg)"
+// @Param        conversationId formData string true "Conversation ID"
+// @Param        duration formData number true "Duration in seconds"
+// @Param        waveform formData string false "JSON array of amplitudes"
+// @Param        clientMsgId formData string false "Idempotency key"
+// @Success      201  {object}  MessageSuccessResponse
+// @Failure      400  {object}  utils.APIError
+// @Failure      401  {object}  utils.APIError
+// @Failure      403  {object}  utils.APIError
+// @Failure      413  {object}  utils.APIError
+// @Failure      429  {object}  utils.APIError
+// @Router       /messages/audio [post]
+func (ctrl *Controller) SendAudioMessage(c *gin.Context) (interface{}, error) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		return nil, utils.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	}
+
+	conversationID, err := uuid.Parse(c.PostForm("conversationId"))
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid conversation ID")
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "missing file")
+	}
+
+	durationStr := c.PostForm("duration")
+	duration, err := strconv.ParseFloat(durationStr, 64)
+	if err != nil || duration <= 0 {
+		return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid duration")
+	}
+
+	var waveform []float64
+	if raw := c.PostForm("waveform"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &waveform); err != nil {
+			return nil, utils.NewHTTPError(http.StatusBadRequest, "invalid waveform")
+		}
+	}
+
+	clientMsgID := c.PostForm("clientMsgId")
+
+	result, err := ctrl.service.SendAudioMessage(c.Request.Context(), userID, conversationID, fileHeader, duration, waveform, clientMsgID)
+	if err != nil {
+		ctrl.logger.Errorw("Failed to send audio message", "error", err)
+		status := httpStatusForError(err)
+		msg := err.Error()
+		if status == http.StatusInternalServerError {
+			msg = "failed to send audio message"
 		}
 		return nil, utils.NewHTTPError(status, msg)
 	}

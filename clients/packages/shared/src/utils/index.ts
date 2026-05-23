@@ -1,5 +1,6 @@
 export * from './desktop'
 export * from './emoji'
+export * from './audioLimits'
 export * from './imageLimits'
 export * from './imageMeta'
 export * from './relativeTime'

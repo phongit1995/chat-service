@@ -167,6 +167,8 @@ const (
 
 const (
 	MaxImageUploadSize             = 2 * 1024 * 1024
+	MaxAudioUploadSize             = 10 * 1024 * 1024
+	MaxAudioDurationSeconds        = 300
 	UploadFolderMessages           = "messages"
 	CacheKeyRateLimitUpload        = "RATE_LIMIT:%s:UPLOAD"
 	RateLimitUploadMaxRequests     = 30
@@ -178,6 +180,16 @@ var AllowedImageMimes = []string{
 	"image/png",
 	"image/gif",
 	"image/webp",
+}
+
+var AllowedAudioMimes = []string{
+	"audio/webm",
+	"audio/mp4",
+	"audio/aac",
+	"audio/mpeg",
+	"audio/wav",
+	"audio/x-wav",
+	"audio/ogg",
 }
 
 const (

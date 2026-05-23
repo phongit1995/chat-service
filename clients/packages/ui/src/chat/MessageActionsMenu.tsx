@@ -10,6 +10,7 @@ interface Props {
 
 export const MessageActionsMenu = ({ message, isOwnMessage, visible }: Props) => {
   const [open, setOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const setReplyTo = useChatUIStore((s) => s.setReplyTo)
   const setEditingMessageId = useChatUIStore((s) => s.setEditingMessageId)
@@ -40,12 +41,18 @@ export const MessageActionsMenu = ({ message, isOwnMessage, visible }: Props) =>
     setMessageInput(message.content)
     setOpen(false)
   }
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
+    setConfirmDelete(true)
+  }
+  const handleDeleteConfirm = async () => {
+    setConfirmDelete(false)
     setOpen(false)
-    if (!confirm('Delete this message?')) return
     try {
       await deleteMessage(message.id)
     } catch {}
+  }
+  const handleDeleteCancel = () => {
+    setConfirmDelete(false)
   }
 
   return (
@@ -96,7 +103,7 @@ export const MessageActionsMenu = ({ message, isOwnMessage, visible }: Props) =>
           )}
           {canDelete && (
             <button
-              onClick={handleDelete}
+              onClick={handleDeleteClick}
               className="w-full px-3 py-1.5 text-left text-sm text-status-danger hover:bg-surface-overlay flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,6 +112,28 @@ export const MessageActionsMenu = ({ message, isOwnMessage, visible }: Props) =>
               Delete
             </button>
           )}
+        </div>
+      )}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={handleDeleteCancel}>
+          <div className="bg-surface rounded-xl shadow-soft-lg p-5 max-w-sm w-[90%] mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-ink-primary mb-2">Delete message?</h3>
+            <p className="text-sm text-ink-secondary mb-4">This message will be removed for everyone.</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={handleDeleteCancel}
+                className="px-4 py-1.5 text-sm rounded-lg text-ink-primary hover:bg-surface-overlay"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-4 py-1.5 text-sm rounded-lg bg-status-danger text-white hover:opacity-90"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

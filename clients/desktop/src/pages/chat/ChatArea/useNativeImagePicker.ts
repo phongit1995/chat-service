@@ -1,4 +1,5 @@
 import { RefObject } from 'react'
+import { toast } from 'react-hot-toast'
 import { extToMime, validateImageFile } from '@chat/ui'
 import { ALLOWED_IMAGE_MIMES } from '@chat/shared'
 
@@ -19,13 +20,13 @@ export const useNativeImagePicker = (
       if (!picked) return
       const mime = extToMime(picked.name)
       if (!mime) {
-        alert(`Định dạng không hỗ trợ: ${picked.name}. Chỉ chấp nhận ${formatAllowedList()}.`)
+        toast.error(`Unsupported format: ${picked.name}. Allowed: ${formatAllowedList()}.`)
         return
       }
       const file = new File([picked.data], picked.name, { type: mime })
       const err = validateImageFile(file)
       if (err) {
-        alert(err)
+        toast.error(err)
         return
       }
       onFile(file)

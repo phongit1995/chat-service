@@ -5,6 +5,7 @@ import { ReactionButton } from '../ReactionButton'
 import { MessageActionsMenu } from '../MessageActionsMenu'
 import { MessageStatus } from './MessageStatus'
 import { MessageReplyQuote } from './MessageReplyQuote'
+import { MessageAudioBubble } from './MessageAudioBubble'
 import { MessageImageBubble } from './MessageImageBubble'
 import { MessageTextBubble } from './MessageTextBubble'
 import { computeBubbleRadius, formatBubbleTime } from './bubbleRadius.utils'
@@ -30,6 +31,7 @@ export const MessageBubble = ({
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false)
 
   const isImage = message.type === MessageType.IMAGE
+  const isAudio = message.type === MessageType.AUDIO
   const canReact =
     !!onReact &&
     message.status !== MsgStatus.SENDING &&
@@ -146,6 +148,12 @@ export const MessageBubble = ({
                 isFirstInStreak={isFirstInStreak}
                 radius={radius}
                 onImageLoaded={onImageLoaded}
+              />
+            ) : isAudio ? (
+              <MessageAudioBubble
+                messageId={message.id}
+                metadata={message.metadata}
+                isOwnMessage={isOwnMessage}
               />
             ) : (
               <MessageTextBubble

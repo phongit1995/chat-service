@@ -10,6 +10,7 @@ export interface ChatAreaProps {
   onSetMessageInput: (value: string) => void
   onSendMessage: (e: FormEvent) => void
   onSendImage: (file: File) => Promise<void>
+  onSendAudio: (blob: Blob, duration: number, waveform: number[]) => Promise<void>
   onBack?: () => void
   onOpenProfile?: (userId: string) => void
 }

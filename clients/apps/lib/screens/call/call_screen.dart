@@ -218,19 +218,27 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<CallState>(callProvider, (prev, next) {
+      final nextInCall =
+          next.mode == CallMode.outgoing || next.mode == CallMode.active;
+      final nextActive = next.active;
+      if (!nextInCall || nextActive == null) {
+        if (_room != null) _teardownRoom();
+        return;
+      }
+      if (_connectedCallId != nextActive.callId ||
+          _connectedRoomName != nextActive.roomName) {
+        _ensureRoom(nextActive);
+      }
+    });
+
     final state = ref.watch(callProvider);
     final inCall =
         state.mode == CallMode.outgoing || state.mode == CallMode.active;
     final active = state.active;
 
     if (!inCall || active == null) {
-      if (_room != null) Future.microtask(_teardownRoom);
       return const SizedBox.shrink();
-    }
-
-    if (_connectedCallId != active.callId ||
-        _connectedRoomName != active.roomName) {
-      Future.microtask(() => _ensureRoom(active));
     }
 
     if (state.mode == CallMode.active && _timer == null) {
