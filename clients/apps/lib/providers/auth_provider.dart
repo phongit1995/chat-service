@@ -8,6 +8,7 @@ import 'conversations_provider.dart';
 import 'core_providers.dart';
 import 'friends_provider.dart';
 import 'friends_management_provider.dart';
+import '../services/remembered_login.dart';
 
 class AuthState {
   final User? user;
@@ -103,6 +104,7 @@ class AuthNotifier extends Notifier<AuthState> {
     ref.invalidate(friendsRawProvider);
     ref.read(friendsManagementProvider.notifier).reset();
     await ref.read(authServiceProvider).logout();
+    await RememberedLoginStore.clear();
     state = AuthState(initialized: true);
   }
 

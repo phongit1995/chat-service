@@ -57,12 +57,13 @@ export const SearchModal = ({
   }, [activeIndex])
 
   const commitRow = (row: SearchResultRow) => {
+    onClose()
+    reset()
     if (row.kind === 'conversation') {
       onSelectConversation(row.conv.id)
     } else {
       onSelectUser(row.user)
     }
-    onClose()
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {

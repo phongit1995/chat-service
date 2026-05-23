@@ -21,7 +21,7 @@ export const CallMiniWidget = ({ statusLabel }: CallMiniWidgetProps) => {
   const { micMuted, camOff, toggleMic, toggleCam } = useCallMediaToggle()
   const { dragStyle, dragHandleProps, nodeRef } = useDraggable({
     initialRight: 24,
-    initialBottom: 24,
+    initialTop: 80,
     position: miniPos,
     onChange: setMiniPos,
   })

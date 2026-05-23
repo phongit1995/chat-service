@@ -77,13 +77,17 @@ if [ -d "$DEST" ]; then
 fi
 
 echo "Installing $APP_NAME to $INSTALL_DIR..."
-cp -R "$APP" "$DEST"
+ditto "$APP" "$DEST"
 
 hdiutil detach "$MOUNT_POINT" -quiet
 rm "$TMP_DMG"
 
 # Clear quarantine attr so user doesn't get "unidentified developer" warning
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
+
+# Re-sign the app locally to fix any corrupted or invalid ad-hoc signatures from release build
+echo "Re-signing app locally..."
+codesign --force --deep --sign - "$DEST" 2>/dev/null || true
 
 mkdir -p "$(dirname "$VERSION_FILE")"
 echo "$NEW_VERSION" > "$VERSION_FILE"

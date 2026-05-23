@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
+import '../services/remembered_login.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_gradients.dart';
 import '../theme/app_typography.dart';
@@ -15,8 +16,28 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _email = TextEditingController(text: 'test1@gmail.com');
-  final _password = TextEditingController(text: '123456');
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _obscure = true;
+  bool _remember = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRemembered();
+  }
+
+  Future<void> _loadRemembered() async {
+    final saved = await RememberedLoginStore.read();
+    if (!mounted) return;
+    if (saved != null) {
+      setState(() {
+        _email.text = saved.email;
+        _password.text = saved.password;
+        _remember = true;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -26,11 +47,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    final ok = await ref
-        .read(authProvider.notifier)
-        .login(_email.text.trim(), _password.text);
+    final email = _email.text.trim();
+    final password = _password.text;
+    final ok = await ref.read(authProvider.notifier).login(email, password);
     if (!mounted) return;
     if (ok) {
+      if (_remember) {
+        await RememberedLoginStore.save(email, password);
+      } else {
+        await RememberedLoginStore.clear();
+      }
+      if (!mounted) return;
       context.go('/');
     } else {
       final error = ref.read(authProvider).error;
@@ -100,17 +127,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 prefixIcon: Icon(Icons.alternate_email_rounded),
                               ),
                               keyboardType: TextInputType.emailAddress,
+                              autofillHints: const [AutofillHints.username, AutofillHints.email],
+                              textInputAction: TextInputAction.next,
                             ),
                             const SizedBox(height: 14),
                             TextField(
                               controller: _password,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Password',
-                                prefixIcon: Icon(Icons.lock_outline_rounded),
+                                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  ),
+                                  onPressed: () => setState(() => _obscure = !_obscure),
+                                ),
                               ),
-                              obscureText: true,
+                              obscureText: _obscure,
+                              autofillHints: const [AutofillHints.password],
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => auth.loading ? null : _submit(),
                             ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: _remember,
+                                  onChanged: (v) => setState(() => _remember = v ?? false),
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                const SizedBox(width: 4),
+                                GestureDetector(
+                                  onTap: () => setState(() => _remember = !_remember),
+                                  child: const Text(
+                                    'Remember me',
+                                    style: TextStyle(color: AppColors.textSecondary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
                             GradientButton(
                               onPressed: auth.loading ? null : _submit,
                               loading: auth.loading,
@@ -159,7 +216,7 @@ class _Card extends StatelessWidget {
         boxShadow: AppShadows.lg,
         border: Border.all(color: AppColors.lineSubtle),
       ),
-      child: child,
+      child: AutofillGroup(child: child),
     );
   }
 }

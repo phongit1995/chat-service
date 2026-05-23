@@ -50,7 +50,18 @@ export const UserProfilePage = ({ userId, onBack, onStartChat, variant = 'page' 
   const displayName = profile?.fullName || profile?.username || '...'
 
   return (
-    <div className="flex flex-col h-full bg-surface-base animate-fadeIn">
+    <div className="flex flex-col h-full bg-surface-base animate-fadeIn relative">
+      {isModal && (
+        <button
+          onClick={onBack}
+          aria-label="Close"
+          className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
       {!isModal && (
         <div className="flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 border-b border-line-subtle bg-surface">
           <button
@@ -91,19 +102,7 @@ export const UserProfilePage = ({ userId, onBack, onStartChat, variant = 'page' 
 
       {!loading && !error && profile && (
         <div className="flex-1 overflow-y-auto">
-          <div className="relative h-28 sm:h-36 bg-gradient-signature flex-shrink-0">
-            {isModal && (
-              <button
-                onClick={onBack}
-                aria-label="Close"
-                className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
+          <div className="relative h-28 sm:h-36 bg-gradient-signature flex-shrink-0" />
 
           <div className="px-4 sm:px-6 -mt-12 sm:-mt-14 pb-8 max-w-2xl mx-auto w-full">
             <div className="flex flex-col items-center mb-6">

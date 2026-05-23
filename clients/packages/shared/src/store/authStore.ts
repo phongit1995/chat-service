@@ -4,6 +4,7 @@ import type { ApiResponse, UpdateProfileDTO, UploadImageResponse, User } from '.
 import { authService } from '../services/auth.service'
 import { userService } from '../services/user.service'
 import { socketService } from '../services/socket'
+import { rememberedLoginStore } from '../services/rememberedLogin'
 
 interface AuthState {
   user: User | null
@@ -84,6 +85,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
+    rememberedLoginStore.clear()
     socketService.disconnect()
     set({
       user: null,

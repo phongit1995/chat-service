@@ -1,7 +1,8 @@
-import { useEffect, useState, ChangeEvent, FormEvent } from 'react'
+import { useEffect, useState, ChangeEvent } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import toast from 'react-hot-toast'
-import { useAuthStore } from '@chat/shared'
-import type { UpdateProfileDTO } from '@chat/shared'
+import { useAuthStore, profileSchema, type ProfileFormValues } from '@chat/shared'
 
 const VALID_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024
@@ -9,34 +10,32 @@ const MAX_AVATAR_SIZE = 5 * 1024 * 1024
 export const useProfileForm = (isOpen: boolean, onClose: () => void) => {
   const { user, updateProfile, uploadAvatar } = useAuthStore()
 
-  const [formData, setFormData] = useState<UpdateProfileDTO>({
-    fullName: user?.fullName || '',
-    bio: user?.bio || '',
-    phone: user?.phone || '',
-    dateOfBirth: user?.dateOfBirth || '',
-    avatar: user?.avatar || '',
-  })
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatar || '')
   const [previewUrl, setPreviewUrl] = useState(user?.avatar || '')
-  const [isLoading, setIsLoading] = useState(false)
+  const [dateOfBirth, setDateOfBirth] = useState(user?.dateOfBirth || '')
   const [isUploading, setIsUploading] = useState(false)
 
-  useEffect(() => {
-    if (!isOpen) return
-    setFormData({
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
       fullName: user?.fullName || '',
       bio: user?.bio || '',
       phone: user?.phone || '',
-      dateOfBirth: user?.dateOfBirth || '',
-      avatar: user?.avatar || '',
+    },
+  })
+
+  useEffect(() => {
+    if (!isOpen) return
+    form.reset({
+      fullName: user?.fullName || '',
+      bio: user?.bio || '',
+      phone: user?.phone || '',
     })
+    setAvatarUrl(user?.avatar || '')
     setPreviewUrl(user?.avatar || '')
+    setDateOfBirth(user?.dateOfBirth || '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
 
   const handleImageChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -56,7 +55,7 @@ export const useProfileForm = (isOpen: boolean, onClose: () => void) => {
       const response = await uploadAvatar(file)
       const imageUrl = response.data?.secureUrl || response.data?.url
       if (imageUrl) {
-        setFormData((prev) => ({ ...prev, avatar: imageUrl }))
+        setAvatarUrl(imageUrl)
         setPreviewUrl(imageUrl)
         toast.success('Image uploaded successfully')
       }
@@ -68,11 +67,15 @@ export const useProfileForm = (isOpen: boolean, onClose: () => void) => {
     }
   }
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
+  const onSubmit = form.handleSubmit(async (values) => {
     try {
-      setIsLoading(true)
-      const response = await updateProfile(formData)
+      const response = await updateProfile({
+        fullName: values.fullName?.trim() ?? '',
+        bio: values.bio?.trim() ?? '',
+        phone: values.phone?.trim() ?? '',
+        dateOfBirth,
+        avatar: avatarUrl,
+      })
       if (response.success && response.data) {
         toast.success('Profile updated successfully')
         onClose()
@@ -83,19 +86,18 @@ export const useProfileForm = (isOpen: boolean, onClose: () => void) => {
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
         'Failed to update profile'
       toast.error(msg)
-    } finally {
-      setIsLoading(false)
     }
-  }
+  })
 
   return {
     user,
-    formData,
+    form,
     previewUrl,
-    isLoading,
+    dateOfBirth,
+    setDateOfBirth,
     isUploading,
-    handleChange,
+    isLoading: form.formState.isSubmitting,
     handleImageChange,
-    handleSubmit,
+    onSubmit,
   }
 }

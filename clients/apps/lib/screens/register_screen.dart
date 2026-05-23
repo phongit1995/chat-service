@@ -15,21 +15,35 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _fullName = TextEditingController();
   final _username = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _fullName = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
+  String? _confirmError;
 
   @override
   void dispose() {
+    _fullName.dispose();
     _username.dispose();
     _email.dispose();
     _password.dispose();
-    _fullName.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
+    setState(() => _confirmError = null);
+    if (_password.text != _confirm.text) {
+      setState(() => _confirmError = 'Passwords do not match');
+      return;
+    }
+    if (_password.text.length < 6) {
+      setState(() => _confirmError = 'Password must be at least 6 characters');
+      return;
+    }
     final ok = await ref
         .read(authProvider.notifier)
         .register(
@@ -96,53 +110,95 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           boxShadow: AppShadows.lg,
                           border: Border.all(color: AppColors.lineSubtle),
                         ),
-                        child: Column(
-                          children: [
-                            TextField(
-                              controller: _fullName,
-                              decoration: const InputDecoration(
-                                labelText: 'Full name',
-                                prefixIcon: Icon(Icons.badge_outlined),
+                        child: AutofillGroup(
+                          child: Column(
+                            children: [
+                              TextField(
+                                controller: _fullName,
+                                decoration: const InputDecoration(
+                                  labelText: 'Full name',
+                                  prefixIcon: Icon(Icons.badge_outlined),
+                                ),
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [AutofillHints.name],
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _username,
-                              decoration: const InputDecoration(
-                                labelText: 'Username',
-                                prefixIcon: Icon(Icons.alternate_email_rounded),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _username,
+                                decoration: const InputDecoration(
+                                  labelText: 'Username',
+                                  prefixIcon: Icon(Icons.alternate_email_rounded),
+                                ),
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [AutofillHints.newUsername],
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _email,
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                prefixIcon: Icon(Icons.mail_outline_rounded),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _email,
+                                decoration: const InputDecoration(
+                                  labelText: 'Email',
+                                  prefixIcon: Icon(Icons.mail_outline_rounded),
+                                ),
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [AutofillHints.email],
                               ),
-                              keyboardType: TextInputType.emailAddress,
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _password,
-                              decoration: const InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: Icon(Icons.lock_outline_rounded),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _password,
+                                decoration: InputDecoration(
+                                  labelText: 'Password',
+                                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                    onPressed: () => setState(
+                                        () => _obscurePassword = !_obscurePassword),
+                                  ),
+                                ),
+                                obscureText: _obscurePassword,
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [AutofillHints.newPassword],
                               ),
-                              obscureText: true,
-                            ),
-                            const SizedBox(height: 16),
-                            GradientButton(
-                              onPressed: auth.loading ? null : _submit,
-                              loading: auth.loading,
-                              fullWidth: true,
-                              child: const Text('Create account'),
-                            ),
-                            TextButton(
-                              onPressed: () => context.go('/login'),
-                              child: const Text('Back to sign in'),
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _confirm,
+                                decoration: InputDecoration(
+                                  labelText: 'Confirm password',
+                                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscureConfirm
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                    onPressed: () => setState(
+                                        () => _obscureConfirm = !_obscureConfirm),
+                                  ),
+                                  errorText: _confirmError,
+                                ),
+                                obscureText: _obscureConfirm,
+                                textInputAction: TextInputAction.done,
+                                autofillHints: const [AutofillHints.newPassword],
+                                onSubmitted: (_) =>
+                                    auth.loading ? null : _submit(),
+                              ),
+                              const SizedBox(height: 16),
+                              GradientButton(
+                                onPressed: auth.loading ? null : _submit,
+                                loading: auth.loading,
+                                fullWidth: true,
+                                child: const Text('Create account'),
+                              ),
+                              TextButton(
+                                onPressed: () => context.go('/login'),
+                                child: const Text('Back to sign in'),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],

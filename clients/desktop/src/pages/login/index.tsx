@@ -1,18 +1,41 @@
-import { useState, FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@chat/shared'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useAuthStore, rememberedLoginStore, loginSchema, type LoginFormValues } from '@chat/shared'
 import { Button, Input, Card } from '@chat/ui'
 
+const EyeIcon = ({ open }: { open: boolean }) => open ? (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+) : (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+  </svg>
+)
+
 export const Login = () => {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const { login, isLoading } = useAuthStore()
   const navigate = useNavigate()
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '', remember: true },
+  })
+
+  useEffect(() => {
+    const saved = rememberedLoginStore.read()
+    if (saved) reset({ email: saved.email, password: saved.password, remember: true })
+  }, [reset])
+
+  const onSubmit = async (values: LoginFormValues) => {
     try {
-      await login(email, password)
+      await login(values.email.trim(), values.password)
+      if (values.remember) rememberedLoginStore.save(values.email.trim(), values.password)
+      else rememberedLoginStore.clear()
       navigate('/chat', { replace: true })
     } catch {
     }
@@ -37,37 +60,48 @@ export const Login = () => {
         </div>
 
         <Card shadow="xl" className="animate-fadeIn" style={{ animationDelay: '0.1s' }}>
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
             <Input
               label="Email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              required
               disabled={isLoading}
+              autoComplete="username"
+              error={errors.email?.message}
               leftIcon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               }
+              {...register('email')}
             />
 
             <Input
               label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
-              required
               disabled={isLoading}
+              autoComplete="current-password"
+              error={errors.password?.message}
               leftIcon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               }
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="pointer-events-auto p-1 -m-1 rounded-full hover:bg-surface-overlay text-ink-tertiary hover:text-ink-secondary transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                >
+                  <EyeIcon open={showPassword} />
+                </button>
+              }
+              {...register('password')}
             />
 
             <div className="flex items-center justify-between text-[13px]">
@@ -75,6 +109,7 @@ export const Login = () => {
                 <input
                   type="checkbox"
                   className="w-4 h-4 accent-primary-500 rounded border-line"
+                  {...register('remember')}
                 />
                 <span className="ml-2">Remember me</span>
               </label>
