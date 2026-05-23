@@ -1,231 +1,81 @@
-name: Deploy to Production Server
+name: Deploy to Production
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to deploy (default: latest)'
+        description: 'Image tag to deploy (latest, v1.2.3, sha-abcd...)'
         required: false
         default: 'latest'
         type: string
+      services:
+        description: 'Services to update (comma-separated: api,chat,web,migrate or "all")'
+        required: false
+        default: 'all'
+        type: string
+      run_migrations:
+        description: 'Run DB migrations before restarting services'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+    env:
+      VERSION: ${{ inputs.version }}
+      SERVICES: ${{ inputs.services }}
+      RUN_MIGRATIONS: ${{ inputs.run_migrations == false && 'false' || 'true' }}
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install sshpass
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
 
-      - name: Setup SSH
+      - name: Prepare SSH
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_PASSWORD }}" > ~/.ssh/server_password
-          chmod 600 ~/.ssh/server_password
+          printf '%s' "$SERVER_PASSWORD" > ~/.ssh/pw
+          chmod 600 ~/.ssh/pw
+          ssh-keyscan -H -p "${SERVER_PORT:-22}" "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Add server to known hosts
-        run: |
-          ssh-keyscan -H -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Pre-deployment checks
-        run: |
-          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            set -e
-            echo "🔍 Running pre-deployment checks..."
-            
-            available=$(df -BG / | awk 'NR==2 {print $4}' | sed 's/G//')
-            if [ "$available" -lt 10 ]; then
-              echo "❌ Not enough disk space. Available: ${available}GB, Required: 10GB"
-              exit 1
-            fi
-            echo "✅ Disk space OK: ${available}GB available"
-            
-            if ! docker info > /dev/null 2>&1; then
-              echo "❌ Docker is not running"
-              exit 1
-            fi
-            echo "✅ Docker is running"
-            
-            if [ ! -d "${{ secrets.SERVER_DEPLOY_PATH }}" ]; then
-              echo "📁 Creating deployment directory: ${{ secrets.SERVER_DEPLOY_PATH }}"
-              mkdir -p ${{ secrets.SERVER_DEPLOY_PATH }}
-            fi
-            
-            echo "✅ Pre-deployment checks passed"
-          EOF
-
-      - name: Copy deployment files
-        run: |
-          # Copy main files
-          sshpass -f ~/.ssh/server_password scp -P ${{ secrets.SERVER_PORT || 22 }} \
-            docker-compose.yml \
-            env.production \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_DEPLOY_PATH }}/
-          
-          # Copy monitoring configs using tar (more reliable for directories)
-          tar czf monitoring.tar.gz monitoring/
-          sshpass -f ~/.ssh/server_password scp -P ${{ secrets.SERVER_PORT || 22 }} \
-            monitoring.tar.gz \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_DEPLOY_PATH }}/
-          
-          # Extract on server
-          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "cd ${{ secrets.SERVER_DEPLOY_PATH }} && tar xzf monitoring.tar.gz && rm monitoring.tar.gz"
-
-      - name: Deploy application
-        id: deploy
-        run: |
-          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            set -e
-            cd ${{ secrets.SERVER_DEPLOY_PATH }}
-            
-            echo "🚀 Starting deployment..."
-            
-            echo "📝 Setting up environment file..."
-            mv env.production .env
-            
-            # Update versions from workflow input
-            sed -i "s/^API_VERSION=.*/API_VERSION=${{ inputs.version || 'latest' }}/" .env
-            sed -i "s/^CHAT_VERSION=.*/CHAT_VERSION=${{ inputs.version || 'latest' }}/" .env
-            sed -i "s/^MIGRATE_VERSION=.*/MIGRATE_VERSION=${{ inputs.version || 'latest' }}/" .env
-            sed -i "s/^WEB_VERSION=.*/WEB_VERSION=${{ inputs.version || 'latest' }}/" .env
-            
-            echo "✅ Environment file configured with version: ${{ inputs.version || 'latest' }}"
-            
-            echo "📥 Pulling latest Docker images..."
-            docker compose pull
-            
-            echo "🔄 Updating containers (preserving data)..."
-            docker compose up -d --remove-orphans
-            
-            echo "🧹 Cleaning up dangling images only..."
-            docker image prune -f --filter "dangling=true"
-            
-            echo "✅ Deployment completed"
-          EOF
-
-      - name: Wait for services to be ready
-        run: |
-          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            set -e
-            cd ${{ secrets.SERVER_DEPLOY_PATH }}
-            
-            echo "⏳ Waiting for services to be ready..."
-            
-            timeout=300
-            elapsed=0
-            interval=10
-            
-            while [ $elapsed -lt $timeout ]; do
-              healthy_count=$(docker compose ps --format json | jq -r 'select(.Health == "healthy") | .Name' | wc -l)
-              total_count=$(docker compose ps --format json | jq -r '.Name' | wc -l)
-              
-              echo "⏳ Healthy: $healthy_count/$total_count ($elapsed/$timeout seconds)"
-              
-              if [ "$healthy_count" -ge 3 ]; then
-                echo "✅ Services are healthy"
-                break
-              fi
-              
-              sleep $interval
-              elapsed=$((elapsed + interval))
-            done
-            
-            if [ $elapsed -ge $timeout ]; then
-              echo "❌ Services failed to become healthy within timeout"
-              docker compose ps
-              exit 1
-            fi
-          EOF
-
-      - name: Health check
-        id: health_check
-        run: |
-          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            set -e
-            
-            echo "🏥 Running health checks..."
-            
-            api_health=$(curl -sf http://localhost:5444/api/health || echo "failed")
-            if [ "$api_health" = "failed" ]; then
-              echo "❌ API service health check failed"
-              exit 1
-            fi
-            echo "✅ API service is healthy"
-            
-            ws_check=$(curl -sf -I http://localhost:5444/socket.io/ || echo "failed")
-            if [ "$ws_check" = "failed" ]; then
-              echo "❌ WebSocket service check failed"
-              exit 1
-            fi
-            echo "✅ WebSocket service is accessible"
-            
-            unhealthy=$(docker compose ps --format json | jq -r 'select(.Health == "unhealthy") | .Name' | wc -l)
-            if [ "$unhealthy" -gt 0 ]; then
-              echo "❌ Found $unhealthy unhealthy containers"
-              docker compose ps
-              exit 1
-            fi
-            echo "✅ All containers are healthy"
-            
-            echo "✅ All health checks passed"
-          EOF
-
-      - name: Rollback on failure
-        if: failure() && steps.deploy.conclusion == 'failure'
-        run: |
-          sshpass -f ~/.ssh/server_password ssh -p ${{ secrets.SERVER_PORT || 22 }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            set -e
-            cd ${{ secrets.SERVER_DEPLOY_PATH }}
-            
-            echo "⚠️  Deployment failed, attempting rollback..."
-            
-            # Stop failed containers
-            docker compose down
-            
-            echo "✅ Rollback completed - please check logs and redeploy"
-          EOF
-
-      - name: Send deployment notification
-        if: always()
+      - name: Upload deploy script
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_DEPLOY_PATH: ${{ secrets.SERVER_DEPLOY_PATH }}
         run: |
-          STATUS="${{ job.status }}"
-          COLOR="good"
-          EMOJI="✅"
-          if [ "$STATUS" != "success" ]; then
-            COLOR="danger"
-            EMOJI="❌"
-          fi
-          
-          VERSION="${{ inputs.version || 'latest' }}"
-          COMMIT_SHORT="${{ github.sha }}"
-          COMMIT_SHORT="${COMMIT_SHORT:0:7}"
-          
-          MESSAGE="$EMOJI Deployment *$STATUS*"
-          FIELDS="Version: \`$VERSION\`\nBranch: \`${{ github.ref_name }}\`\nCommit: \`$COMMIT_SHORT\`\nTriggered by: ${{ github.actor }}"
-          
-          if [ -n "$SLACK_WEBHOOK_URL" ]; then
-            curl -X POST "$SLACK_WEBHOOK_URL" \
-              -H 'Content-Type: application/json' \
-              -d "{
-                \"attachments\": [{
-                  \"color\": \"$COLOR\",
-                  \"title\": \"Chat Server Deployment\",
-                  \"text\": \"$MESSAGE\",
-                  \"fields\": [
-                    {\"title\": \"Details\", \"value\": \"$FIELDS\", \"short\": false}
-                  ],
-                  \"footer\": \"GitHub Actions\",
-                  \"ts\": $(date +%s)
-                }]
-              }"
-          fi
-          
-          echo "$EMOJI Deployment $STATUS"
+          sshpass -f ~/.ssh/pw scp -P "$SERVER_PORT" \
+            scripts/deploy.sh \
+            "$SERVER_USER@$SERVER_HOST:$SERVER_DEPLOY_PATH/deploy.sh"
+          sshpass -f ~/.ssh/pw ssh -p "$SERVER_PORT" "$SERVER_USER@$SERVER_HOST" \
+            "chmod +x $SERVER_DEPLOY_PATH/deploy.sh"
+
+      - name: Run deploy
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_DEPLOY_PATH: ${{ secrets.SERVER_DEPLOY_PATH }}
+        run: |
+          sshpass -f ~/.ssh/pw ssh -p "$SERVER_PORT" "$SERVER_USER@$SERVER_HOST" \
+            "cd $SERVER_DEPLOY_PATH && \
+             VERSION='$VERSION' \
+             SERVICES='$SERVICES' \
+             RUN_MIGRATIONS='$RUN_MIGRATIONS' \
+             HEALTH_URL='http://localhost:5241/api/health' \
+             ./deploy.sh"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/pw
