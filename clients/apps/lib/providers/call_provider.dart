@@ -171,7 +171,7 @@ Future<void> _endCallkitUI(String callId) async {
 int _globalSuppressCallkitEnd = 0;
 
 CallType _parseCallType(String s) =>
-    s == 'video' ? CallType.video : CallType.audio;
+    s == CallType.video.name ? CallType.video : CallType.audio;
 
 ActiveCall _toActiveCall(CallTokenResponse data, CallerBrief peer) =>
     ActiveCall(
@@ -453,9 +453,9 @@ class CallNotifier extends Notifier<CallState> {
     }
     state = CallState.idle;
 
-    if (data.status == 'missed') {
+    if (data.status == CallStatus.missed.name) {
       showInfoToast(isOurIncoming ? 'Missed call' : 'No answer');
-    } else if (data.status == 'declined') {
+    } else if (data.status == CallStatus.declined.name) {
       // already shown in onDeclined
     } else if (data.durationSeconds > 0) {
       showSuccessToast(

@@ -26,7 +26,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final title = conversation?.displayName ?? 'Chat';
-    final isDirect = conversation?.type == 'direct';
+    final isDirect = conversation?.isDirect == true;
     final isOnline = isDirect && (conversation?.otherUser?.isOnline ?? false);
     final subtitle = isDirect
         ? (isOnline

@@ -39,7 +39,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final ids = <String>{};
     final convs = ref.read(conversationsProvider).value ?? [];
     for (final c in convs) {
-      if (c.type == 'direct' && c.otherUser?.id != null) {
+      if (c.isDirect && c.otherUser?.id != null) {
         ids.add(c.otherUser!.id);
       }
     }

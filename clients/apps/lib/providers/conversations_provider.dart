@@ -87,10 +87,10 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
 
   String _buildPreview(Message m) {
     final c = m.content.trim();
-    if (m.type == 'image') return c.isEmpty ? '📷 Photo' : '📷 $c';
-    if (m.type == 'file') return c.isEmpty ? '📎 File' : '📎 $c';
-    if (m.type == 'video') return c.isEmpty ? '🎬 Video' : '🎬 $c';
-    if (m.type == 'audio') return c.isEmpty ? '🎵 Audio' : '🎵 $c';
+    if (m.isImage) return c.isEmpty ? '📷 Photo' : '📷 $c';
+    if (m.isFile) return c.isEmpty ? '📎 File' : '📎 $c';
+    if (m.isVideo) return c.isEmpty ? '🎬 Video' : '🎬 $c';
+    if (m.isAudio) return c.isEmpty ? '🎵 Audio' : '🎵 $c';
     return c;
   }
 

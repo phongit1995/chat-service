@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'message_status.dart';
 import 'message_type.dart';
 
 part 'message.g.dart';
@@ -73,6 +74,12 @@ class Message {
   bool get isFile => messageType == MessageType.file;
   bool get isVideo => messageType == MessageType.video;
   bool get isAudio => messageType == MessageType.audio;
+
+  MessageStatus get messageStatus => MessageStatus.fromValue(status);
+  bool get isSending => messageStatus == MessageStatus.sending;
+  bool get isUploading => messageStatus == MessageStatus.uploading;
+  bool get isSent => messageStatus == MessageStatus.sent;
+  bool get isFailed => messageStatus == MessageStatus.failed;
 
   bool get isEdited => (editedAt != null && editedAt!.isNotEmpty);
 

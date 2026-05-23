@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:photo_view/photo_view.dart';
 
+import '../../models/message_status.dart';
+import '../../models/message_type.dart';
 import '../../utils/image_meta.dart';
 import '../../utils/reactions.dart';
 import '../app_colors.dart';
@@ -41,14 +43,14 @@ class MessageBubble extends StatelessWidget {
     super.key,
     required this.messageId,
     required this.content,
-    this.messageType = 'text',
+    this.messageType = 'text', // value from MessageType enum
     this.metadata,
     required this.isMine,
     this.senderId,
     this.senderName,
     this.senderAvatar,
     required this.time,
-    this.status = 'sent',
+    this.status = 'sent', // value from MessageStatus enum
     this.isLastOwnMessage = false,
     this.conversationSeen = false,
     this.isGroup = false,
@@ -64,9 +66,13 @@ class MessageBubble extends StatelessWidget {
     this.onOpenProfile,
   });
 
+  MessageStatus get _status => MessageStatus.fromValue(status);
+  MessageType get _type => MessageType.fromValue(messageType);
+  bool get _isPending => _status == MessageStatus.sending || _status == MessageStatus.uploading;
+
   Widget? _buildStatusIcon() {
     if (!isMine) return null;
-    if (status == 'sending' || status == 'uploading') {
+    if (_isPending) {
       return const SizedBox(
         width: 12,
         height: 12,
@@ -76,7 +82,7 @@ class MessageBubble extends StatelessWidget {
         ),
       );
     }
-    if (status == 'failed') {
+    if (_status == MessageStatus.failed) {
       return Icon(Icons.error_outline, size: 14, color: Colors.redAccent.shade100);
     }
     if (!isLastOwnMessage) return null;
@@ -112,7 +118,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context, BorderRadius radius) {
-    if (messageType == 'image') {
+    if (_type == MessageType.image) {
       final meta = ImageMetadata.parse(metadata);
       if (meta == null) {
         return Container(
@@ -140,7 +146,7 @@ class MessageBubble extends StatelessWidget {
         );
       }
       return GestureDetector(
-        onTap: status == 'uploading' ? null : () => _openLightbox(context, meta.url),
+        onTap: _status == MessageStatus.uploading ? null : () => _openLightbox(context, meta.url),
         child: ClipRRect(
           borderRadius: radius,
           child: ConstrainedBox(
@@ -151,7 +157,7 @@ class MessageBubble extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   img,
-                  if (status == 'uploading')
+                  if (_status == MessageStatus.uploading)
                     Container(
                       color: Colors.black.withValues(alpha: 0.4),
                       child: const Center(
@@ -221,10 +227,10 @@ class MessageBubble extends StatelessWidget {
   }
 
   void _showActionsMenu(BuildContext context) {
-    final canReact = onReact != null && status != 'sending' && status != 'uploading' && status != 'failed';
-    final canEdit = isMine && messageType == 'text' && onEdit != null && status == 'sent';
-    final canDelete = isMine && onDelete != null && status == 'sent';
-    final canCopy = messageType == 'text' && content.isNotEmpty;
+    final canReact = onReact != null && !_isPending && _status != MessageStatus.failed;
+    final canEdit = isMine && _type == MessageType.text && onEdit != null && _status == MessageStatus.sent;
+    final canDelete = isMine && onDelete != null && _status == MessageStatus.sent;
+    final canCopy = _type == MessageType.text && content.isNotEmpty;
     if (!canReact && !canEdit && !canDelete && !canCopy) return;
 
     final myReacted = <String>{
@@ -362,7 +368,7 @@ class MessageBubble extends StatelessWidget {
           );
 
     final statusIcon = _buildStatusIcon();
-    final isFailed = status == 'failed';
+    final isFailed = _status == MessageStatus.failed;
     final showName = !isMine && isGroup && isFirstInStreak && (senderName?.isNotEmpty ?? false);
     final showAvatar = !isMine && isLastInStreak;
 
@@ -392,7 +398,7 @@ class MessageBubble extends StatelessWidget {
           ),
         bubble,
         _buildReactionsChip(),
-        if (showTime || status == 'sending' || status == 'uploading' || status == 'failed')
+        if (showTime || _isPending || _status == MessageStatus.failed)
           Padding(
             padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
             child: Row(

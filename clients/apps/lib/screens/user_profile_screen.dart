@@ -55,7 +55,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool _loading = true;
   String? _error;
   bool _startingChat = false;
-  String? _pendingAction;
+  RelationshipAction? _pendingAction;
 
   @override
   void initState() {
@@ -79,7 +79,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     } catch (_) {}
   }
 
-  Future<void> _runAction(String key, Future<void> Function() fn, {String? errorMsg}) async {
+  Future<void> _runAction(RelationshipAction key, Future<void> Function() fn, {String? errorMsg}) async {
     setState(() => _pendingAction = key);
     try {
       await fn();
@@ -92,7 +92,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     }
   }
 
-  bool _isPending(String key) => _pendingAction == key;
+  bool _isPending(RelationshipAction key) => _pendingAction == key;
   bool get _isAnyPending => _pendingAction != null;
 
   Future<void> _startChat() async {
@@ -461,9 +461,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       case RelationshipStatus.unknown:
         widgets.add(_secondaryButton(
           label: 'Add friend',
-          actionKey: 'send',
+          actionKey: RelationshipAction.send,
           onPressed: () => _runAction(
-            'send',
+            RelationshipAction.send,
             () => ref.read(relationshipServiceProvider).sendRequest(widget.userId),
             errorMsg: 'Failed to send request',
           ),
@@ -472,11 +472,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       case RelationshipStatus.pendingOutgoing:
         widgets.add(_secondaryButton(
           label: 'Cancel friend request',
-          actionKey: 'cancel',
+          actionKey: RelationshipAction.cancel,
           onPressed: rel?.requestId == null
               ? null
               : () => _runAction(
-                  'cancel',
+                  RelationshipAction.cancel,
                   () => ref.read(relationshipServiceProvider).cancel(rel!.requestId!),
                   errorMsg: 'Failed to cancel request'),
         ));
@@ -484,40 +484,40 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       case RelationshipStatus.pendingIncoming:
         widgets.add(_secondaryButton(
           label: 'Accept friend request',
-          actionKey: 'accept',
+          actionKey: RelationshipAction.accept,
           onPressed: rel?.requestId == null
               ? null
               : () => _runAction(
-                  'accept',
+                  RelationshipAction.accept,
                   () => ref
                       .read(relationshipServiceProvider)
-                      .respond(rel!.requestId!, 'accept'),
+                      .respond(rel!.requestId!, RespondAction.accept.value),
                   errorMsg: 'Failed to accept'),
         ));
         widgets.add(const SizedBox(height: 8));
         widgets.add(_ghostButton(
           label: 'Reject',
-          actionKey: 'reject',
+          actionKey: RelationshipAction.reject,
           onPressed: rel?.requestId == null
               ? null
               : () => _runAction(
-                  'reject',
+                  RelationshipAction.reject,
                   () => ref
                       .read(relationshipServiceProvider)
-                      .respond(rel!.requestId!, 'reject'),
+                      .respond(rel!.requestId!, RespondAction.reject.value),
                   errorMsg: 'Failed to reject'),
         ));
         break;
       case RelationshipStatus.friend:
         widgets.add(_ghostButton(
           label: 'Unfriend',
-          actionKey: 'unfriend',
+          actionKey: RelationshipAction.unfriend,
           onPressed: rel?.requestId == null
               ? null
               : () async {
                   if (!await _confirm('Unfriend?', 'Remove this person from your friends.')) return;
                   await _runAction(
-                      'unfriend',
+                      RelationshipAction.unfriend,
                       () => ref.read(relationshipServiceProvider).unfriend(rel!.requestId!),
                       errorMsg: 'Failed to unfriend');
                 },
@@ -526,11 +526,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       case RelationshipStatus.blockedByMe:
         widgets.add(_secondaryButton(
           label: 'Unblock',
-          actionKey: 'unblock',
+          actionKey: RelationshipAction.unblock,
           onPressed: rel?.requestId == null
               ? null
               : () => _runAction(
-                  'unblock',
+                  RelationshipAction.unblock,
                   () => ref.read(relationshipServiceProvider).unblock(rel!.requestId!),
                   errorMsg: 'Failed to unblock'),
         ));
@@ -545,12 +545,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       widgets.add(const SizedBox(height: 8));
       widgets.add(_ghostButton(
         label: 'Block',
-        actionKey: 'block',
+        actionKey: RelationshipAction.block,
         danger: true,
         onPressed: () async {
           if (!await _confirm('Block user?', 'You will no longer see their messages.')) return;
           await _runAction(
-              'block',
+              RelationshipAction.block,
               () => ref.read(relationshipServiceProvider).block(widget.userId),
               errorMsg: 'Failed to block');
         },
@@ -568,7 +568,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
   Widget _secondaryButton({
     required String label,
-    required String actionKey,
+    required RelationshipAction actionKey,
     VoidCallback? onPressed,
   }) {
     final loading = _isPending(actionKey);
@@ -593,7 +593,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
   Widget _ghostButton({
     required String label,
-    required String actionKey,
+    required RelationshipAction actionKey,
     VoidCallback? onPressed,
     bool danger = false,
   }) {

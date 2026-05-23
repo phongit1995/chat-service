@@ -219,7 +219,7 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unread = conv.unreadCount > 0;
-    final isOnline = conv.type == 'direct' && (conv.otherUser?.isOnline ?? false);
+    final isOnline = conv.isDirect && (conv.otherUser?.isOnline ?? false);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -238,7 +238,7 @@ class _ConversationTile extends StatelessWidget {
                 size: 48,
                 storyRing: unread,
                 seen: !unread,
-                status: isOnline ? 'online' : null,
+                status: isOnline ? UserStatus.online.value : null,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -347,7 +347,7 @@ class _ConversationTile extends StatelessWidget {
     String? prefix;
     if (conv.isLastMessageFromMe) {
       prefix = 'You: ';
-    } else if (conv.type == 'group' &&
+    } else if (conv.isGroup &&
         conv.lastMessageSenderName != null &&
         conv.lastMessageSenderName!.isNotEmpty) {
       prefix = '${conv.lastMessageSenderName}: ';

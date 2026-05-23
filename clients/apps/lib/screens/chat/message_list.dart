@@ -102,7 +102,7 @@ class MessageList extends StatelessWidget {
           status: message.status,
           isLastOwnMessage: i == lastOwnIdx,
           conversationSeen: convSeen,
-          isGroup: conversation.type == 'group',
+          isGroup: conversation.isGroup,
           isFirstInStreak: !sameAsPrev,
           isLastInStreak: !sameAsNext,
           showTime: !sameAsNext,

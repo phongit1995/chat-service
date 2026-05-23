@@ -1,5 +1,10 @@
 export 'user.dart';
+export 'user_status.dart';
 export 'message.dart';
+export 'message_type.dart';
+export 'message_status.dart';
 export 'conversation.dart';
+export 'conversation_type.dart';
 export 'friend.dart';
 export 'relationship.dart';
+export 'relationship_action.dart';

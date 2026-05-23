@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/relationship.dart';
+import '../models/relationship_action.dart';
 import '../providers/providers.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -412,7 +413,7 @@ class _RequestsList extends StatelessWidget {
           primary: true,
           onPressed: () => runner.ref
               .read(relationshipServiceProvider)
-              .respond(r.id, 'accept'),
+              .respond(r.id, RespondAction.accept.value),
         ),
         const SizedBox(width: 6),
         _PendingButton(
@@ -421,7 +422,7 @@ class _RequestsList extends StatelessWidget {
           primary: false,
           onPressed: () => runner.ref
               .read(relationshipServiceProvider)
-              .respond(r.id, 'reject'),
+              .respond(r.id, RespondAction.reject.value),
         ),
       ],
     );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../models/friend.dart';
+import '../models/models.dart';
 import '../providers/providers.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_gradients.dart';
@@ -297,7 +297,7 @@ class _FriendTile extends ConsumerWidget {
                 name: friend.displayName,
                 imageUrl: friend.avatar,
                 size: 48,
-                status: friend.isOnline ? 'online' : null,
+                status: friend.isOnline ? UserStatus.online.value : null,
               ),
               const SizedBox(width: 12),
               Expanded(

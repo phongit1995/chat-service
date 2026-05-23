@@ -165,8 +165,8 @@ class MessagesNotifier extends Notifier<MessagesState> {
       senderName: me?.displayName,
       senderAvatar: me?.avatar ?? me?.avatarURL,
       content: '',
-      type: 'image',
-      status: 'uploading',
+      type: MessageType.image.value,
+      status: MessageStatus.uploading.value,
       createdAt: DateTime.now().toIso8601String(),
       clientMsgId: clientMsgId,
       metadata: localMeta,
@@ -191,7 +191,7 @@ class MessagesNotifier extends Notifier<MessagesState> {
         state = state.copyWith(
           messages: state.messages
               .map((m) => m.clientMsgId == clientMsgId
-                  ? m.copyWith(status: 'failed')
+                  ? m.copyWith(status: MessageStatus.failed.value)
                   : m)
               .toList(),
           error: e,
@@ -332,8 +332,8 @@ class MessagesNotifier extends Notifier<MessagesState> {
       senderName: me?.displayName,
       senderAvatar: me?.avatar ?? me?.avatarURL,
       content: text,
-      type: 'text',
-      status: 'sending',
+      type: MessageType.text.value,
+      status: MessageStatus.sending.value,
       createdAt: DateTime.now().toIso8601String(),
       clientMsgId: clientMsgId,
     );
@@ -357,7 +357,7 @@ class MessagesNotifier extends Notifier<MessagesState> {
           messages: state.messages
               .map(
                 (m) => m.clientMsgId == clientMsgId
-                    ? m.copyWith(status: 'failed')
+                    ? m.copyWith(status: MessageStatus.failed.value)
                     : m,
               )
               .toList(),

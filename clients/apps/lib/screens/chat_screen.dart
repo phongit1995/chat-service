@@ -51,7 +51,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _activeConversationNotifier.set(widget.conversationId);
       ref.read(typingProvider.notifier).init(widget.conversationId);
       final otherId = widget.conversation?.otherUser?.id;
-      if (widget.conversation?.type == 'direct' && otherId != null) {
+      if (widget.conversation?.isDirect == true && otherId != null) {
         ref.read(presenceProvider.notifier).startFocusPolling(otherId);
       }
       ref
@@ -255,12 +255,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       (c) => c.id == widget.conversationId,
       orElse: () =>
           widget.conversation ??
-          Conversation(id: widget.conversationId, type: 'direct'),
+          Conversation(id: widget.conversationId, type: ConversationType.direct.value),
     );
     final conversation =
         liveConv ??
         widget.conversation ??
-        Conversation(id: widget.conversationId, type: 'direct');
+        Conversation(id: widget.conversationId, type: ConversationType.direct.value);
 
     final newestId = messagesState.messages.isNotEmpty
         ? messagesState.messages.last.id

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/user_status.dart';
 import '../app_colors.dart';
 import '../app_gradients.dart';
 import '../app_typography.dart';
@@ -49,16 +50,16 @@ class GradientAvatar extends StatelessWidget {
   }
 
   Color? get _statusColor {
-    switch (status) {
-      case 'online':
+    switch (UserStatus.fromValue(status)) {
+      case UserStatus.online:
         return AppColors.success;
-      case 'away':
+      case UserStatus.away:
         return AppColors.warning;
-      case 'busy':
+      case UserStatus.busy:
         return AppColors.danger;
-      case 'offline':
+      case UserStatus.offline:
         return AppColors.textTertiary;
-      default:
+      case UserStatus.unknown:
         return null;
     }
   }
