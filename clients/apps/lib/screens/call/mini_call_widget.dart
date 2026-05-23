@@ -33,15 +33,15 @@ class MiniCallWidget extends ConsumerWidget {
     final width = hasVideo ? 160.0 : 240.0;
     final height = hasVideo ? 220.0 : 90.0;
 
-    return Material(
-      color: Colors.transparent,
-      child: DraggablePip(
-        position: miniPos,
-        width: width,
-        height: height,
-        initialOffsetFromCorner: const Offset(16, 24),
-        initialCorner: Alignment.bottomRight,
-        onChange: (p) => ref.read(callProvider.notifier).setMiniPos(p),
+    return DraggablePip(
+      position: miniPos,
+      width: width,
+      height: height,
+      initialOffsetFromCorner: const Offset(16, 24),
+      initialCorner: Alignment.bottomRight,
+      onChange: (p) => ref.read(callProvider.notifier).setMiniPos(p),
+      child: Material(
+        type: MaterialType.transparency,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Container(
