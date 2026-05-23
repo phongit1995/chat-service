@@ -89,13 +89,20 @@ var allowedExts = map[string]string{
 	".png":  "image/png",
 	".gif":  "image/gif",
 	".webp": "image/webp",
+	".webm": "audio/webm",
+	".m4a":  "audio/mp4",
+	".mp4":  "audio/mp4",
+	".mp3":  "audio/mpeg",
+	".wav":  "audio/wav",
+	".ogg":  "audio/ogg",
+	".aac":  "audio/aac",
 }
 
 func (s *MinIOService) UploadFile(ctx context.Context, file multipart.File, filename string, folder string) (*UploadResult, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	contentType, ok := allowedExts[ext]
 	if !ok {
-		return nil, fmt.Errorf("invalid file type: %s. Allowed: jpg, jpeg, png, gif, webp", ext)
+		return nil, fmt.Errorf("invalid file type: %s", ext)
 	}
 
 	objectName := fmt.Sprintf("%s/%s%s", folder, uuid.New().String(), ext)
